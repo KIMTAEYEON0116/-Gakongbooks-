@@ -1,0 +1,1558 @@
+<!DOCTYPE html>
+
+<html lang="ko">
+
+<head>
+  <meta http-equiv="Content-Type" content="text/html; charset=UTF-8">
+
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>가공독서회</title>
+  <link
+    href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=Playfair+Display:ital,wght@0,600;0,700;1,600&family=Outfit:wght@300;400;500;600;700&display=swap"
+    rel="stylesheet">
+
+  <link rel="stylesheet" href="static/css/styles.css?v=3">
+</head>
+
+<body>
+
+  <!-- NAV -->
+  <nav>
+    <div class="logo" onclick="goPage(&#39;home&#39;)"><em>가공</em>독서회</div>
+    <div class="nav-links">
+      <button class="nav-btn active" id="nb-home" onclick="goPage(&#39;home&#39;)">독서방 목록</button>
+      <button class="nav-btn" id="nb-lib" onclick="goPage(&#39;lib&#39;)">내 서재</button>
+      <button class="nav-btn" id="nb-guide" onclick="goPage(&#39;guide&#39;)">이용 안내</button>
+      <div id="nav-auth-area" style="display: inline-flex; align-items: center; vertical-align: middle;"></div>
+    </div>
+  </nav>
+
+  <!-- ── HOME PAGE ── -->
+  <div class="page active" id="pg-home">
+    <div class="hero">
+      <div class="hero-label">FICTION READING CLUB</div>
+      <div class="hero-title">존재하지 않는 책을<br>함께 읽어요</div>
+      <div class="hero-desc">AI가 만든 가상의 책 줄거리를 보고, 그 책이 어떤 내용일지 상상하며 다른 독자들과 이야기를 나눕니다.<br>한 번도 읽은 적 없는 책에 대해 가장 깊이 있는
+        감상을 나눠보세요.</div>
+    </div>
+
+    <!-- 새 책 소환하기 -->
+    <div class="gen-section">
+      <div class="gen-text">
+        <h3>새 책 소환하기</h3>
+        <p>AI가 키워드를 무작위로 조합해 세상에 없는 책을 만들어냅니다. 생성된 책으로 새 독서방이 열립니다.</p>
+      </div>
+      <button class="gen-btn" id="gen-btn" onclick="generateBook()">✦ 새 책 생성</button>
+    </div>
+
+    <!-- ① 장르별 모아보기 -->
+    <div class="home-section">
+      <div class="home-section-header">
+        <span class="home-section-title">장르별 모아보기</span>
+        <span class="home-section-sub" id="genre-meta"><span style="color:var(--accent)">심리소설</span> <span
+            id="genre-count">1</span>개</span>
+      </div>
+      <div class="genre-tabs" id="genre-tabs"></div>
+      <div class="cards-grid" id="cards-grid">
+      </div>
+    </div>
+
+    <div style="height:1px;background:var(--border-light);margin:4px 0 0;"></div>
+
+    <!-- ② 기간 임박 순서대로 보기 -->
+    <div class="home-section" style="">
+      <div class="home-section-header">
+        <span class="home-section-title">기간 임박 순서대로 보기</span>
+        <span class="home-section-sub">마감이 가까운 독서방</span>
+      </div>
+      <div class="deadline-list" id="deadline-list">
+      </div>
+    </div>
+  </div>
+
+  <!-- ── DETAIL PAGE ── -->
+  <div class="page" id="pg-detail">
+    <div class="detail-header">
+      <button class="detail-back" onclick="goPage(&#39;home&#39;)">← 독서방 목록으로</button>
+      <div class="detail-top">
+        <div class="detail-cover" id="dc-cover" style="background: rgb(123, 95, 184);">
+          <div class="detail-cover-spine"></div>
+          <span id="dc-title-txt">오후 세 시의 해부학</span>
+        </div>
+        <div class="detail-info">
+          <div class="detail-genre-badge" id="dc-genre" style="vertical-align: middle;">심리소설</div>
+          <button id="dc-delete-btn" class="btn-delete"
+            style="display: none; vertical-align: middle; margin-left: 8px; margin-bottom: 10px;"
+            onclick="deleteBook()">삭제</button>
+          <div class="dday-row">
+            <div class="detail-title" id="dc-title" style="margin-bottom:0;">오후 세 시의 해부학</div>
+            <span class="dday-badge normal" id="dc-dday"><span class="dday-dot"></span>D-5</span>
+            <span id="dc-detail-count"
+              style="font-size:11px; font-weight:600; color:rgba(255,255,255,0.9); background:rgba(255,255,255,0.15); border:1px solid rgba(255,255,255,0.1); padding:3px 8px; border-radius:5px; margin-left:6px; display:inline-flex; align-items:center; gap:3px; letter-spacing:0.02em;">👥
+              0명</span>
+          </div>
+          <div class="detail-author" id="dc-author">가상 작가 박연우 (가상)</div>
+          <div class="detail-synopsis" id="dc-synopsis">전직 외과의사 강민이 어느 날 자신이 해부한 시체가 자신의 과거 연인임을 발견한다. 기억 속에서만 살아있던 그녀의
+            내장 속에 담긴 편지들. 죽은 자가 보낸 마지막 고백이 외과의사의 삶을 재편한다.</div>
+          <div class="detail-tags" id="dc-tags"><span class="detail-tag">#기억</span><span
+              class="detail-tag">#상실</span><span class="detail-tag">#의학</span><span class="detail-tag">#미스터리</span>
+          </div>
+          <div style="display: flex; gap: 8px;">
+            <div class="detail-price" id="dc-page-count">350쪽</div>
+            <div class="detail-price" id="dc-price">₩14,800 (10% 할인가)</div>
+          </div>
+          <!-- 아카이브 배너 (아카이브된 책에만 표시) -->
+          <div id="dc-archive-banner"
+            style="display:none;margin-top:20px;margin-bottom:12px;padding:10px 14px;background:linear-gradient(135deg,#f5f0e6,#ebe2d3);border-left:3px solid #8b4f25;border-radius:6px;font-size:12px;color:#5c3a21;line-height:1.6;width:fit-content;">
+            <span style="font-weight:700;letter-spacing:0.05em;"><span style="color:#d9534f; margin-right:3px;">●</span>
+              종료</span> · 이 독서방은 종료되었습니다.<br>
+            <span id="dc-archive-date" style="color:#7a5a41;"></span>
+          </div>
+          <div class="detail-action-row">
+            <button class="btn-join" id="dc-main-btn" onclick="openChat()">독서방 참여하기</button>
+            <button class="btn-chat-history" id="dc-chat-history-btn" style="display:none;">💬 채팅 열람하기</button>
+            <button class="btn-wish" id="dc-wish-btn" onclick="addToLib()">+ 내 서재에 담기</button>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- ── STATS SECTION ── -->
+    <div class="stats-section">
+      <div class="stats-inner">
+
+        <!-- 평균 평점 -->
+        <div id="stats-rating-panel">
+          <div class="stats-panel-label">평균 평점</div>
+          <div class="stats-avg-row">
+            <span class="stats-avg-num" id="stats-avg-num">4.4</span>
+            <span class="stats-avg-denom">/ 5</span>
+          </div>
+          <div class="stats-stars-row" id="stats-avg-stars"><span class="stat-star"
+              style="color: rgb(232, 160, 48);">★</span><span class="stat-star"
+              style="color: rgb(232, 160, 48);">★</span><span class="stat-star"
+              style="color: rgb(232, 160, 48);">★</span><span class="stat-star"
+              style="color: rgb(232, 160, 48);">★</span><span class="stat-star"
+              style="color: rgb(221, 221, 221);">☆</span></div>
+          <div class="stats-bars" id="stats-bars">
+            <div class="stats-bar-row"><span class="stats-bar-lbl">5★</span>
+              <div class="stats-bar-track">
+                <div class="stats-bar-fill" style="width:58%"></div>
+              </div><span class="stats-bar-pct">58%</span>
+            </div>
+            <div class="stats-bar-row"><span class="stats-bar-lbl">4★</span>
+              <div class="stats-bar-track">
+                <div class="stats-bar-fill" style="width:25%"></div>
+              </div><span class="stats-bar-pct">25%</span>
+            </div>
+            <div class="stats-bar-row"><span class="stats-bar-lbl">3★</span>
+              <div class="stats-bar-track">
+                <div class="stats-bar-fill" style="width:17%"></div>
+              </div><span class="stats-bar-pct">17%</span>
+            </div>
+            <div class="stats-bar-row"><span class="stats-bar-lbl">2★</span>
+              <div class="stats-bar-track">
+                <div class="stats-bar-fill" style="width:0%"></div>
+              </div><span class="stats-bar-pct">0%</span>
+            </div>
+            <div class="stats-bar-row"><span class="stats-bar-lbl">1★</span>
+              <div class="stats-bar-track">
+                <div class="stats-bar-fill" style="width:0%"></div>
+              </div><span class="stats-bar-pct">0%</span>
+            </div>
+          </div>
+          <div class="stats-my-row">
+            <span class="stats-my-lbl">내 평점</span>
+            <div class="stats-my-stars" id="stats-my-stars"><span class="stats-my-locked"><span
+                  class="stats-my-locked-icon">🔒</span>독서방에 참여하면 평점을 남길 수 있어요 <button class="stats-my-join-btn"
+                  onclick="openChat()">참여하기</button></span></div>
+          </div>
+        </div>
+
+        <div class="stats-divider"></div>
+
+        <!-- 채팅 반응 -->
+        <div style="padding-left:20px;" id="stats-rx-panel">
+          <div class="stats-panel-label">채팅 반응</div>
+          <div class="rx-stat-top" id="stats-rx-top">
+            <div class="rx-stat-top-emoji">❤️</div>
+            <div class="rx-stat-top-info">
+              <div class="rx-stat-top-pct">38%</div>
+              <div class="rx-stat-top-lbl">공감해요</div>
+            </div>
+            <div style="margin-left:auto;font-size:11px;color:var(--text-muted)">가장 많은 반응</div>
+          </div>
+          <div class="rx-stat-list" id="stats-rx-list">
+            <div class="rx-stat-row"><span class="rx-stat-emoji">❤️</span><span class="rx-stat-name">공감해요</span>
+              <div class="rx-stat-track">
+                <div class="rx-stat-fill" style="width:38%;background:#e05c7a"></div>
+              </div><span class="rx-stat-pct">38%</span>
+            </div>
+            <div class="rx-stat-row"><span class="rx-stat-emoji">🤔</span><span class="rx-stat-name">생각이 달라요</span>
+              <div class="rx-stat-track">
+                <div class="rx-stat-fill" style="width:10%;background:#7b8fcc"></div>
+              </div><span class="rx-stat-pct">10%</span>
+            </div>
+            <div class="rx-stat-row"><span class="rx-stat-emoji">😄</span><span class="rx-stat-name">재밌어요</span>
+              <div class="rx-stat-track">
+                <div class="rx-stat-fill" style="width:21%;background:#e8a030"></div>
+              </div><span class="rx-stat-pct">21%</span>
+            </div>
+            <div class="rx-stat-row"><span class="rx-stat-emoji">✨</span><span class="rx-stat-name">인상 깊어요</span>
+              <div class="rx-stat-track">
+                <div class="rx-stat-fill" style="width:31%;background:#7b5fb8"></div>
+              </div><span class="rx-stat-pct">31%</span>
+            </div>
+          </div>
+        </div>
+
+      </div>
+    </div>
+
+    <!-- 추천사 & 출판사 서평 -->
+    <div class="endorse-section" id="endorse-section">
+      <div class="endorse-block">
+        <div class="endorse-label">추천사</div>
+        <div class="endorse-quote" id="endorse-quote">상실과 해부학이 만나는 지점에서 언어가 탄생한다. 박연우는 감정을 해부하는 법을 알고 있다.</div>
+        <div class="endorse-attr" id="endorse-attr">— 문학평론가 황수연</div>
+      </div>
+      <div class="endorse-block">
+        <div class="endorse-label">출판사 서평</div>
+        <div class="publisher-txt" id="publisher-txt">인체의 구조와 기억의 구조가 얼마나 닮아 있는지, 이 소설은 그 사실을 조용하고 정확하게 보여준다. 외과의사의 손끝에서
+          시작된 이야기가 독자의 심장 어딘가를 정확히 건드릴 것이다.</div>
+      </div>
+      <!-- 도서 몰입 상세 정보 보드 (상세 목차, 인물 관계도, 비하인드 설정) -->
+      <div class="immersion-board-wrapper" style="margin-top: 36px; padding-top: 24px; border-top: 1px dashed #e0dbce;">
+        <div class="immersion-board-title" style="font-family: var(--serif); font-size: 16px; font-weight: 700; color: var(--text); margin-bottom: 16px; display: flex; align-items: center; gap: 6px;">
+          <span style="color: var(--accent);">✦</span> 도서 상세 몰입 기록
+        </div>
+        
+        <div class="immersion-tabs" style="display: flex; gap: 4px; border-bottom: 1.5px solid var(--border); margin-bottom: 20px; overflow-x: auto; -webkit-overflow-scrolling: touch; white-space: nowrap;">
+          <button class="immersion-tab active" onclick="switchImmersionTab('toc')" id="im-tab-toc" style="font-family: var(--sans); font-size: 12.5px; font-weight: 600; color: var(--accent); background: none; border: none; border-bottom: 2.5px solid var(--accent); padding: 8px 14px; margin-bottom: -1.5px; cursor: pointer; transition: all 0.2s;">📖 상세 목차</button>
+          <button class="immersion-tab" onclick="switchImmersionTab('relations')" id="im-tab-relations" style="font-family: var(--sans); font-size: 12.5px; font-weight: 600; color: var(--text-muted); background: none; border: none; border-bottom: 2.5px solid transparent; padding: 8px 14px; margin-bottom: -1.5px; cursor: pointer; transition: all 0.2s;">🕸️ 인물 관계도</button>
+          <button class="immersion-tab" onclick="switchImmersionTab('trivia')" id="im-tab-trivia" style="font-family: var(--sans); font-size: 12.5px; font-weight: 600; color: var(--text-muted); background: none; border: none; border-bottom: 2.5px solid transparent; padding: 8px 14px; margin-bottom: -1.5px; cursor: pointer; transition: all 0.2s;">💡 비하인드 설정</button>
+        </div>
+
+        <div class="immersion-panes" style="background: #faf9f5; border: 1px solid var(--border); border-radius: 8px; padding: 18px; min-height: 120px;">
+          <!-- 상세 목차 Pane -->
+          <div class="immersion-pane" id="im-pane-toc" style="display: block;">
+            <div id="dc-toc-list" style="display: flex; flex-direction: column; gap: 12px;">
+              <!-- JS에서 동적 렌더링 -->
+            </div>
+            <div id="dc-toc-empty" style="display: none; text-align: center; color: var(--text-muted); font-size: 13px; padding: 20px 0;">상세 목차 데이터가 없습니다.</div>
+          </div>
+          
+          <!-- 인물 관계도 Pane -->
+          <div class="immersion-pane" id="im-pane-relations" style="display: none;">
+            <div class="relations-container" style="display: flex; flex-direction: column; gap: 20px;">
+              <div>
+                <div style="font-size: 11px; font-weight: 600; color: #b54a6a; letter-spacing: 0.05em; margin-bottom: 8px; display: flex; align-items: center; gap: 4px;">
+                  <span>👤</span> 주요 인물 소개
+                </div>
+                <div class="immersion-content" id="dc-characters" style="font-size: 13.5px; color: #444; line-height: 1.6; background: #fff; padding: 14px 16px; border-left: 3px solid #b54a6a; border-radius: 0 4px 4px 0; border-top: 1px solid var(--border-light); border-right: 1px solid var(--border-light); border-bottom: 1px solid var(--border-light);">
+                  <!-- JS에서 렌더링 -->
+                </div>
+              </div>
+
+              <div>
+                <div style="font-size: 11px; font-weight: 600; color: var(--accent); letter-spacing: 0.05em; margin-bottom: 8px; display: flex; align-items: center; gap: 4px;">
+                  <span>🕸️</span> 인물 관계 맵
+                </div>
+                <div id="dc-relations-visual" style="display: flex; flex-direction: column; gap: 10px;">
+                  <!-- JS에서 동적 관계 카드 렌더링 -->
+                </div>
+                <div id="dc-relations-empty" style="display: none; text-align: center; color: var(--text-muted); font-size: 13px; padding: 20px 0;">인물 관계도 데이터가 없습니다.</div>
+              </div>
+            </div>
+          </div>
+
+          <!-- 비하인드 설정 Pane -->
+          <div class="immersion-pane" id="im-pane-trivia" style="display: none;">
+            <ul id="dc-behind-trivia" style="padding-left: 0; list-style: none; color: #444; display: flex; flex-direction: column; gap: 10px; margin: 0;">
+              <!-- JS에서 동적 렌더링 -->
+            </ul>
+            <div id="dc-trivia-empty" style="display: none; text-align: center; color: var(--text-muted); font-size: 13px; padding: 20px 0;">비하인드 설정 데이터가 없습니다.</div>
+          </div>
+        </div>
+      </div>
+
+      <script>
+        function switchImmersionTab(tabName) {
+          // 모든 탭 버튼 비활성화
+          document.querySelectorAll('.immersion-tab').forEach(btn => {
+            btn.style.color = 'var(--text-muted)';
+            btn.style.borderBottomColor = 'transparent';
+            btn.classList.remove('active');
+          });
+          
+          // 모든 pane 숨기기
+          document.querySelectorAll('.immersion-pane').forEach(pane => {
+            pane.style.display = 'none';
+          });
+          
+          // 대상 활성화
+          const activeBtn = document.getElementById('im-tab-' + tabName);
+          if (activeBtn) {
+            activeBtn.style.color = 'var(--accent)';
+            activeBtn.style.borderBottomColor = 'var(--accent)';
+            activeBtn.classList.add('active');
+          }
+          
+          const activePane = document.getElementById('im-pane-' + tabName);
+          if (activePane) {
+            activePane.style.display = 'block';
+          }
+        }
+      </script>
+    </div>
+
+  </div>
+
+  <!-- ── CANDIDATE SELECTION PAGE ── -->
+  <div class="page" id="pg-candidates">
+    <div class="hero" style="padding-bottom: 24px;">
+      <button class="auth-hero-back" style="margin-bottom:12px; display:inline-block;" onclick="goPage('home')">← 취소</button>
+      <div class="hero-label">BOOK CURATION</div>
+      <div class="hero-title" style="font-size: 28px;">어떤 책을<br>독서방으로 열까요?</div>
+      <div class="hero-desc">AI가 3권의 책을 가져왔습니다. 하나를 선택하면 정식 독서방으로 개설됩니다.</div>
+    </div>
+    <div class="candidates-container" id="candidates-container">
+       <!-- cards will be injected here via JS -->
+    </div>
+  </div>
+
+  <!-- ── AUTH GATE PAGE ── -->
+  <div class="page" id="pg-auth-gate">
+    <div class="auth-gate">
+      <div class="auth-gate-icon">🔒</div>
+      <div class="auth-gate-title">내 서재</div>
+      <div class="auth-gate-desc">내 서재를 확인하려면<br>로그인이 필요합니다.<br>가공독서회 계정으로 나만의 독서 기록을 시작해보세요.</div>
+      <div class="auth-gate-btns">
+        <button class="auth-gate-btn-primary" onclick="goPage(&#39;login&#39;)">로그인</button>
+        <div class="auth-gate-divider"><span>또는</span></div>
+        <button class="auth-gate-btn-secondary" onclick="goPage(&#39;signup&#39;)">회원가입</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- ── LOGIN PAGE ── -->
+  <div class="page" id="pg-login">
+    <div class="auth-page">
+      <div class="auth-hero">
+        <button class="auth-hero-back" onclick="goPage(&#39;auth-gate&#39;)">← 돌아가기</button>
+        <div class="auth-hero-label">SIGN IN</div>
+        <div class="auth-hero-title">다시 만나서<br>반가워요</div>
+        <div class="auth-hero-sub">존재하지 않는 책들이 기다리고 있어요.</div>
+      </div>
+      <div class="auth-form-area">
+        <div class="auth-field">
+          <label class="auth-label">이메일</label>
+          <input class="auth-input" id="login-email" type="email" placeholder="이메일 주소를 입력하세요">
+          <div class="auth-error" id="login-email-err">올바른 이메일 형식을 입력해주세요.</div>
+        </div>
+        <div class="auth-field">
+          <label class="auth-label">비밀번호</label>
+          <input class="auth-input" id="login-pw" type="password" placeholder="비밀번호를 입력하세요"
+            onkeydown="if(event.key===&#39;Enter&#39;) submitLogin()">
+          <div class="auth-error" id="login-pw-err">비밀번호를 입력해주세요.</div>
+          <div style="display: flex; justify-content: flex-end; margin-top: 6px;">
+            <button class="auth-switch-link" style="font-size: 13px; color: #a06020;"
+              onclick="openFindPasswordModal()">비밀번호를 잊으셨나요?</button>
+          </div>
+        </div>
+        <button class="auth-submit" onclick="submitLogin()">로그인</button>
+        <div class="auth-switch">
+          아직 계정이 없으신가요?&nbsp;
+          <button class="auth-switch-link" onclick="goPage(&#39;signup&#39;)">회원가입</button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ── SIGNUP PAGE ── -->
+  <div class="page" id="pg-signup">
+    <div class="auth-page">
+      <div class="auth-hero">
+        <button class="auth-hero-back" onclick="goPage(&#39;auth-gate&#39;)">← 돌아가기</button>
+        <div class="auth-hero-label">CREATE ACCOUNT</div>
+        <div class="auth-hero-title">가공독서회에<br>오신 걸 환영해요</div>
+        <div class="auth-hero-sub">세상에 없는 책을 함께 읽어봐요.</div>
+      </div>
+      <div class="auth-form-area">
+        <div class="auth-nick-card">
+          <div class="auth-nick-label">✦ 부여된 독서 닉네임</div>
+          <div class="auth-nick-name" id="signup-nick-display"></div>
+          <div class="auth-nick-desc">가입과 동시에 랜덤으로 배정되는 닉네임입니다.<br>독서방에서 이 이름으로 활동하게 됩니다.</div>
+        </div>
+        <div class="auth-field">
+          <label class="auth-label">이메일</label>
+          <input class="auth-input" id="signup-email" type="email" placeholder="이메일 주소를 입력하세요">
+          <div class="auth-error" id="signup-email-err">올바른 이메일 형식을 입력해주세요.</div>
+        </div>
+        <div class="auth-field">
+          <label class="auth-label">비밀번호</label>
+          <input class="auth-input" id="signup-pw" type="password" placeholder="8자 이상 입력하세요"
+            onkeydown="if(event.key===&#39;Enter&#39;) submitSignup()">
+          <div class="auth-error" id="signup-pw-err">비밀번호는 8자 이상이어야 해요.</div>
+        </div>
+        <button class="auth-submit" onclick="submitSignup()">회원가입</button>
+        <div class="auth-terms">가입 시 가공독서회의 이용약관 및<br>개인정보처리방침에 동의하게 됩니다.</div>
+        <div class="auth-switch">
+          이미 계정이 있으신가요?&nbsp;
+          <button class="auth-switch-link" onclick="goPage(&#39;login&#39;)">로그인</button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ── LIBRARY PAGE ── -->
+  <div class="page" id="pg-lib">
+    <div class="lib-header">
+      <!-- 왼쪽 정렬 그룹: 타이틀 + 통계 정보 -->
+      <div class="lib-header-left">
+        <div class="lib-title-group">
+          <h2>내 서재</h2>
+          <p>책 등을 클릭하면 내가 남긴 감상을 볼 수 있어요.</p>
+        </div>
+
+        <div class="lib-stats">
+          <div>
+            <div class="lib-stat-n" id="lib-count">0</div>
+            <div class="lib-stat-l">담아둔 책</div>
+          </div>
+          <div>
+            <div class="lib-stat-n" id="lib-writings-count">0</div>
+            <div class="lib-stat-l">남긴 감상</div>
+          </div>
+        </div>
+      </div>
+
+      <!-- 오른쪽 끝: 프로필 카드만 배치 -->
+      <div class="lib-header-right">
+        <!-- 프로필 카드 -->
+        <div class="lib-profile-card" id="lib-profile-card">
+          <div class="lib-profile-avatar" id="lib-profile-avatar">독</div>
+          <div class="lib-profile-info">
+            <div style="display: flex; align-items: center; gap: 8px;">
+              <div class="lib-profile-name" id="lib-profile-name">독자</div>
+              <button class="lib-profile-edit-btn" onclick="openProfileEditModal()" title="프로필 편집">⚙️ 편집</button>
+            </div>
+            <div class="lib-profile-email" id="lib-profile-email"></div>
+            <div class="lib-profile-since">가공독서회 회원</div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- 내 서재 탭 영역 (넓고 세련된 갭 배치 완료) -->
+    <div class="lib-tabs">
+      <button class="lib-tab-btn active" id="lib-tab-saved" onclick="switchLibTab(&#39;saved&#39;)">담아둔 책</button>
+      <button class="lib-tab-btn" id="lib-tab-archive" onclick="switchLibTab(&#39;archive&#39;)">참여 아카이브 <span
+          id="lib-arc-badge"
+          style="display:none;font-size:10px;background:#4a7a3a;color:#fff;border-radius:10px;padding:1px 6px;margin-left:4px;"></span></button>
+    </div>
+    <div class="shelf-area" id="shelf-area">
+      <div class="shelf-label">담아둔 책</div>
+      <div class="shelf-row">
+        <div class="books-row" id="books-row">
+          <div style="font-size:13px;color:var(--text-faint);padding:20px 0;">'내 서재에 담기'로 책을 모아보세요.</div>
+        </div>
+        <div class="shelf-plank"></div>
+      </div>
+
+      <!-- 내가 남긴 댓글 책장 추가 -->
+      <div class="shelf-label" style="margin-top:24px;">내가 남긴 댓글</div>
+      <div class="shelf-row">
+        <div class="books-row" id="my-comments-books-row">
+          <div style="font-size:13px;color:var(--text-faint);padding:20px 0;">아직 남긴 감상이나 댓글이 없어요.</div>
+        </div>
+        <div class="shelf-plank"></div>
+      </div>
+
+      <div class="book-detail-panel" id="lib-bdp">
+        <div class="bdp-top" id="lib-bdp-top" onclick="if(selLibBook) { openDetail(selLibBook); }"
+          style="cursor:pointer;" title="책 상세 페이지로 이동">
+          <div class="bdp-cover" id="lib-bdp-cover"></div>
+          <div>
+            <div class="bdp-title" id="lib-bdp-title"></div>
+            <div class="bdp-sub" id="lib-bdp-sub"></div>
+          </div>
+        </div>
+        <div class="bdp-body">
+          <div class="bdp-qlbl">MY IMPRESSION</div>
+          <div id="lib-bdp-writings" class="bdp-writings"></div>
+          <div class="bdp-qdate" id="lib-bdp-qdate"></div>
+        </div>
+        <div class="bdp-tags-row" id="lib-bdp-tags"></div>
+      </div>
+    </div>
+
+    <!-- 참여 아카이브 탭 -->
+    <div class="arc-shelf-area" id="arc-shelf-area">
+      <div class="shelf-label" style="margin-bottom:4px;">참여하고 종료된 독서방</div>
+      <div class="arc-shelf-notice">아카이브는 독서방 종료 후 생성된 감상 기록집이에요. 내가 참여한 독서방이 종료되면 여기에 보관돼요.</div>
+      <div class="arc-shelf-row">
+        <div class="arc-books-row" id="arc-books-row">
+          <div class="arc-empty">참여한 독서방이 종료되면 여기에 아카이브가 쌓여요.</div>
+        </div>
+        <div class="arc-shelf-plank"></div>
+      </div>
+      <div class="arc-bdp" id="arc-lib-bdp">
+        <div class="arc-bdp-top">
+          <div class="arc-bdp-cover" id="arc-lib-bdp-cover"></div>
+          <div style="flex:1;min-width:0;">
+            <div class="arc-bdp-title" id="arc-lib-bdp-title"></div>
+            <div class="arc-bdp-sub" id="arc-lib-bdp-sub"></div>
+          </div>
+          <button class="arc-bdp-btn" id="arc-lib-bdp-btn" onclick="openArchiveFromLib()">아카이브 보기</button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ── CHAT PAGE ── -->
+  <div class="page" id="pg-chat">
+    <div class="chat-header">
+      <button class="chat-header-back"
+        onclick="if(currentBook)renderStats(currentBook);goPage(&#39;detail&#39;)">←</button>
+      <div class="chat-header-info">
+        <div class="chat-header-title" id="chat-room-title">오후 세 시의 해부학 독서방</div>
+        <div class="chat-header-meta" id="chat-room-meta">13명 참여 중</div>
+      </div>
+      <button class="chat-search-icon" id="chat-search-toggle" onclick="toggleChatSearch()" title="메시지 검색">🔍</button>
+      <div class="chat-header-book" id="chat-header-book" style="background: rgb(123, 95, 184);">오후 세 시의 해부학</div>
+      <div class="chat-search-bar" id="chat-search-bar">
+        <!-- 돋보기 + input 이 하나의 pill 컨테이너 안에 -->
+        <div class="chat-search-pill">
+          <span class="chat-search-pill-icon">🔍</span>
+          <input class="chat-search-input" id="chat-search-input" type="text" placeholder="메시지 검색"
+            oninput="onChatSearch(this.value)">
+          <span class="chat-search-pill-divider">|</span>
+          <span class="chat-search-pill-text">통합검색</span>
+        </div>
+        <div class="chat-search-nav">
+          <span class="chat-search-count" id="chat-search-count"></span>
+          <button class="chat-search-arrow" id="chat-search-prev" onclick="navSearch(-1)" disabled="">▲</button>
+          <button class="chat-search-arrow" id="chat-search-next" onclick="navSearch(1)" disabled="">▼</button>
+        </div>
+        <button class="chat-search-close" onclick="closeChatSearch()">취소</button>
+      </div>
+    </div>
+    <!-- 📌 토론 주제 고정 배너 (첫 문장 / 명대사 / 핵심 딜레마 / 질문) -->
+    <div class="chat-topic-banner" id="chat-topic-banner" style="display:none;">
+      <div class="chat-topic-header">
+        <span class="chat-topic-pin">📌</span>
+        <span class="chat-topic-label">이번 주 토론 주제</span>
+        <button class="chat-topic-toggle" id="chat-topic-toggle" onclick="toggleTopicBanner()" title="접기/펼치기">▲</button>
+      </div>
+      <div class="chat-topic-body" id="chat-topic-body">
+        <!-- 소설의 첫 문장 -->
+        <div class="chat-topic-section" id="chat-topic-sec-opening">
+          <div class="chat-topic-section-label">📖 첫 문장</div>
+          <div class="chat-topic-opening" id="chat-topic-opening"></div>
+        </div>
+        <!-- 명대사 -->
+        <div class="chat-topic-section" id="chat-topic-sec-quote">
+          <div class="chat-topic-section-label">💬 명대사</div>
+          <div class="chat-topic-quote" id="chat-topic-quote"></div>
+        </div>
+        <!-- 딜레마 -->
+        <div class="chat-topic-section" id="chat-topic-sec-dilemma">
+          <div class="chat-topic-section-label">🤔 핵심 딜레마</div>
+          <div class="chat-topic-dilemma" id="chat-topic-dilemma"></div>
+        </div>
+        <!-- 추가 질문 -->
+        <div class="chat-topic-questions" id="chat-topic-questions"></div>
+      </div>
+    </div>
+    <div class="chat-body" id="chat-body">
+      <div class="chat-notice" style="margin-top: 10px;"><span style="background:rgba(0,0,0,0.12)">독서방 개설일</span></div>
+      <div class="chat-notice"><span>📚 독서방이 열렸습니다.</span></div>
+      <div class="chat-date-divider"><span>2026년 5월 23일</span></div>
+      <div class="chat-row other" id="chatrow-msg17797828204530.511276578619572" style="position: relative;">
+        <div class="chat-av" style="background:#e8daf8;color:#7b5fb8">달</div>
+        <div class="chat-col" id="col-msg17797828204530.511276578619572">
+          <div class="chat-name">달빛독자</div>
+          <div class="chat-bubble" id="bubble-msg17797828204530.511276578619572"
+            ondblclick="showRxPicker(&#39;b1&#39;,&#39;msg17797828204530.511276578619572&#39;,event)">'오후 세 시'라는 시간이 책
+            전반에 걸쳐 계속 등장하는데, 수술실 특유의 긴장감이 그 시간대에 집중되는 느낌이었어요. 강민이 그 시간에 유독 …</div>
+        </div>
+        <div class="chat-time-wrap"><span class="chat-time">오후 8:14</span></div>
+      </div>
+      <div class="chat-date-divider"><span>어제</span></div>
+      <div class="chat-row other" id="chatrow-msg17797828204530.2631351052158296" style="position: relative;">
+        <div class="chat-av" style="background:#f0e8dc;color:#8b4f25">책</div>
+        <div class="chat-col" id="col-msg17797828204530.2631351052158296">
+          <div class="chat-name">책상물림</div>
+          <div class="chat-bubble" id="bubble-msg17797828204530.2631351052158296"
+            ondblclick="showRxPicker(&#39;b1&#39;,&#39;msg17797828204530.2631351052158296&#39;,event)">내장 속 편지 장면에서 완전히
+            멈췄어요. 의학 용어로 감정을 표현하는 문체가 처음엔 낯선데 읽다 보면 그게 오히려 더 날카롭게 박혀요.</div>
+        </div>
+        <div class="chat-time-wrap"><span class="chat-time">오전 11:30</span></div>
+      </div>
+      <div class="chat-row other" id="chatrow-msg17797828204530.8998160780746746" style="position: relative;">
+        <div class="chat-av" style="background:#e8f0f8;color:#2c5f8a">밤</div>
+        <div class="chat-col" id="col-msg17797828204530.8998160780746746">
+          <div class="chat-name">밤의활자</div>
+          <div class="chat-bubble" id="bubble-msg17797828204530.8998160780746746"
+            ondblclick="showRxPicker(&#39;b1&#39;,&#39;msg17797828204530.8998160780746746&#39;,event)">결말을 화해로 봐야 할지
+            체념으로 봐야 할지 읽고 나서도 계속 생각하게 돼요. 마지막 편지 내용이 결정적이었는데 해석이 갈리더라고요.</div>
+        </div>
+        <div class="chat-time-wrap"><span class="chat-time">오후 1:45</span></div>
+      </div>
+      <div class="chat-row other" id="chatrow-msg17797828204530.31115965861057615" style="position: relative;">
+        <div class="chat-av" style="background:#e8daf8;color:#7b5fb8">달</div>
+        <div class="chat-col" id="col-msg17797828204530.31115965861057615">
+          <div class="chat-name">달빛독자</div>
+          <div class="chat-bubble" id="bubble-msg17797828204530.31115965861057615"
+            ondblclick="showRxPicker(&#39;b1&#39;,&#39;msg17797828204530.31115965861057615&#39;,event)">저 이거 읽으면서 지하철에서
+            울 뻔 했어요 😭 참느라 혼났잖아요</div>
+        </div>
+        <div class="chat-time-wrap"><span class="chat-time">오후 7:44</span></div>
+      </div>
+      <div class="chat-date-divider"><span>오늘</span></div>
+      <div class="chat-row other" id="chatrow-msg17797828204530.16994848750639302" style="position: relative;">
+        <div class="chat-av" style="background:#f0e8dc;color:#8b4f25">책</div>
+        <div class="chat-col" id="col-msg17797828204530.16994848750639302">
+          <div class="chat-name">책상물림</div>
+          <div class="chat-bubble" id="bubble-msg17797828204530.16994848750639302"
+            ondblclick="showRxPicker(&#39;b1&#39;,&#39;msg17797828204530.16994848750639302&#39;,event)">첫 장 넘기자마자 완전히
+            빠져들었어요. 며칠째 손에서 못 놓고 있음</div>
+        </div>
+        <div class="chat-time-wrap"><span class="chat-time">오전 1:00</span></div>
+      </div>
+      <div class="chat-row other" id="chatrow-msg17797828204530.8451147063173602" style="position: relative;">
+        <div class="chat-av" style="background:#e8f0f8;color:#2c5f8a">밤</div>
+        <div class="chat-col" id="col-msg17797828204530.8451147063173602">
+          <div class="chat-name">밤의활자</div>
+          <div class="chat-bubble" id="bubble-msg17797828204530.8451147063173602"
+            ondblclick="showRxPicker(&#39;b1&#39;,&#39;msg17797828204530.8451147063173602&#39;,event)">결말 어떻게 해석하셨어요? 저는
+            열린 결말이라고 읽었는데 주변 반응이 다 달라서요</div>
+        </div>
+        <div class="chat-time-wrap"><span class="chat-time">오전 1:40</span></div>
+      </div>
+    </div>
+    <div class="reply-preview-bar" id="reply-preview-bar">
+      <div class="reply-preview-accent"></div>
+      <div class="reply-preview-body">
+        <div class="reply-preview-name" id="reply-preview-name"></div>
+        <div class="reply-preview-text" id="reply-preview-text"></div>
+      </div>
+      <button class="reply-preview-cancel" onclick="cancelReply()" title="답장 취소">✕</button>
+    </div>
+    <div class="chat-input-bar">
+      <textarea class="chat-textarea" id="chat-input" rows="1" placeholder="이 책에 대해 이야기해보세요..." maxlength="140"
+        oninput="this.style.height='auto';this.style.height=Math.min(this.scrollHeight,90)+'px';var cntEl=document.getElementById('chat-char-count-display');if(cntEl){cntEl.textContent=this.value.length;if(this.value.length>=130){cntEl.parentElement.classList.add('warning');}else{cntEl.parentElement.classList.remove('warning');}}this.classList.toggle('at-limit',this.value.length>=140);"
+        onkeydown="if(event.key==='Enter'&&!event.shiftKey){event.preventDefault();sendChatMsg();}"></textarea>
+      <div class="chat-char-counter"><span id="chat-char-count-display">0</span>/140</div>
+      <button class="chat-send-btn" onclick="sendChatMsg()">↑</button>
+    </div>
+  </div>
+
+  <!-- Reaction picker -->
+  <div class="rx-picker" id="rx-picker">
+    <div class="rx-picker-item" onclick="pickRx(&#39;❤️&#39;,&#39;공감해요&#39;)"><span
+        class="rx-picker-emoji">❤️</span><span class="rx-picker-label">공감해요</span></div>
+    <div class="rx-picker-item" onclick="pickRx(&#39;🤔&#39;,&#39;생각이 달라요&#39;)"><span
+        class="rx-picker-emoji">🤔</span><span class="rx-picker-label">생각이 달라요</span></div>
+    <div class="rx-picker-item" onclick="pickRx(&#39;😄&#39;,&#39;재밌어요&#39;)"><span
+        class="rx-picker-emoji">😄</span><span class="rx-picker-label">재밌어요</span></div>
+    <div class="rx-picker-item" onclick="pickRx(&#39;✨&#39;,&#39;인상 깊어요&#39;)"><span
+        class="rx-picker-emoji">✨</span><span class="rx-picker-label">인상 깊어요</span></div>
+    <div class="rx-picker-reply" onclick="pickReply()"><span class="rx-picker-reply-icon">↩</span><span
+        class="rx-picker-reply-label">답장하기</span></div>
+  </div>
+
+  <!-- ── GUIDE PAGE ── -->
+  <div class="page" id="pg-guide">
+
+    <div class="guide-hero">
+      <div class="guide-hero-label">ABOUT GAKONG</div>
+      <div class="guide-hero-title">존재하지 않는 책을<br>가장 깊이 읽는 방법</div>
+      <div class="guide-hero-desc">가공독서회는 AI가 만들어낸 가상의 책을 함께 읽는 독서 모임입니다. 실제로 쓰인 적 없는 책이지만, 그 책을 '읽었다고 상상하며' 나누는 감상은
+        진짜입니다.</div>
+    </div>
+
+    <!-- 가공독서회란? -->
+    <div class="guide-section">
+      <div class="guide-section-title">가공독서회란?</div>
+      <div class="guide-about">
+        <div class="guide-about-q">CONCEPT</div>
+        <div class="guide-about-txt">
+          '가공(架空)'이란 실제로 존재하지 않는 것을 뜻합니다. 가공독서회는 AI가 장르·키워드를 무작위로 조합해 세상에 없는 책의 줄거리를 만들어내고, 독자들이 그 책을 '읽은 척' 하며 감상을 나누는
+          공간입니다.<br><br>
+          어떤 책인지는 아무도 모릅니다. 그래서 모든 해석이 정답이고, 모든 감상이 창작입니다.
+        </div>
+      </div>
+    </div>
+    <!-- 저작권 공지 -->
+    <div class="guide-section">
+      <div class="guide-section-title">저작권 공지</div>
+      <div class="guide-about">
+        <div class="guide-about-q">COPYRIGHT</div>
+        <div class="guide-about-txt">
+          대한민국 문화체육관광부와 한국저작권위원회의 생성형 AI 저작권 가이드라인에 따른 안내입니다.<br><br>
+          • <strong>AI 생성물의 저작권 미적용:</strong> 본 사이트에서 제공하는 가상 도서의 기본 정보(AI가 생성한 책 제목, 장르, 줄거리, 시놉시스 등)는 순수 AI 산출물이므로
+          저작권법상 저작물성이 인정되지 않아 공공의 영역(Public Domain)에 속합니다.<br>
+          • <strong>독자 창작물에 대한 저작권 보호:</strong> AI의 소개글을 토대로 독자가 상상력을 발휘하여 남긴 <strong>개인 감상평 댓글, 독서 토론 대화 메시지, 개성 있는 해석
+            등은 인간의 독창적인 창작성이 인정되어 저작권법의 보호를 받으며, 그 저작권은 온전히 작성자(독자)에게 귀속</strong>됩니다.<br><br>
+          따라서 다른 독자의 소중한 창작물인 감상평이나 대화 내용을 무단으로 복제, 배포 또는 도용하는 행위는 엄격히 금지됩니다. 독자 여러분의 소중한 감상과 창의적 기여를 존중해 주시기 바랍니다.
+        </div>
+      </div>
+    </div>
+
+    <!-- 이용 방법 -->
+    <div class="guide-section">
+      <div class="guide-section-title">이용 방법</div>
+      <div class="guide-steps">
+        <div class="guide-step">
+          <div class="guide-step-num">1</div>
+          <div class="guide-step-body">
+            <div class="guide-step-head">책을 고르거나 소환하세요</div>
+            <div class="guide-step-desc">메인 화면에서 마음에 드는 독서방을 고르거나, '새 책 생성' 버튼으로 AI에게 세상에 없는 책을 새로 만들어달라고 할 수 있어요.</div>
+          </div>
+        </div>
+        <div class="guide-step">
+          <div class="guide-step-num">2</div>
+          <div class="guide-step-body">
+            <div class="guide-step-head">줄거리를 읽고 상상하세요</div>
+            <div class="guide-step-desc">책 상세 페이지에서 제목·장르·줄거리·태그를 확인하세요. 이 책이 실제로 존재한다고 믿고, 어떤 내용일지 자유롭게 상상해보세요.</div>
+          </div>
+        </div>
+        <div class="guide-step">
+          <div class="guide-step-num">3</div>
+          <div class="guide-step-body">
+            <div class="guide-step-head">감상을 남기세요</div>
+            <div class="guide-step-desc">이 책을 '읽었다면' 어떤 감상이었을지 댓글로 남겨보세요. 다른 독자의 감상을 더블 클릭하여 답장과 공감을 남길 수도 있어요.
+            </div>
+          </div>
+        </div>
+        <div class="guide-step">
+          <div class="guide-step-num">4</div>
+          <div class="guide-step-body">
+            <div class="guide-step-head">독서방에서 대화하세요</div>
+            <div class="guide-step-desc">'독서방 참여하기'를 누르면 채팅방에 입장해요. 다른 독자들과 책에 대해 자유롭게 이야기를 나눌 수 있어요.</div>
+          </div>
+        </div>
+        <div class="guide-step">
+          <div class="guide-step-num">5</div>
+          <div class="guide-step-body">
+            <div class="guide-step-head">내 서재에 책을 모으세요</div>
+            <div class="guide-step-desc">'내 서재에 담기'로 인상 깊었던 책을 보관할 수 있어요. 내 서재에서는 책등을 클릭해 내가 남긴 감상과 채팅을 다시 볼 수 있어요.
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- 채팅방 규칙 -->
+    <div class="guide-section">
+      <div class="guide-section-title">독서방 규칙</div>
+      <div class="guide-rules">
+        <div class="guide-rule">
+          <div class="guide-rule-icon">📖</div>
+          <div class="guide-rule-body">
+            <div class="guide-rule-txt">이 책은 <strong>존재한다</strong>고 믿고 이야기하세요.</div>
+            <div class="guide-rule-sub">가공독서회의 핵심 약속입니다. '가상의 책이니까'라는 전제는 잠시 내려두고, 실제로 읽은 책처럼 이야기해요.</div>
+          </div>
+        </div>
+        <div class="guide-rule">
+          <div class="guide-rule-icon">💬</div>
+          <div class="guide-rule-body">
+            <div class="guide-rule-txt">어렵든 쉽든, <strong>느낀 대로</strong> 자유롭게 말하세요.</div>
+            <div class="guide-rule-sub">줄거리가 어렵게 느껴지면 어렵다고, 쉽게 느껴지면 쉽다고 솔직하게 이야기해도 괜찮아요. 정답은 없습니다.</div>
+          </div>
+        </div>
+        <div class="guide-rule">
+          <div class="guide-rule-icon">✏️</div>
+          <div class="guide-rule-body">
+            <div class="guide-rule-txt"><strong>140자 이내</strong>로 간결하게, 스포일러는 삼가주세요.</div>
+            <div class="guide-rule-sub">짧고 밀도 있는 감상이 더 많은 이야기를 이끌어냅니다. 핵심 반전이나 결말은 되도록 직접적으로 언급하지 않아요.</div>
+          </div>
+        </div>
+        <div class="guide-rule">
+          <div class="guide-rule-icon">🤝</div>
+          <div class="guide-rule-body">
+            <div class="guide-rule-txt">모두를 <strong>창작자</strong>로 존중해주세요.</div>
+            <div class="guide-rule-sub">여기서 나누는 모든 감상은 하나의 창작입니다. 다른 독자의 해석이 나와 달라도 틀린 게 아니에요.</div>
+          </div>
+        </div>
+        <div class="guide-rule">
+          <div class="guide-rule-icon">🌐</div>
+          <div class="guide-rule-body">
+            <div class="guide-rule-txt">책 밖의 세계까지 <strong>폭넓게 상상</strong>해보세요.</div>
+            <div class="guide-rule-sub">줄거리만이 아니라 가상의 작가는 어떤 사람일지, 가격은 적당한지, 어느 서점에서 샀는지, 번역본이 있는지 등 상상을 마음껏 펼쳐봐요.</div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <div class="guide-footer">
+      <div class="guide-footer-icon">✦</div>
+      <div class="guide-footer-txt">가공독서회는 아직 읽지 않은 책, 아직 쓰이지 않은 문장, 아직 나누지 않은 감상으로 가득한 곳입니다. 함께 이야기를 만들어주세요.</div>
+    </div>
+
+  </div>
+
+  <!-- ── ARCHIVE PAGE ── -->
+  <div class="page" id="pg-archive">
+    <div class="arc-page-header" style="position:sticky;top:54px;z-index:50;">
+      <button class="arc-page-back" onclick="goPage(window.lastPageBeforeArchive || 'detail')">← 돌아가기</button>
+      <div class="arc-page-book-row">
+        <div class="arc-page-mini-cover" id="arc-page-cover" style="background:#4a7a3a;">구름 위의<br>도서관</div>
+        <div>
+          <div class="arc-page-badge">READING ROOM ARCHIVE</div>
+          <div class="arc-page-title" id="arc-page-title">구름 위의 도서관</div>
+          <div class="arc-page-meta" id="arc-page-meta">30명 참여 · 2025.10 종료</div>
+        </div>
+      </div>
+    </div>
+    <div class="arc-content">
+
+      <!-- COVER -->
+      <div class="arc-cover">
+        <div class="arc-cover-label">가공독서회 · 아카이브 북 · 제7호</div>
+        <div class="arc-cover-book-icon">
+          <div class="arc-cover-book-inner">구름 위의<br>도서관</div>
+        </div>
+        <div class="arc-cover-title">구름 위의 도서관</div>
+        <div class="arc-cover-subtitle">가상 작가 서하은 · 판타지 · ₩14,000</div>
+        <div class="arc-cover-divider"></div>
+        <div class="arc-cover-author-note">30인 독서회 종료 기념 감상 아카이브</div>
+        <div class="arc-cover-meta">
+          <span>READING ROOM ARCHIVE</span>
+          <span>30 READERS · 312 MESSAGES</span>
+          <span>GAKONG BOOK CLUB</span>
+        </div>
+      </div>
+
+      <!-- BOOK BAND -->
+      <div class="arc-book-band">
+        <div class="arc-book-band-cover">구름 위의<br>도서관</div>
+        <div>
+          <div class="arc-book-band-genre">판타지 FANTASY</div>
+          <div class="arc-book-band-title">구름 위의 도서관</div>
+          <div class="arc-book-band-author">가상 작가 서하은</div>
+          <div class="arc-book-band-synopsis">죽은 사람의 기억을 책으로 보관하는 구름 위 도서관. 사서 다은은 어느 날 아직 살아있는 사람의 기억이 책으로 배달되는 것을
+            발견한다. 죽음보다 먼저 도착한 삶의 기록을 어떻게 해야 할까.</div>
+          <div class="arc-book-band-tags">
+            <span class="arc-book-band-tag">#판타지</span>
+            <span class="arc-book-band-tag">#도서관</span>
+            <span class="arc-book-band-tag">#기억</span>
+            <span class="arc-book-band-tag">#사서</span>
+            <span class="arc-book-band-tag">#삶과죽음</span>
+          </div>
+        </div>
+      </div>
+
+      <!-- STATS BAR -->
+      <div class="arc-stats-bar">
+        <div class="arc-stat-item">
+          <div class="arc-stat-num">30</div>
+          <div class="arc-stat-label">참여 독자</div>
+        </div>
+        <div class="arc-stat-item">
+          <div class="arc-stat-num">312</div>
+          <div class="arc-stat-label">채팅 메시지</div>
+        </div>
+        <div class="arc-stat-item">
+          <div class="arc-stat-num">58</div>
+          <div class="arc-stat-label">댓글</div>
+        </div>
+        <div class="arc-stat-item">
+          <div class="arc-stat-num">847</div>
+          <div class="arc-stat-label">총 반응 수</div>
+        </div>
+        <div class="arc-stat-item">
+          <div class="arc-stat-num">4.6</div>
+          <div class="arc-stat-label">평균 평점</div>
+        </div>
+      </div>
+
+      <!-- EDITORIAL NOTE -->
+      <div class="arc-section arc-editorial">
+        <div class="arc-eyebrow">EDITOR'S NOTE</div>
+        <div class="arc-editorial-title">편집자의 말</div>
+        <div class="arc-editorial-body">
+          <p>이 책은 존재하지 않습니다. 그런데 이 안에 담긴 감상들은 진짜입니다.</p>
+          <p>가공독서회의 서른 명은 『구름 위의 도서관』의 줄거리 하나를 붙들고 사흘 동안 이야기를 나눴습니다. 아무도 실제로 이 책을 읽지 않았지만, 모두가 이 책을 "읽은 것처럼" 이야기했고, 그
+            이야기들이 모여 어느 순간 하나의 공간을 이루었습니다.</p>
+          <p>이 아카이브는 그 공간의 기록입니다. 독서방에서 나눈 채팅 중 반응이 많았던 문장들, 댓글 중 가장 오래 회자된 감상들, 그리고 독자들이 서로에게 건넨 반응들을 추려 한 권으로 묶었습니다.
+          </p>
+          <p>존재하지 않는 책에 대한, 존재하는 감상들의 기록. 그것이 이 아카이브의 전부입니다.</p>
+        </div>
+        <div class="arc-editorial-sig"><span>가공독서회 아카이브 편집팀</span><span>2025년 가을</span></div>
+      </div>
+
+      <!-- PARTICIPANTS -->
+      <div class="arc-section" style="background:#fff;">
+        <div class="arc-eyebrow">PARTICIPANTS</div>
+        <div class="arc-section-title">이번 독서회 참여자 30인</div>
+        <div class="arc-section-sub">닉네임은 가공독서회 시스템이 랜덤으로 배정합니다. 본명은 공개되지 않습니다.</div>
+        <div class="arc-participants-grid">
+          <div class="arc-p-chip">
+            <div class="arc-p-av" style="background:#e0f0e0;color:#3a6a2a;">도</div>
+            <div class="arc-p-name">도서관팬</div>
+          </div>
+          <div class="arc-p-chip">
+            <div class="arc-p-av" style="background:#ecf4e8;color:#4a7a3a;">몽</div>
+            <div class="arc-p-name">몽상독자</div>
+          </div>
+          <div class="arc-p-chip">
+            <div class="arc-p-av" style="background:#dce8f8;color:#2c5f8a;">구</div>
+            <div class="arc-p-name">구름위에서</div>
+          </div>
+          <div class="arc-p-chip">
+            <div class="arc-p-av" style="background:#fdf0e4;color:#a06020;">기</div>
+            <div class="arc-p-name">기억수집가</div>
+          </div>
+          <div class="arc-p-chip">
+            <div class="arc-p-av" style="background:#fce0e8;color:#b54a6a;">봄</div>
+            <div class="arc-p-name">봄날사서</div>
+          </div>
+          <div class="arc-p-chip">
+            <div class="arc-p-av" style="background:#fce8dc;color:#a04020;">다</div>
+            <div class="arc-p-name">다은이좋아</div>
+          </div>
+          <div class="arc-p-chip">
+            <div class="arc-p-av" style="background:#f0f0f0;color:#606060;">흰</div>
+            <div class="arc-p-name">흰구름독자</div>
+          </div>
+          <div class="arc-p-chip">
+            <div class="arc-p-av" style="background:#d8e0f0;color:#3040a0;">잠</div>
+            <div class="arc-p-name">잠못드는밤</div>
+          </div>
+          <div class="arc-p-chip">
+            <div class="arc-p-av" style="background:#dcf4ec;color:#1d7a58;">살</div>
+            <div class="arc-p-name">살아있는기억</div>
+          </div>
+          <div class="arc-p-chip">
+            <div class="arc-p-av" style="background:#e8e8d8;color:#6a6a28;">책</div>
+            <div class="arc-p-name">책속의책</div>
+          </div>
+          <div class="arc-p-chip">
+            <div class="arc-p-av" style="background:#dce8f0;color:#2a5870;">조</div>
+            <div class="arc-p-name">조용한페이지</div>
+          </div>
+          <div class="arc-p-chip">
+            <div class="arc-p-av" style="background:#e4f0f8;color:#2060a0;">하</div>
+            <div class="arc-p-name">하늘서고</div>
+          </div>
+          <div class="arc-p-chip">
+            <div class="arc-p-av" style="background:#f8dcd8;color:#a03020;">반</div>
+            <div class="arc-p-name">반납불가</div>
+          </div>
+          <div class="arc-p-chip">
+            <div class="arc-p-av" style="background:#ece0f8;color:#7040b0;">무</div>
+            <div class="arc-p-name">기억의무게</div>
+          </div>
+          <div class="arc-p-chip">
+            <div class="arc-p-av" style="background:#daf0ec;color:#1a6a60;">너</div>
+            <div class="arc-p-name">구름너머</div>
+          </div>
+          <div class="arc-p-chip">
+            <div class="arc-p-av" style="background:#d8d8f0;color:#484898;">새</div>
+            <div class="arc-p-name">새벽사서</div>
+          </div>
+          <div class="arc-p-chip">
+            <div class="arc-p-av" style="background:#fce8d4;color:#a86020;">여</div>
+            <div class="arc-p-name">책먹는여우</div>
+          </div>
+          <div class="arc-p-chip">
+            <div class="arc-p-av" style="background:#d8ecd8;color:#286028;">영</div>
+            <div class="arc-p-name">영원한독자</div>
+          </div>
+          <div class="arc-p-chip">
+            <div class="arc-p-av" style="background:#ede0d0;color:#7a5030;">함</div>
+            <div class="arc-p-name">기억보관함</div>
+          </div>
+          <div class="arc-p-chip">
+            <div class="arc-p-av" style="background:#d8e8f8;color:#2050a0;">파</div>
+            <div class="arc-p-name">파란하늘아래</div>
+          </div>
+          <div class="arc-p-chip">
+            <div class="arc-p-av" style="background:#f8f0d0;color:#806010;">낙</div>
+            <div class="arc-p-name">낙서독서</div>
+          </div>
+          <div class="arc-p-chip">
+            <div class="arc-p-av" style="background:#f8e0d4;color:#a04830;">밑</div>
+            <div class="arc-p-name">밑줄긋기</div>
+          </div>
+          <div class="arc-p-chip">
+            <div class="arc-p-av" style="background:#daf0ec;color:#1a6a60;">미</div>
+            <div class="arc-p-name">도서관미아</div>
+          </div>
+          <div class="arc-p-chip">
+            <div class="arc-p-av" style="background:#d8d8f4;color:#4040a0;">별</div>
+            <div class="arc-p-name">별자리서재</div>
+          </div>
+          <div class="arc-p-chip">
+            <div class="arc-p-av" style="background:#e4ecd4;color:#506020;">느</div>
+            <div class="arc-p-name">느린독서가</div>
+          </div>
+          <div class="arc-p-chip">
+            <div class="arc-p-av" style="background:#e8e4e0;color:#706050;">그</div>
+            <div class="arc-p-name">그날의책</div>
+          </div>
+          <div class="arc-p-chip">
+            <div class="arc-p-av" style="background:#dcecd8;color:#306828;">사</div>
+            <div class="arc-p-name">사서지망생</div>
+          </div>
+          <div class="arc-p-chip">
+            <div class="arc-p-av" style="background:#dce8f0;color:#285878;">카</div>
+            <div class="arc-p-name">구름카탈로그</div>
+          </div>
+          <div class="arc-p-chip">
+            <div class="arc-p-av" style="background:#ecdcd8;color:#805040;">서</div>
+            <div class="arc-p-name">기억의서가</div>
+          </div>
+          <div class="arc-p-chip">
+            <div class="arc-p-av" style="background:#e4dcd4;color:#604030;">오</div>
+            <div class="arc-p-name">오래된독자</div>
+          </div>
+        </div>
+      </div>
+
+      <!-- CHAPTER 1 -->
+      <div class="arc-chapter-divider"></div>
+      <div class="arc-chapter-header">
+        <div class="arc-chapter-num">1장</div>
+        <div class="arc-chapter-title">도서관이라는 공간에 대하여</div>
+        <div class="arc-chapter-desc">구름 위 도서관을 처음 상상한 순간, 독자들이 무엇을 떠올렸는지에 대한 기록.</div>
+      </div>
+      <div class="arc-messages-area">
+        <div class="arc-msg-card highlight">
+          <div class="arc-msg-head">
+            <div class="arc-msg-av" style="background:#ecf4e8;color:#4a7a3a;">몽</div>
+            <div>
+              <div class="arc-msg-name">몽상독자</div>
+              <div class="arc-msg-time">독서방 1일차 · 오후 2:14</div>
+            </div>
+          </div>
+          <div class="arc-msg-body">판타지인데 판타지처럼 안 읽혀요. 도서관이라는 공간이 너무 현실적이어서, 사서의 고민이 너무 현실적이어서. 어느 순간부터 이게 실제 공간인 것처럼 읽게
+            됐어요. 구름 위에 있다는 설정조차 나중엔 당연하게 받아들이게 되는 게 무섭기도 하고 신기하기도 했어요.</div>
+          <div class="arc-msg-reactions">
+            <span class="arc-rx-tag hot">❤️ 공감해요 18</span>
+            <span class="arc-rx-tag hot">✨ 인상 깊어요 14</span>
+            <span class="arc-rx-tag">😄 재밌어요 3</span>
+            <div class="arc-rx-total">총 <strong>35</strong>개 반응</div>
+          </div>
+        </div>
+        <div class="arc-msg-card top-pick">
+          <div class="arc-top-pick-badge">TOP PICK</div>
+          <div class="arc-msg-head">
+            <div class="arc-msg-av" style="background:#daf0ec;color:#1a6a60;">너</div>
+            <div>
+              <div class="arc-msg-name">구름너머</div>
+              <div class="arc-msg-time">독서방 1일차 · 오후 4:52</div>
+            </div>
+          </div>
+          <div class="arc-msg-body">사서라는 직업이 원래도 경계에 있는 존재잖아요. <strong>책과 독자 사이</strong>, 작가와 독자 사이, 지식과 모름 사이. 그런데 이
+            소설에서 사서 다은은 삶과 죽음 사이에도 있어요. 그 설정이 진짜 기가 막혀요. 사서라서 가능한 이야기예요.</div>
+          <div class="arc-msg-reactions">
+            <span class="arc-rx-tag hot">❤️ 공감해요 24</span>
+            <span class="arc-rx-tag hot">✨ 인상 깊어요 19</span>
+            <span class="arc-rx-tag">🤔 생각이 달라요 4</span>
+            <div class="arc-rx-total">총 <strong>47</strong>개 반응 · 1일차 최다</div>
+          </div>
+        </div>
+
+        <!-- CHAT THREAD -->
+        <div class="arc-chat-thread">
+          <div class="arc-chat-thread-label"><span>2일차 채팅 스레드 발췌</span></div>
+          <div class="arc-chat-row other">
+            <div class="arc-chat-av-sm" style="background:#e0f0e0;color:#3a6a2a;">도</div>
+            <div class="arc-chat-col">
+              <div class="arc-chat-name-sm">도서관팬</div>
+              <div class="arc-chat-bubble">사서 다은이 그 책을 반납해야 하는지 아닌지 고민하는 장면이 너무 좋았어요</div>
+              <div style="display:flex;gap:4px;margin-top:4px;">
+                <span class="arc-crx hot">❤️ 13</span><span class="arc-crx">✨ 6</span>
+              </div>
+            </div>
+            <span style="font-size:10px;color:#6b5040;align-self:flex-end;flex-shrink:0;">오후 2:31</span>
+          </div>
+          <div class="arc-chat-row other">
+            <div class="arc-chat-av-sm" style="background:#ecf4e8;color:#4a7a3a;">몽</div>
+            <div class="arc-chat-col">
+              <div class="arc-chat-name-sm">몽상독자</div>
+              <div class="arc-chat-bubble">마지막 책의 주인이 누군지 알게 된 순간 처음부터 다시 읽었어요</div>
+              <div style="display:flex;gap:4px;margin-top:4px;">
+                <span class="arc-crx hot">❤️ 9</span>
+              </div>
+            </div>
+            <span style="font-size:10px;color:#6b5040;align-self:flex-end;flex-shrink:0;">오후 2:40</span>
+          </div>
+          <div class="arc-chat-row mine">
+            <div class="arc-chat-col">
+              <div class="arc-chat-bubble">규칙과 감정 사이에서 흔들리는 모습이 현실적으로 느껴져서 더 몰입했어요</div>
+            </div>
+            <span style="font-size:10px;color:#6b5040;align-self:flex-end;flex-shrink:0;">오후 2:44</span>
+          </div>
+        </div>
+
+        <div class="arc-quote-block">
+          <div class="arc-quote-text">"책이 먼저 도착했다면, 그 사람은 아직 자기 이야기의 저자입니다."</div>
+          <div class="arc-quote-attr">— 도서관팬, 독서방 2일차 댓글 중</div>
+        </div>
+      </div>
+
+      <!-- CHAPTER 2: TOP SENTENCES -->
+      <div class="arc-chapter-divider"></div>
+      <div class="arc-chapter-header">
+        <div class="arc-chapter-num">2장</div>
+        <div class="arc-chapter-title">가장 오래 남은 문장들</div>
+        <div class="arc-chapter-desc">독서방에서 가장 많은 반응을 받은 감상 TOP 10.</div>
+      </div>
+      <div class="arc-section arc-top-sentences" style="padding-top:0;">
+        <div class="arc-sentence-item">
+          <div class="arc-sentence-rank">01</div>
+          <div class="arc-sentence-body">
+            <div class="arc-sentence-text">죽은 사람의 기억이 책이 된다는 설정인데, 정작 이 소설은 기억 자체가 아니라 그 기억을 어떻게 다룰 것인가에 대한 이야기예요. 사서가
+              영사(靈司)인 동시에 윤리학자인 존재로 느껴졌어요.</div>
+            <div class="arc-sentence-meta">
+              <div class="arc-sentence-author">
+                <div class="arc-s-av" style="background:#dce8f0;color:#2a5870;">조</div><span
+                  class="arc-s-name">조용한페이지</span>
+              </div>
+              <div class="arc-s-rxs"><span class="arc-s-rx">❤️ 28</span><span class="arc-s-rx">✨ 20</span><span
+                  class="arc-s-rx">🤔 6</span></div>
+              <span style="font-size:11px;color:var(--text-faint);margin-left:4px;">총 54 · 전체 1위</span>
+            </div>
+          </div>
+        </div>
+        <div class="arc-sentence-item">
+          <div class="arc-sentence-rank">02</div>
+          <div class="arc-sentence-body">
+            <div class="arc-sentence-text">살아있는 사람의 기억이 먼저 왔다는 설정이, 처음엔 SF처럼 읽히다가 나중엔 그냥 우리 얘기처럼 느껴졌어요. 우리도 이미 어딘가에 기록되고
+              있을 수 있잖아요. SNS가 구름 위 도서관 아닐까요.</div>
+            <div class="arc-sentence-meta">
+              <div class="arc-sentence-author">
+                <div class="arc-s-av" style="background:#d8d8f4;color:#4040a0;">별</div><span
+                  class="arc-s-name">별자리서재</span>
+              </div>
+              <div class="arc-s-rxs"><span class="arc-s-rx">❤️ 25</span><span class="arc-s-rx">😄 18</span><span
+                  class="arc-s-rx">✨ 7</span></div>
+              <span style="font-size:11px;color:var(--text-faint);margin-left:4px;">총 50 · 전체 2위</span>
+            </div>
+          </div>
+        </div>
+        <div class="arc-sentence-item">
+          <div class="arc-sentence-rank">03</div>
+          <div class="arc-sentence-body">
+            <div class="arc-sentence-text">다은이 책을 열다가 닫는 장면. 읽어선 안 된다는 걸 알면서 손이 가는 그 감각이 인간적이었어요. 결국 닫기로 한 것도, 열려고 했던 것도
+              둘 다 다은이에요.</div>
+            <div class="arc-sentence-meta">
+              <div class="arc-sentence-author">
+                <div class="arc-s-av" style="background:#dce8f8;color:#2c5f8a;">구</div><span
+                  class="arc-s-name">구름위에서</span>
+              </div>
+              <div class="arc-s-rxs"><span class="arc-s-rx">✨ 22</span><span class="arc-s-rx">❤️ 18</span><span
+                  class="arc-s-rx">🤔 5</span></div>
+              <span style="font-size:11px;color:var(--text-faint);margin-left:4px;">총 45 · 전체 3위</span>
+            </div>
+          </div>
+        </div>
+        <div class="arc-sentence-item">
+          <div class="arc-sentence-rank">04</div>
+          <div class="arc-sentence-body">
+            <div class="arc-sentence-text">존재하지 않는 책인데 읽은 것 같은 기분이 들어요. 아니, 읽은 것보다 더 많이 생각한 것 같기도 하고. 이게 가공독서회의 마법인 것
+              같아요.</div>
+            <div class="arc-sentence-meta">
+              <div class="arc-sentence-author">
+                <div class="arc-s-av" style="background:#dce8f8;color:#2c5f8a;">구</div><span
+                  class="arc-s-name">구름위에서</span>
+              </div>
+              <div class="arc-s-rxs"><span class="arc-s-rx">❤️ 20</span><span class="arc-s-rx">😄 12</span><span
+                  class="arc-s-rx">✨ 8</span></div>
+              <span style="font-size:11px;color:var(--text-faint);margin-left:4px;">총 40 · 전체 4위</span>
+            </div>
+          </div>
+        </div>
+        <div class="arc-sentence-item">
+          <div class="arc-sentence-rank">05</div>
+          <div class="arc-sentence-body">
+            <div class="arc-sentence-text">구름 위의 도서관에서 가장 무서운 건 죽음이 아니라, '아직 살아있는데 기억이 먼저 도착했다'는 사실이에요. 그 사람은 알고 있을까요,
+              자기 기억이 이미 책이 됐다는 걸.</div>
+            <div class="arc-sentence-meta">
+              <div class="arc-sentence-author">
+                <div class="arc-s-av" style="background:#dcf4ec;color:#1d7a58;">살</div><span
+                  class="arc-s-name">살아있는기억</span>
+              </div>
+              <div class="arc-s-rxs"><span class="arc-s-rx">❤️ 23</span><span class="arc-s-rx">🤔 8</span><span
+                  class="arc-s-rx">✨ 7</span></div>
+              <span style="font-size:11px;color:var(--text-faint);margin-left:4px;">총 38 · 전체 5위</span>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- REACTION SUMMARY -->
+      <div class="arc-rx-summary">
+        <div class="arc-eyebrow">REACTION REPORT</div>
+        <div class="arc-section-title">독서회 반응 분석</div>
+        <div class="arc-section-sub">총 847개의 반응이 312개의 채팅 메시지와 58개의 댓글에 달렸습니다.</div>
+        <div class="arc-rx-grid">
+          <div class="arc-rx-card">
+            <div class="arc-rx-emoji">❤️</div>
+            <div class="arc-rx-label">공감해요 · 가장 많은 반응</div>
+            <div class="arc-rx-bar-wrap">
+              <div class="arc-rx-bar-bg">
+                <div class="arc-rx-bar-fill" style="width:88%;"></div>
+              </div>
+              <div class="arc-rx-count-label">347</div>
+            </div>
+          </div>
+          <div class="arc-rx-card">
+            <div class="arc-rx-emoji">✨</div>
+            <div class="arc-rx-label">인상 깊어요</div>
+            <div class="arc-rx-bar-wrap">
+              <div class="arc-rx-bar-bg">
+                <div class="arc-rx-bar-fill" style="width:72%;"></div>
+              </div>
+              <div class="arc-rx-count-label">284</div>
+            </div>
+          </div>
+          <div class="arc-rx-card">
+            <div class="arc-rx-emoji">🤔</div>
+            <div class="arc-rx-label">생각이 달라요 · 논쟁적 문장</div>
+            <div class="arc-rx-bar-wrap">
+              <div class="arc-rx-bar-bg">
+                <div class="arc-rx-bar-fill" style="width:43%;background:#c17b3f;"></div>
+              </div>
+              <div class="arc-rx-count-label">148</div>
+            </div>
+          </div>
+          <div class="arc-rx-card">
+            <div class="arc-rx-emoji">😄</div>
+            <div class="arc-rx-label">재밌어요</div>
+            <div class="arc-rx-bar-wrap">
+              <div class="arc-rx-bar-bg">
+                <div class="arc-rx-bar-fill" style="width:18%;"></div>
+              </div>
+              <div class="arc-rx-count-label">68</div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- CLOSING -->
+      <div class="arc-closing">
+        <div class="arc-closing-eyebrow">CLOSING NOTE</div>
+        <div class="arc-closing-title">존재하지 않는 책에 대한<br>가장 진실한 기록</div>
+        <div class="arc-closing-body">이 아카이브는 이제 구름 위 어딘가에 보관됩니다.<br>독자 서른 명의 기억이, 한 권의 책이 되어.<br><br>다음 독서회에서 또 만나요.
+        </div>
+        <div class="arc-closing-logo"><em>가공</em>독서회</div>
+      </div>
+
+      <!-- COLOPHON -->
+      <div class="arc-colophon">
+        <div class="arc-colophon-left">가공독서회 아카이브 북 Vol.7<br>『구름 위의 도서관』 독서회 기념 출판<br>발행: 가공독서회 편집팀 · 2025년 가을</div>
+        <div class="arc-colophon-right">이 책에 수록된 모든 감상은<br>실제 독자들의 상상에서 왔습니다.</div>
+      </div>
+
+    </div><!-- /arc-content -->
+  </div><!-- /pg-archive -->
+
+  <!-- ── CHAT HISTORY PAGE (종료된 독서방 채팅 열람 · 읽기 전용) ── -->
+  <div class="page" id="pg-chat-history">
+    <!-- 헤더: 뒤로가기 + 제목 + 읽기전용 뱃지 -->
+    <div class="chat-header" id="chat-history-header">
+      <button class="chat-header-back" onclick="goPage(window.lastPageBeforeArchive || 'detail')">←</button>
+      <div class="chat-header-info">
+        <div class="chat-header-title" id="chat-history-title">채팅방 기록 열람</div>
+        <div class="chat-header-meta" id="chat-history-meta">읽기 전용</div>
+      </div>
+      <!-- 읽기전용 뱃지 -->
+      <div class="chat-history-readonly-badge">📦 보관된 기록</div>
+      <div class="chat-header-book" id="chat-history-header-book" style="background:#4a7a3a;"></div>
+    </div>
+    <!-- 읽기 전용 안내 배너 -->
+    <div class="chat-history-readonly-notice">
+      <span>📜 이 채팅방은 종료된 독서방의 기록입니다. 새 메시지를 남기거나 반응을 남길 수 없습니다.</span>
+    </div>
+    <!-- 채팅 메시지 목록 (JS로 동적 렌더링) -->
+    <div class="chat-body chat-history-body" id="chat-history-body">
+      <div style="padding:60px 20px;text-align:center;color:var(--text-faint);font-size:14px;">
+        채팅 기록을 불러오는 중... 💬
+      </div>
+    </div>
+  </div><!-- /pg-chat-history -->
+
+  <!-- LOADING -->
+  <div class="loading-overlay" id="loading">
+    <div class="loading-box">
+      <div class="spinner"></div>
+      <p>AI가 새 책을 집필 중입니다...</p>
+    </div>
+  </div>
+  <div class="toast" id="toast"></div>
+
+  <!-- 프로필 편집 모달 (비밀번호 변경 및 계정 탈퇴) -->
+  <div class="custom-modal-overlay" id="profile-edit-modal" style="display: none;"
+    onclick="if(event.target===this) closeProfileEditModal()">
+    <div class="custom-modal-card">
+      <div class="custom-modal-header">
+        <h3>⚙️ 프로필 편집</h3>
+        <button class="custom-modal-close" onclick="closeProfileEditModal()">&times;</button>
+      </div>
+      <div class="custom-modal-body">
+        <!-- 1. 비밀번호 변경 영역 -->
+        <div class="modal-section-title">🔒 비밀번호 변경</div>
+        <div class="modal-input-group">
+          <label>현재 비밀번호</label>
+          <input type="password" id="edit-curr-pw" placeholder="현재 비밀번호를 입력하세요">
+        </div>
+        <div class="modal-input-group">
+          <label>새 비밀번호 (8자 이상)</label>
+          <input type="password" id="edit-new-pw" placeholder="8자 이상 입력하세요">
+        </div>
+        <div class="modal-input-group">
+          <label>새 비밀번호 확인</label>
+          <input type="password" id="edit-confirm-pw" placeholder="새 비밀번호를 한번 더 입력하세요">
+        </div>
+        <button class="modal-action-btn" onclick="submitChangePassword()">비밀번호 변경 적용</button>
+
+        <hr class="modal-divider">
+
+        <!-- 2. 회원 탈퇴 영역 -->
+        <div class="modal-section-title danger">⚠️ 가공독서회 탈퇴</div>
+        <p class="modal-warn-text">탈퇴 즉시 내 서재 목록, 작성한 감상(댓글) 및 대화 내역이 완전히 영구 삭제되며 절대 복구할 수 없습니다.</p>
+        <div class="modal-input-group">
+          <label>본인 확인 비밀번호</label>
+          <input type="password" id="withdraw-pw" placeholder="탈퇴 확인을 위해 비밀번호를 입력하세요">
+        </div>
+        <button class="modal-action-btn danger" onclick="submitWithdraw()">회원 탈퇴 및 계정 영구 삭제</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- 비밀번호 찾기 모달 -->
+  <div class="custom-modal-overlay" id="find-password-modal" style="display: none;"
+    onclick="if(event.target===this) closeFindPasswordModal()">
+    <div class="custom-modal-card" style="max-width: 420px;">
+      <div class="custom-modal-header">
+        <h3>✉️ 비밀번호 찾기</h3>
+        <button class="custom-modal-close" onclick="closeFindPasswordModal()">&times;</button>
+      </div>
+      <div class="custom-modal-body">
+        <p style="font-size: 13.5px; color: #6d6d6d; margin-bottom: 20px; line-height: 1.6;">
+          가입 시 사용하셨던 이메일 주소를 입력해 주세요.<br>
+          이메일이 확인되면 해당 메일로 임시 비밀번호를 즉시 전송해 드립니다.
+        </p>
+        <div class="modal-input-group">
+          <label>가입 이메일 주소</label>
+          <input type="email" id="find-pw-email" placeholder="example@email.com">
+        </div>
+        <button class="modal-action-btn" id="find-pw-submit-btn" style="background: #a06020;"
+          onclick="submitFindPassword()">임시 비밀번호 전송</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- ── INFO PAGE (이용 안내) ── -->
+  <div class="page" id="pg-info">
+    <div class="info-page-wrap">
+      <div class="info-page-header">
+        <button class="detail-back" onclick="goPage('home')">← 돌아가기</button>
+        <h1 class="info-page-title">이용 안내</h1>
+      </div>
+      <div class="info-page-body">
+        <div class="info-section">
+          <div class="info-section-label">📖 가공독서회란?</div>
+          <div class="info-section-text">
+            가공독서회는 AI가 생성한 <strong>존재하지 않는 가상의 책</strong>을 소재로, 독자들이 자유롭게 상상하고 이야기를 나누는 독서 모임 플랫폼입니다.<br><br>
+            실제로 읽은 책이 없어도 괜찮아요. 줄거리와 소개 글만 보고 그 책이 어떤 내용일지 상상하며 다른 독자들과 감상을 나눠보세요.
+          </div>
+        </div>
+        <div class="info-section">
+          <div class="info-section-label">🗓 독서방 운영 방식</div>
+          <div class="info-section-text">
+            <div class="info-list-item"><span class="info-list-dot"></span> 각 독서방은 <strong>약 10일간</strong> 운영됩니다.</div>
+            <div class="info-list-item"><span class="info-list-dot"></span> D-10 ~ D-4: 진행 중 (자유롭게 참여 가능)</div>
+            <div class="info-list-item"><span class="info-list-dot"></span> D-3 ~ D-1: 마감 임박 (활발한 토론 기간)</div>
+            <div class="info-list-item"><span class="info-list-dot"></span> 종료 후에는 <strong>아카이브</strong>에서 기록을 열람할 수
+              있습니다.</div>
+          </div>
+        </div>
+        <div class="info-section">
+          <div class="info-section-label">💬 참여 방법</div>
+          <div class="info-section-text">
+            <div class="info-list-item"><span class="info-list-dot"></span> 회원가입 후 독서방에 입장하면 바로 댓글을 남길 수 있습니다.</div>
+            <div class="info-list-item"><span class="info-list-dot"></span> 평점(★)과 이모지 반응(❤️ 🤔 😄 ✨)으로 의견을 표현할 수 있습니다.
+            </div>
+            <div class="info-list-item"><span class="info-list-dot"></span> 마음에 드는 책은 <strong>내 서재</strong>에 담아두세요.
+            </div>
+          </div>
+        </div>
+        <div class="info-section">
+          <div class="info-section-label">✦ 새 책 생성</div>
+          <div class="info-section-text">
+            홈 화면의 <strong>'새 책 생성'</strong> 버튼을 누르면 AI가 키워드를 무작위로 조합해 세상에 없는 책을 즉석에서 만들어냅니다. 생성된 책으로 새 독서방이 열립니다.
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ── CONTACT PAGE (1:1 문의) ── -->
+  <div class="page" id="pg-contact">
+    <div class="info-page-wrap">
+      <div class="info-page-header">
+        <button class="detail-back" onclick="goPage('home')">← 돌아가기</button>
+        <h1 class="info-page-title">1:1 문의</h1>
+      </div>
+      <div class="info-page-body">
+        <div class="info-section">
+          <div class="info-section-label">📬 문의 방법</div>
+          <div class="info-section-text">
+            서비스 이용 중 불편한 점이나 건의사항이 있으시면 아래 이메일로 문의해 주세요.<br><br>
+            담당자가 확인 후 <strong>영업일 기준 1~3일 이내</strong>에 답변드립니다.
+          </div>
+        </div>
+        <div class="info-section">
+          <div class="info-section-label">✉ 문의 이메일</div>
+          <div class="info-contact-email">gakongbooks@gmail.com</div>
+        </div>
+        <div class="info-section">
+          <div class="info-section-label">📋 문의 시 포함해 주세요</div>
+          <div class="info-section-text">
+            <div class="info-list-item"><span class="info-list-dot"></span> 가입하신 이메일 주소</div>
+            <div class="info-list-item"><span class="info-list-dot"></span> 문의 유형 (계정, 콘텐츠, 기술적 문제 등)</div>
+            <div class="info-list-item"><span class="info-list-dot"></span> 문제 상황을 자세히 설명해 주시면 빠른 처리에 도움이 됩니다.</div>
+          </div>
+        </div>
+        <div class="info-section">
+          <div class="info-section-label">⏰ 운영 시간</div>
+          <div class="info-section-text">
+            평일 10:00 ~ 18:00 (토·일·공휴일 제외)<br>
+            <span style="color:var(--text-faint);font-size:12px;">운영 시간 외 문의는 다음 영업일에 순차적으로 처리됩니다.</span>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ── TERMS PAGE (이용약관) ── -->
+  <div class="page" id="pg-terms">
+    <div class="info-page-wrap">
+      <div class="info-page-header">
+        <button class="detail-back" onclick="goPage('home')">← 돌아가기</button>
+        <h1 class="info-page-title">이용약관</h1>
+      </div>
+      <div class="info-page-body">
+        <div class="info-section">
+          <div class="info-section-label">제1조 (목적)</div>
+          <div class="info-section-text">
+            이 약관은 가공독서회(이하 "서비스")가 제공하는 AI 기반 가상 독서 모임 서비스의 이용과 관련하여 서비스와 이용자 간의 권리, 의무 및 책임사항을 규정함을 목적으로 합니다.
+          </div>
+        </div>
+        <div class="info-section">
+          <div class="info-section-label">제2조 (서비스 내용)</div>
+          <div class="info-section-text">
+            <div class="info-list-item"><span class="info-list-dot"></span> AI가 생성한 가상 도서 정보 제공</div>
+            <div class="info-list-item"><span class="info-list-dot"></span> 독서방 참여 및 댓글·평점·반응 기능</div>
+            <div class="info-list-item"><span class="info-list-dot"></span> 개인 서재 관리 기능</div>
+            <div class="info-list-item"><span class="info-list-dot"></span> 종료된 독서방의 아카이브 열람</div>
+          </div>
+        </div>
+        <div class="info-section">
+          <div class="info-section-label">제3조 (회원의 의무)</div>
+          <div class="info-section-text">
+            이용자는 다음 행위를 하여서는 안 됩니다.<br><br>
+            <div class="info-list-item"><span class="info-list-dot"></span> 타인의 개인정보 도용 또는 허위 정보 등록</div>
+            <div class="info-list-item"><span class="info-list-dot"></span> 서비스 운영을 방해하는 행위</div>
+            <div class="info-list-item"><span class="info-list-dot"></span> 타인에 대한 비방, 욕설 등 불건전한 내용 게시</div>
+            <div class="info-list-item"><span class="info-list-dot"></span> 상업적 목적의 무단 광고 게시</div>
+          </div>
+        </div>
+        <div class="info-section">
+          <div class="info-section-label">제4조 (콘텐츠 안내)</div>
+          <div class="info-section-text">
+            본 서비스의 모든 도서 정보는 AI가 생성한 <strong>가상의 창작물</strong>입니다. 실존하는 책, 작가, 출판사와 무관하며, 가격 또한 참고용 가상 가격입니다.
+          </div>
+        </div>
+        <div class="info-section">
+          <div class="info-section-label">제5조 (약관 변경)</div>
+          <div class="info-section-text">
+            서비스는 필요한 경우 약관을 변경할 수 있으며, 변경된 약관은 서비스 내 공지를 통해 이용자에게 안내합니다.<br>
+            <span style="color:var(--text-faint);font-size:12px;">최종 개정: 2026년 6월</span>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ── PRIVACY PAGE (개인정보처리방침) ── -->
+  <div class="page" id="pg-privacy">
+    <div class="info-page-wrap">
+      <div class="info-page-header">
+        <button class="detail-back" onclick="goPage('home')">← 돌아가기</button>
+        <h1 class="info-page-title">개인정보 처리방침</h1>
+      </div>
+      <div class="info-page-body">
+        <div class="info-section">
+          <div class="info-section-label">수집하는 개인정보 항목</div>
+          <div class="info-section-text">
+            <div class="info-list-item"><span class="info-list-dot"></span> <strong>필수:</strong> 이메일 주소, 비밀번호(암호화 저장),
+              닉네임</div>
+            <div class="info-list-item"><span class="info-list-dot"></span> <strong>자동 수집:</strong> 서비스 이용 기록(독서방 참여,
+              댓글, 평점)</div>
+          </div>
+        </div>
+        <div class="info-section">
+          <div class="info-section-label">개인정보 수집 목적</div>
+          <div class="info-section-text">
+            <div class="info-list-item"><span class="info-list-dot"></span> 회원 식별 및 서비스 제공</div>
+            <div class="info-list-item"><span class="info-list-dot"></span> 독서방 참여 기록 및 서재 관리</div>
+            <div class="info-list-item"><span class="info-list-dot"></span> 고객 문의 응대</div>
+          </div>
+        </div>
+        <div class="info-section">
+          <div class="info-section-label">개인정보 보유 및 이용기간</div>
+          <div class="info-section-text">
+            회원 탈퇴 시까지 보유하며, 탈퇴 후 즉시 파기합니다.<br>
+            단, 관련 법령에 의해 보존이 필요한 경우 해당 기간 동안 보관합니다.
+          </div>
+        </div>
+        <div class="info-section">
+          <div class="info-section-label">제3자 제공</div>
+          <div class="info-section-text">
+            가공독서회는 이용자의 개인정보를 <strong>제3자에게 제공하지 않습니다.</strong><br>
+            단, 법령의 규정에 의거하거나 수사 목적으로 요청이 있는 경우에는 예외로 합니다.
+          </div>
+        </div>
+        <div class="info-section">
+          <div class="info-section-label">이용자의 권리</div>
+          <div class="info-section-text">
+            <div class="info-list-item"><span class="info-list-dot"></span> 언제든지 개인정보 열람, 수정, 삭제를 요청할 수 있습니다.</div>
+            <div class="info-list-item"><span class="info-list-dot"></span> 문의: gakongbooks@gmail.com</div>
+            <div class="info-list-item"><span class="info-list-dot" style="background:transparent;"></span> <span
+                style="color:var(--text-faint);font-size:12px;">최종 개정: 2026년 6월</span></div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ── 공통 푸터 ── -->
+  <footer class="home-footer" id="global-footer">
+    <div class="home-footer-inner">
+      <div class="home-footer-logo"><em>가공</em>독서회</div>
+      <div class="home-footer-links">
+        <button id="footer-link-info" class="home-footer-link" onclick="goPage('info')">이용 안내</button>
+        <span class="home-footer-sep">·</span>
+        <button id="footer-link-contact" class="home-footer-link" onclick="goPage('contact')">1:1 문의</button>
+        <span class="home-footer-sep">·</span>
+        <button id="footer-link-terms" class="home-footer-link" onclick="goPage('terms')">이용약관</button>
+        <span class="home-footer-sep">·</span>
+        <button id="footer-link-privacy" class="home-footer-link home-footer-link--bold" onclick="goPage('privacy')">개인정보 처리방침</button>
+      </div>
+      <div class="home-footer-copy">© 가공독서회 — AI가 만든 책으로 함께하는 독서 모임</div>
+    </div>
+  </footer>
+  <!-- External Modular Scripts -->
+  <script src="static/js/auth.js"></script>
+  <script src="static/js/books.js"></script>
+</body>
+
+</html>

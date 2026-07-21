@@ -1,0 +1,83 @@
+<!-- ── AUTH GATE PAGE ── -->
+  <div class="page" id="pg-auth-gate">
+    <div class="auth-gate">
+      <div class="auth-gate-icon">🔒</div>
+      <div class="auth-gate-title">내 서재</div>
+      <div class="auth-gate-desc">내 서재를 확인하려면<br>로그인이 필요합니다.<br>가공독서회 계정으로 나만의 독서 기록을 시작해보세요.</div>
+      <div class="auth-gate-btns">
+        <button class="auth-gate-btn-primary" onclick="goPage(&#39;login&#39;)">로그인</button>
+        <div class="auth-gate-divider"><span>또는</span></div>
+        <button class="auth-gate-btn-secondary" onclick="goPage(&#39;signup&#39;)">회원가입</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- ── LOGIN PAGE ── -->
+  <div class="page" id="pg-login">
+    <div class="auth-page">
+      <div class="auth-hero">
+        <button class="auth-hero-back" onclick="goPage(&#39;auth-gate&#39;)">← 돌아가기</button>
+        <div class="auth-hero-label">SIGN IN</div>
+        <div class="auth-hero-title">다시 만나서<br>반가워요</div>
+        <div class="auth-hero-sub">존재하지 않는 책들이 기다리고 있어요.</div>
+      </div>
+      <div class="auth-form-area">
+        <div class="auth-field">
+          <label class="auth-label">이메일</label>
+          <input class="auth-input" id="login-email" type="email" placeholder="이메일 주소를 입력하세요">
+          <div class="auth-error" id="login-email-err">올바른 이메일 형식을 입력해주세요.</div>
+        </div>
+        <div class="auth-field">
+          <label class="auth-label">비밀번호</label>
+          <input class="auth-input" id="login-pw" type="password" placeholder="비밀번호를 입력하세요"
+            onkeydown="if(event.key===&#39;Enter&#39;) submitLogin()">
+          <div class="auth-error" id="login-pw-err">비밀번호를 입력해주세요.</div>
+          <div style="display: flex; justify-content: flex-end; margin-top: 6px;">
+            <button class="auth-switch-link" style="font-size: 13px; color: #a06020;"
+              onclick="openFindPasswordModal()">비밀번호를 잊으셨나요?</button>
+          </div>
+        </div>
+        <button class="auth-submit" onclick="submitLogin()">로그인</button>
+        <div class="auth-switch">
+          아직 계정이 없으신가요?&nbsp;
+          <button class="auth-switch-link" onclick="goPage(&#39;signup&#39;)">회원가입</button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ── SIGNUP PAGE ── -->
+  <div class="page" id="pg-signup">
+    <div class="auth-page">
+      <div class="auth-hero">
+        <button class="auth-hero-back" onclick="goPage(&#39;auth-gate&#39;)">← 돌아가기</button>
+        <div class="auth-hero-label">CREATE ACCOUNT</div>
+        <div class="auth-hero-title">가공독서회에<br>오신 걸 환영해요</div>
+        <div class="auth-hero-sub">세상에 없는 책을 함께 읽어봐요.</div>
+      </div>
+      <div class="auth-form-area">
+        <div class="auth-nick-card">
+          <div class="auth-nick-label">✦ 부여된 독서 닉네임</div>
+          <div class="auth-nick-name" id="signup-nick-display"></div>
+          <div class="auth-nick-desc">가입과 동시에 랜덤으로 배정되는 닉네임입니다.<br>독서방에서 이 이름으로 활동하게 됩니다.</div>
+        </div>
+        <div class="auth-field">
+          <label class="auth-label">이메일</label>
+          <input class="auth-input" id="signup-email" type="email" placeholder="이메일 주소를 입력하세요">
+          <div class="auth-error" id="signup-email-err">올바른 이메일 형식을 입력해주세요.</div>
+        </div>
+        <div class="auth-field">
+          <label class="auth-label">비밀번호</label>
+          <input class="auth-input" id="signup-pw" type="password" placeholder="8자 이상 입력하세요"
+            onkeydown="if(event.key===&#39;Enter&#39;) submitSignup()">
+          <div class="auth-error" id="signup-pw-err">비밀번호는 8자 이상이어야 해요.</div>
+        </div>
+        <button class="auth-submit" onclick="submitSignup()">회원가입</button>
+        <div class="auth-terms">가입 시 가공독서회의 이용약관 및<br>개인정보처리방침에 동의하게 됩니다.</div>
+        <div class="auth-switch">
+          이미 계정이 있으신가요?&nbsp;
+          <button class="auth-switch-link" onclick="goPage(&#39;login&#39;)">로그인</button>
+        </div>
+      </div>
+    </div>
+  </div>

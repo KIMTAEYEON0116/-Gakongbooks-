@@ -1,0 +1,183 @@
+<!-- ── DETAIL PAGE ── -->
+  <div class="page" id="pg-detail">
+    <div class="detail-header">
+      <button class="detail-back" onclick="goPage(&#39;home&#39;)">← 독서방 목록으로</button>
+      <div class="detail-top">
+        <div class="detail-cover" id="dc-cover" style="background: rgb(123, 95, 184);">
+          <div class="detail-cover-spine"></div>
+          <span id="dc-title-txt">오후 세 시의 해부학</span>
+        </div>
+        <div class="detail-info">
+          <div class="detail-genre-badge" id="dc-genre" style="vertical-align: middle;">심리소설</div>
+          <button id="dc-delete-btn" class="btn-delete"
+            style="display: none; vertical-align: middle; margin-left: 8px; margin-bottom: 10px;"
+            onclick="deleteBook()">삭제</button>
+          <div class="dday-row">
+            <div class="detail-title" id="dc-title" style="margin-bottom:0;">오후 세 시의 해부학</div>
+            <span class="dday-badge normal" id="dc-dday"><span class="dday-dot"></span>D-5</span>
+            <span id="dc-detail-count"
+              style="font-size:11px; font-weight:600; color:rgba(255,255,255,0.9); background:rgba(255,255,255,0.15); border:1px solid rgba(255,255,255,0.1); padding:3px 8px; border-radius:5px; margin-left:6px; display:inline-flex; align-items:center; gap:3px; letter-spacing:0.02em;">👥
+              0명</span>
+          </div>
+          <div class="detail-author" id="dc-author">가상 작가 박연우 (가상)</div>
+          <div class="detail-synopsis" id="dc-synopsis">전직 외과의사 강민이 어느 날 자신이 해부한 시체가 자신의 과거 연인임을 발견한다. 기억 속에서만 살아있던 그녀의
+            내장 속에 담긴 편지들. 죽은 자가 보낸 마지막 고백이 외과의사의 삶을 재편한다.</div>
+          <div class="detail-tags" id="dc-tags"><span class="detail-tag">#기억</span><span
+              class="detail-tag">#상실</span><span class="detail-tag">#의학</span><span class="detail-tag">#미스터리</span>
+          </div>
+          <div style="display: flex; gap: 8px;">
+            <div class="detail-price" id="dc-page-count">350쪽</div>
+            <div class="detail-price" id="dc-price">₩14,800 (10% 할인가)</div>
+          </div>
+          <!-- 아카이브 배너 (아카이브된 책에만 표시) -->
+          <div id="dc-archive-banner"
+            style="display:none;margin-top:20px;margin-bottom:12px;padding:10px 14px;background:linear-gradient(135deg,#f5f0e6,#ebe2d3);border-left:3px solid #8b4f25;border-radius:6px;font-size:12px;color:#5c3a21;line-height:1.6;width:fit-content;">
+            <span style="font-weight:700;letter-spacing:0.05em;"><span style="color:#d9534f; margin-right:3px;">●</span>
+              종료</span> · 이 독서방은 종료되었습니다.<br>
+            <span id="dc-archive-date" style="color:#7a5a41;"></span>
+          </div>
+          <div class="detail-action-row">
+            <button class="btn-join" id="dc-main-btn" onclick="openChat()">독서방 참여하기</button>
+            <button class="btn-chat-history" id="dc-chat-history-btn" style="display:none;">💬 채팅 열람하기</button>
+            <button class="btn-wish" id="dc-wish-btn" onclick="addToLib()">+ 내 서재에 담기</button>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- ── 👑 명예의 전당 (베스트 상상 독자 리뷰) ── -->
+    <div id="dc-best-imagination-section" style="display: none; margin: 20px 22px 0; padding: 20px 22px; background: linear-gradient(135deg, #fffcf5 0%, #f7f1e3 100%); border: 1.5px solid #e0c896; border-radius: 12px; box-shadow: 0 4px 16px rgba(180, 140, 60, 0.08);">
+      <div style="display: flex; align-items: center; justify-content: space-between; margin-bottom: 14px; border-bottom: 1px solid #ebd9b5; padding-bottom: 10px;">
+        <div style="font-family: var(--serif); font-size: 15px; font-weight: 700; color: #7a5016; display: flex; align-items: center; gap: 8px;">
+          <span style="font-size: 18px;">👑</span> 명예의 전당 · 베스트 상상 독자 리뷰
+        </div>
+        <span style="font-size: 11px; font-weight: 600; color: #a36b1d; background: #f3e5c8; padding: 3px 9px; border-radius: 12px;">🏆 베스트 상상 픽</span>
+      </div>
+      <div id="dc-best-imagination-list" style="display: flex; flex-direction: column; gap: 12px;">
+        <!-- JS에서 동적 렌더링 -->
+      </div>
+    </div>
+
+    <!-- ── STATS SECTION ── -->
+    <div class="stats-section">
+      <div class="stats-inner">
+
+        <!-- 평균 평점 -->
+        <div id="stats-rating-panel">
+          <div class="stats-panel-label">평균 평점</div>
+          <div class="stats-avg-row">
+            <span class="stats-avg-num" id="stats-avg-num">4.4</span>
+            <span class="stats-avg-denom">/ 5</span>
+          </div>
+          <div class="stats-stars-row" id="stats-avg-stars"><span class="stat-star"
+              style="color: rgb(232, 160, 48);">★</span><span class="stat-star"
+              style="color: rgb(232, 160, 48);">★</span><span class="stat-star"
+              style="color: rgb(232, 160, 48);">★</span><span class="stat-star"
+              style="color: rgb(232, 160, 48);">★</span><span class="stat-star"
+              style="color: rgb(221, 221, 221);">☆</span></div>
+          <div class="stats-bars" id="stats-bars">
+            <div class="stats-bar-row"><span class="stats-bar-lbl">5★</span>
+              <div class="stats-bar-track">
+                <div class="stats-bar-fill" style="width:58%"></div>
+              </div><span class="stats-bar-pct">58%</span>
+            </div>
+            <div class="stats-bar-row"><span class="stats-bar-lbl">4★</span>
+              <div class="stats-bar-track">
+                <div class="stats-bar-fill" style="width:25%"></div>
+              </div><span class="stats-bar-pct">25%</span>
+            </div>
+            <div class="stats-bar-row"><span class="stats-bar-lbl">3★</span>
+              <div class="stats-bar-track">
+                <div class="stats-bar-fill" style="width:17%"></div>
+              </div><span class="stats-bar-pct">17%</span>
+            </div>
+            <div class="stats-bar-row"><span class="stats-bar-lbl">2★</span>
+              <div class="stats-bar-track">
+                <div class="stats-bar-fill" style="width:0%"></div>
+              </div><span class="stats-bar-pct">0%</span>
+            </div>
+            <div class="stats-bar-row"><span class="stats-bar-lbl">1★</span>
+              <div class="stats-bar-track">
+                <div class="stats-bar-fill" style="width:0%"></div>
+              </div><span class="stats-bar-pct">0%</span>
+            </div>
+          </div>
+          <div class="stats-my-row" id="stats-my-row">
+            <span class="stats-my-lbl">내 평점</span>
+            <div class="stats-my-stars" id="stats-my-stars"><span class="stats-my-locked"><span
+                  class="stats-my-locked-icon">🔒</span>독서방에 참여하면 평점을 남길 수 있어요 <button class="stats-my-join-btn"
+                  onclick="openChat()">참여하기</button></span></div>
+          </div>
+        </div>
+
+        <div class="stats-divider"></div>
+
+        <!-- 채팅 반응 -->
+        <div style="padding-left:20px;" id="stats-rx-panel">
+          <div class="stats-panel-label">채팅 반응</div>
+          <div class="rx-stat-top" id="stats-rx-top">
+            <div class="rx-stat-top-emoji">❤️</div>
+            <div class="rx-stat-top-info">
+              <div class="rx-stat-top-pct">38%</div>
+              <div class="rx-stat-top-lbl">공감해요</div>
+            </div>
+            <div style="margin-left:auto;font-size:11px;color:var(--text-muted)">가장 많은 반응</div>
+          </div>
+          <div class="rx-stat-list" id="stats-rx-list">
+            <div class="rx-stat-row"><span class="rx-stat-emoji">❤️</span><span class="rx-stat-name">공감해요</span>
+              <div class="rx-stat-track">
+                <div class="rx-stat-fill" style="width:38%;background:#e05c7a"></div>
+              </div><span class="rx-stat-pct">38%</span>
+            </div>
+            <div class="rx-stat-row"><span class="rx-stat-emoji">🤔</span><span class="rx-stat-name">생각이 달라요</span>
+              <div class="rx-stat-track">
+                <div class="rx-stat-fill" style="width:10%;background:#7b8fcc"></div>
+              </div><span class="rx-stat-pct">10%</span>
+            </div>
+            <div class="rx-stat-row"><span class="rx-stat-emoji">😄</span><span class="rx-stat-name">재밌어요</span>
+              <div class="rx-stat-track">
+                <div class="rx-stat-fill" style="width:21%;background:#e8a030"></div>
+              </div><span class="rx-stat-pct">21%</span>
+            </div>
+            <div class="rx-stat-row"><span class="rx-stat-emoji">✨</span><span class="rx-stat-name">인상 깊어요</span>
+              <div class="rx-stat-track">
+                <div class="rx-stat-fill" style="width:31%;background:#7b5fb8"></div>
+              </div><span class="rx-stat-pct">31%</span>
+            </div>
+          </div>
+        </div>
+
+      </div>
+    </div>
+
+    <!-- 추천사 & 출판사 서평 -->
+    <div class="endorse-section" id="endorse-section">
+      <div class="endorse-block">
+        <div class="endorse-label">추천사</div>
+        <div class="endorse-quote" id="endorse-quote">상실과 해부학이 만나는 지점에서 언어가 탄생한다. 박연우는 감정을 해부하는 법을 알고 있다.</div>
+        <div class="endorse-attr" id="endorse-attr">— 문학평론가 황수연</div>
+      </div>
+      <div class="endorse-block">
+        <div class="endorse-label">출판사 서평</div>
+        <div class="publisher-txt" id="publisher-txt">인체의 구조와 기억의 구조가 얼마나 닮아 있는지, 이 소설은 그 사실을 조용하고 정확하게 보여준다. 외과의사의 손끝에서
+          시작된 이야기가 독자의 심장 어딘가를 정확히 건드릴 것이다.</div>
+      </div>
+      <!-- 도서 상세 목차 -->
+      <div class="immersion-board-wrapper" style="margin-top: 36px; padding-top: 24px; border-top: 1px dashed #e0dbce;">
+        <div class="immersion-board-title" style="font-family: var(--serif); font-size: 16px; font-weight: 700; color: var(--text); margin-bottom: 16px; display: flex; align-items: center; gap: 6px;">
+          <span style="color: var(--accent);">✦</span> 도서 상세 목차
+        </div>
+        
+        <div class="immersion-panes" style="background: #faf9f5; border: 1px solid var(--border); border-radius: 8px; padding: 18px; min-height: 120px;">
+          <!-- 상세 목차 Pane -->
+          <div class="immersion-pane" id="im-pane-toc" style="display: block;">
+            <div id="dc-toc-list" style="display: flex; flex-direction: column; gap: 12px;">
+              <!-- JS에서 동적 렌더링 -->
+            </div>
+            <div id="dc-toc-empty" style="display: none; text-align: center; color: var(--text-muted); font-size: 13px; padding: 20px 0;">상세 목차 데이터가 없습니다.</div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+  </div>

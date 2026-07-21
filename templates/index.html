@@ -1,0 +1,42 @@
+<!DOCTYPE html>
+
+<html lang="ko">
+
+<head>
+  <meta http-equiv="Content-Type" content="text/html; charset=UTF-8">
+
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>가공독서회</title>
+  <link
+    href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=Playfair+Display:ital,wght@0,600;0,700;1,600&family=Outfit:wght@300;400;500;600;700&display=swap"
+    rel="stylesheet">
+
+  <link rel="stylesheet" href="static/css/styles.css?v=3">
+</head>
+
+<body>
+
+  {% include 'components/nav.html' %}
+
+  {% include 'pages/home.html' %}
+
+  {% include 'pages/detail.html' %}
+
+  {% include 'pages/candidates.html' %}
+
+  {% include 'pages/auth.html' %}
+
+  {% include 'pages/library.html' %}
+
+  {% include 'pages/chat.html' %}
+
+  {% include 'pages/guide_and_info.html' %}
+
+  {% include 'components/footer.html' %}
+
+  <!-- ── JAVASCRIPT MODULES ── -->
+  <script src="/static/js/auth.js"></script>
+  <script src="/static/js/books.js"></script>
+</body>
+
+</html>

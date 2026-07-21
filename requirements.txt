@@ -1,0 +1,10 @@
+fastapi
+uvicorn
+sqlalchemy
+pymysql
+cryptography
+bcrypt
+pyjwt
+httpx
+python-dotenv
+jinja2

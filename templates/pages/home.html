@@ -1,0 +1,42 @@
+<!-- ── HOME PAGE ── -->
+  <div class="page active" id="pg-home">
+    <div class="hero">
+      <div class="hero-label">FICTION READING CLUB</div>
+      <div class="hero-title">존재하지 않는 책을<br>함께 읽어요</div>
+      <div class="hero-desc">AI가 만든 가상의 책 줄거리를 보고, 그 책이 어떤 내용일지 상상하며 다른 독자들과 이야기를 나눕니다.<br>한 번도 읽은 적 없는 책에 대해 가장 깊이 있는
+        감상을 나눠보세요.</div>
+    </div>
+
+    <!-- 새 책 소환하기 -->
+    <div class="gen-section">
+      <div class="gen-text">
+        <h3>새 책 소환하기</h3>
+        <p>AI가 키워드를 무작위로 조합해 세상에 없는 책을 만들어냅니다. 생성된 책으로 새 독서방이 열립니다.</p>
+      </div>
+      <button class="gen-btn" id="gen-btn" onclick="generateBook()">✦ 새 책 생성</button>
+    </div>
+
+    <!-- ① 장르별 모아보기 -->
+    <div class="home-section">
+      <div class="home-section-header">
+        <span class="home-section-title">장르별 모아보기</span>
+        <span class="home-section-sub" id="genre-meta"><span style="color:var(--accent)">심리소설</span> <span
+            id="genre-count">1</span>개</span>
+      </div>
+      <div class="genre-tabs" id="genre-tabs"></div>
+      <div class="cards-grid" id="cards-grid">
+      </div>
+    </div>
+
+    <div style="height:1px;background:var(--border-light);margin:4px 0 0;"></div>
+
+    <!-- ② 기간 임박 순서대로 보기 -->
+    <div class="home-section" style="">
+      <div class="home-section-header">
+        <span class="home-section-title">기간 임박 순서대로 보기</span>
+        <span class="home-section-sub">마감이 가까운 독서방</span>
+      </div>
+      <div class="deadline-list" id="deadline-list">
+      </div>
+    </div>
+  </div>
