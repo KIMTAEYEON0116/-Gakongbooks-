@@ -19,3 +19,4 @@ nicknames_pool.json
 # 목업 폴더 전체 제외 및 백업 파일 exclusion
 목업/
 index_standalone.html.bak
+FUTURE_ROADMAP.md
