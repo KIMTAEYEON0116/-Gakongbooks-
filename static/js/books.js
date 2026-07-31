@@ -205,11 +205,51 @@
       renderDeadlineSection();
     }
 
-    function renderGenreSection() {
+    
+    // ── 장르 다국어 (한국어 / 일본어) 번역 맵 ──
+    var GENRE_I18N = {
+      '전체': { ko: '전체', ja: 'すべて' },
+      '아카이브': { ko: '🗃 아카이브', ja: '🗃 アーカイブ' },
+      '판타지': { ko: '판타지', ja: 'ファンタジー' },
+      '에세이/비문학': { ko: '에세이/비문학', ja: 'エッセイ/ノンフィクション' },
+      '소설': { ko: '소설', ja: '小説' },
+      '로맨스': { ko: '로맨스', ja: 'ロマンス' },
+      '로맨스 판타지': { ko: '로맨스 판타지', ja: 'ロマンスファンタジー' },
+      '청춘/로맨스': { ko: '청춘/로맨스', ja: '青春/ロマンス' },
+      '힐링/일상소설': { ko: '힐링/일상소설', ja: 'ヒーリング/日常小説' },
+      '코믹/유머 에세이': { ko: '코믹/유머 에세이', ja: 'コミック/ユーモアエッセイ' },
+      'SF/스페이스 탐험': { ko: 'SF/스페이스 탐험', ja: 'SF/スペース探検' },
+      '추리/미스터리': { ko: '추리/미스터리', ja: '推理/ミステリー' },
+      '판타지 모험': { ko: '판타지 모험', ja: 'ファンタジー冒険' },
+      '철학적 에세이': { ko: '철학적 에세이', ja: '哲学エッセイ' },
+      '드라마/성장소설': { ko: '드라마/성장소설', ja: 'ドラマ/成長小説' },
+      '심리소설': { ko: '심리소설', ja: '心理小説' },
+      '드라마': { ko: '드라마', ja: 'ドラマ' },
+      'SF': { ko: 'SF', ja: 'SF' },
+      '미스터리': { ko: '미스터리', ja: 'ミステリー' }
+    };
+
+    function translateGenre(genre) {
+      var lang = (typeof CURRENT_LANG !== 'undefined') ? CURRENT_LANG : 'ko';
+      if (lang === 'ja' && GENRE_I18N[genre] && GENRE_I18N[genre].ja) {
+        return GENRE_I18N[genre].ja;
+      }
+      return genre;
+    }
+    window.translateGenre = translateGenre;
+
+
+function renderGenreSection() {
       var tabsEl = document.getElementById('genre-tabs');
       if (!tabsEl) return;
       var activeBooks = BOOKS.filter(function (b) { return !b.archived; });
       var archivedBooks = BOOKS.filter(function (b) { return b.archived; });
+
+      if (typeof currentGenre !== 'undefined' && currentGenre !== '전체' && currentGenre !== '아카이브') {
+        if (!activeBooks.some(function(b) { return b.genre === currentGenre; })) {
+          currentGenre = '전체';
+        }
+      }
 
       // Genre tabs — only from active books + 아카이브 special tab
       var genres = ['전체'].concat((function () {
@@ -223,7 +263,7 @@
         var btn = document.createElement('button');
         var isArc = g === '아카이브';
         btn.className = 'genre-tab' + (isArc ? ' arc-tab' : '') + (g === currentGenre ? ' active' : '');
-        btn.textContent = g;
+        btn.textContent = translateGenre(g);
         if (isArc) btn.innerHTML = '🗃 아카이브';
         btn.onclick = async function () {
           currentGenre = g;
@@ -247,7 +287,7 @@
           el.style.cursor = 'pointer';
           el.onclick = (function (bid) { return function () { openDetail(bid); }; })(b.id);
           el.innerHTML =
-            '<div class="card-cover" style="background:' + b.color + ';position:relative;">' +
+            '<div class="card-cover" style="' + getCoverCss(b) + '">' +
             '<div class="card-spine"></div>' +
             '<span>' + b.title + '</span>' +
             '<div class="arc-card-overlay">' +
@@ -284,12 +324,12 @@
           el.className = 'card';
           el.onclick = function () { openDetail(b.id); };
           el.innerHTML =
-            '<div class="card-cover" style="background:' + b.color + '">' +
+            '<div class="card-cover" style="' + getCoverCss(b) + '">' +
             '<div class="card-spine"></div>' +
             '<span>' + b.title + '</span>' +
             '</div>' +
             '<div class="card-body">' +
-            '<span class="card-genre">' + b.genre + '</span>' +
+            '<span class="card-genre">' + translateGenre(b.genre) + '</span>' +
             '<div class="card-title">' + b.title + '</div>' +
             '<div class="card-synopsis">' + b.synopsis + '</div>' +
             '<div class="card-footer">' +
@@ -338,9 +378,9 @@
         el.innerHTML =
           '<div class="deadline-badge" style="background:' + badgeBg + '">' +
           '<div class="deadline-days">' + days + '</div>' +
-          '<div class="deadline-lbl">일 남음</div>' +
+          '<div class="deadline-lbl">'+(typeof CURRENT_LANG !== 'undefined' && CURRENT_LANG === 'ja' ? '日残り' : '일 남음')+'</div>' +
           '</div>' +
-          '<div class="deadline-mini-cover" style="background:' + b.color + '">' +
+          '<div class="deadline-mini-cover" style="' + getCoverCss(b) + '">' +
           '<div class="deadline-mini-spine"></div>' +
           '</div>' +
           '<div class="deadline-info">' +
@@ -381,9 +421,9 @@
       if (!book) return;
       currentBook = book;
 
-      document.getElementById('dc-cover').style.background = book.color;
+      var dcCov = document.getElementById('dc-cover'); if (dcCov) { dcCov.style.cssText = getCoverCss(book); }
       document.getElementById('dc-title-txt').textContent = book.title;
-      document.getElementById('dc-genre').textContent = book.genre;
+      document.getElementById('dc-genre').textContent = translateGenre(book.genre);
       document.getElementById('dc-title').textContent = book.title;
       document.getElementById('dc-author').textContent = book.author;
       document.getElementById('dc-detail-count').textContent = '👥 ' + book.count + '명';
@@ -483,7 +523,7 @@
 
         // 버튼 전환
         if (mainBtn) {
-          mainBtn.textContent = '📖 아카이브 열람하기';
+          mainBtn.textContent = (typeof CURRENT_LANG !== 'undefined' && CURRENT_LANG === 'ja' ? '📖 アーカイブを閲覧する' : '📖 아카이브 열람하기');
           mainBtn.style.cssText = 'background:linear-gradient(135deg,#4a7a3a,#2d7a50);border-color:#4a7a3a;';
           mainBtn.onclick = function() { openArchive(book.id); };
         }
@@ -497,10 +537,10 @@
         if (wishBtn) {
           wishBtn.style.display = '';
           if (libBooks.some(function (b) { return b.id == book.id; })) {
-            wishBtn.innerHTML = '✓ 서재에서 제외하기';
+            wishBtn.innerHTML = (typeof CURRENT_LANG !== 'undefined' && CURRENT_LANG === 'ja' ? '✓ 書斎から削除' : '✓ 내 서재에서 제거');
             wishBtn.onclick = function() { removeFromLib(book.id); };
           } else {
-            wishBtn.innerHTML = '+ 내 서재에 담기';
+            wishBtn.innerHTML = (typeof CURRENT_LANG !== 'undefined' && CURRENT_LANG === 'ja' ? '+ 書斎に追加' : '+ 내 서재에 담기');
             wishBtn.onclick = function() { addToLib(); };
           }
         }
@@ -569,7 +609,7 @@
 
         // 버튼 복원
         if (mainBtn) {
-          mainBtn.textContent = '독서방 참여하기';
+          mainBtn.textContent = (typeof CURRENT_LANG !== 'undefined' && CURRENT_LANG === 'ja' ? '読書室に参加する' : '독서방 참여하기');
           mainBtn.style.cssText = '';
           mainBtn.onclick = function() { openChat(); };
         }
@@ -579,10 +619,10 @@
         if (wishBtn) {
           wishBtn.style.display = '';
           if (libBooks.some(function (b) { return b.id == book.id; })) {
-            wishBtn.innerHTML = '✓ 서재에서 제외하기';
+            wishBtn.innerHTML = (typeof CURRENT_LANG !== 'undefined' && CURRENT_LANG === 'ja' ? '✓ 書斎から削除' : '✓ 내 서재에서 제거');
             wishBtn.onclick = function() { removeFromLib(book.id); };
           } else {
-            wishBtn.innerHTML = '+ 내 서재에 담기';
+            wishBtn.innerHTML = (typeof CURRENT_LANG !== 'undefined' && CURRENT_LANG === 'ja' ? '+ 書斎に追加' : '+ 내 서재에 담기');
             wishBtn.onclick = function() { addToLib(); };
           }
         }
@@ -597,7 +637,7 @@
       var delBtn = document.getElementById('dc-delete-btn');
       if (delBtn) {
         if (isLoggedIn && currentUser && (currentUser.isAdmin || currentUser.email === 'kty98116@naver.com')) {
-          delBtn.style.display = 'inline-block';
+          delBtn.style.display = 'inline-block'; delBtn.textContent = (typeof CURRENT_LANG !== 'undefined' && CURRENT_LANG === 'ja' ? '削除' : '삭제');
         } else {
           delBtn.style.display = 'none';
         }
@@ -1100,7 +1140,7 @@
       showToast('내 서재에 담았어요 📚');
       var wishBtn = document.getElementById('dc-wish-btn');
       if (wishBtn) {
-        wishBtn.innerHTML = '✓ 서재에서 제외하기';
+        wishBtn.innerHTML = (typeof CURRENT_LANG !== 'undefined' && CURRENT_LANG === 'ja' ? '✓ 書斎から削除' : '✓ 내 서재에서 제거');
         wishBtn.onclick = function() { removeFromLib(currentBook.id); };
       }
       // isLoggedIn 스코프 문제 방지: 토큰 존재 여부만 확인
@@ -1128,7 +1168,7 @@
         if (currentBook && currentBook.id === bookId) {
           var wishBtn = document.getElementById('dc-wish-btn');
           if (wishBtn) {
-            wishBtn.innerHTML = '+ 내 서재에 담기';
+            wishBtn.innerHTML = (typeof CURRENT_LANG !== 'undefined' && CURRENT_LANG === 'ja' ? '+ 書斎に追加' : '+ 내 서재에 담기');
             wishBtn.onclick = function() { addToLib(); };
           }
         }
@@ -2923,10 +2963,23 @@
     // ── 가공독서회 글로벌 동적 인증 & DB 연동 핸들러 ──
 
     // 백엔드 DB 책 데이터를 프론트엔드 호환 포맷으로 매핑하는 어댑터
-    function adaptDbBookToFrontend(dbBook) {
+    
+    function getCoverCss(b, extraStyle) {
+      extraStyle = extraStyle || '';
+      var img = b ? (b.coverImageUrl || b.cover_image_url || b.coverUrl) : null;
+      if (img) {
+        return "background: linear-gradient(180deg, rgba(0,0,0,0.2) 0%, rgba(0,0,0,0.55) 100%), url('" + img + "') center/cover no-repeat; position: relative; " + extraStyle;
+      }
+      return "background: " + (b && b.color ? b.color : '#7b5fb8') + "; position: relative; " + extraStyle;
+    }
+    window.getCoverCss = getCoverCss;
+
+
+function adaptDbBookToFrontend(dbBook) {
       var deadlineVal = dbBook.deadline_days !== undefined ? dbBook.deadline_days : 10;
       return {
         id: dbBook.id,
+        coverImageUrl: dbBook.cover_image_url || null,
         color: dbBook.color || '#7b5fb8',
         genre: dbBook.genre || '소설',
         title: dbBook.title,
@@ -3084,3 +3137,228 @@
     // 최초 로드 자동 세션 복구 및 DB 연동 초기 호출
     recoverSession();
 
+
+
+
+    // ── 표지 확대 뷰어 팝업 ──
+    function openCoverZoom(imgUrl, bgColor, title) {
+      var overlay = document.getElementById('cover-zoom-overlay');
+      var bg = document.getElementById('cover-zoom-bg');
+      if (!overlay || !bg) return;
+
+      var currentCoverImg = imgUrl || (currentBook ? (currentBook.coverImageUrl || currentBook.cover_image_url || currentBook.coverUrl) : null);
+      var currentBgColor = bgColor || (currentBook ? currentBook.color : '#7b5fb8');
+
+      if (currentCoverImg) {
+        bg.style.background = "url('" + currentCoverImg + "') center/contain no-repeat";
+        bg.style.backgroundColor = '#1a1a1a';
+      } else {
+        bg.style.background = currentBgColor || '#555';
+      }
+      overlay.classList.add('active');
+
+      document._coverZoomEsc = function(e) {
+        if (e.key === 'Escape') closeCoverZoom();
+      };
+      document.addEventListener('keydown', document._coverZoomEsc);
+    }
+
+    function closeCoverZoom() {
+      var overlay = document.getElementById('cover-zoom-overlay');
+      if (overlay) overlay.classList.remove('active');
+      if (document._coverZoomEsc) {
+        document.removeEventListener('keydown', document._coverZoomEsc);
+        document._coverZoomEsc = null;
+      }
+    }
+    window.openCoverZoom = openCoverZoom;
+    window.closeCoverZoom = closeCoverZoom;
+
+
+
+    
+    // ── 다국어 (한국어 / 일본어) i18n 딕셔너리 및 상태 제어 ──
+    var CURRENT_LANG = localStorage.getItem('app_lang') || 'ko';
+
+    var I18N_DICT = {
+      ko: {
+        nav_home: "독서방 목록",
+        nav_lib: "내 서재",
+        nav_guide: "이용 안내",
+        hero_label: "FICTION READING CLUB",
+        hero_title: "존재하지 않는 책을<br>함께 읽어요",
+        hero_desc: "AI가 만든 가상의 책 줄거리를 보고, 그 책이 어떤 내용일지 상상하며 다른 독자들과 이야기를 나눕니다.<br>한 번도 읽은 적 없는 책에 대해 가장 깊이 있는 감상을 나눠보세요.",
+        gen_section_title: "새 책 소환하기",
+        gen_section_desc: "AI가 3권의 후보 책을 만들어냅니다. 마음에 드는 한 권을 골라 독서방으로 열어보세요.",
+        gen_btn: "✦ 새 책 생성",
+        genre_section_title: "장르별 모아보기",
+        deadline_section_title: "기간 임박 순서대로 보기",
+        deadline_section_sub: "마감이 가까운 독서방",
+        cand_back: "← 돌아가기",
+        cand_label: "BOOK CURATION",
+        cand_title: "어떤 책을<br>독서방으로 열까요?",
+        cand_desc: "AI가 3권의 후보 책을 가져왔습니다. 하나를 선택하면 정식 독서방으로 개설됩니다.",
+        cand_select_btn: "이 책으로 독서방 열기",
+        cand_loading_cover: "AI 표지 생성 중...",
+        arc_tab: "🗃 아카이브",
+        genre_all: "전체",
+        days_left: "일 남음",
+        people_count: "명",
+        join_chat_btn: "독서방 참여하기",
+        add_lib_btn: "+ 내 서재에 담기",
+        remove_lib_btn: "✓ 내 서재에서 제거",
+        detail_back: "← 독서방 목록으로",
+        detail_chat_history: "💬 채팅 열람하기",
+        detail_hall_of_fame: "👑 명예의 전당 · 베스트 상상 독자 리뷰",
+        detail_toc_title: "도서 상세 목차",
+        detail_publisher_review: "출판사 서평",
+        detail_endorsements: "추천사",
+        detail_stats_analysis: "독서 통계 분석",
+        detail_avg_rating: "평균 평점",
+        detail_reader_keywords: "독자 감정 키워드",
+        profile_edit_btn: "⚙️ 편집",
+        lib_profile_since: "가공독서회 회원",
+        chat_input_placeholder: "메시지를 입력하세요... (@사회자 를 입력해 사회자의 의견을 물어보세요)",
+        chat_send_btn: "전송",
+        chat_reply_btn: "답장하기",
+        rx_heart: "공감해요",
+        rx_think: "생각이 달라요",
+        rx_laugh: "재밌어요",
+        rx_sparkle: "인상 깊어요",
+        chat_mod_name: "AI 사회자",
+        chat_readonly_notice: "종료된 아카이브 독서방입니다 (읽기 전용)",
+        lib_title: "내 서재",
+        lib_desc: "내가 수집하고 사색한 문학 도서와 감상 기록을 모아봅니다.",
+        lib_stat_saved: "담아둔 책",
+        lib_stat_writings: "남긴 감상",
+        lib_stat_chats: "작성한 댓글",
+        lib_stat_arc: "참여 아카이브",
+        lib_tab_saved: "담아둔 책",
+        lib_tab_archive: "참여 아카이브",
+        lib_shelf_saved_label: "내가 수집한 서재 목록",
+        lib_shelf_writings_label: "내가 남긴 감상 및 댓글",
+        lib_shelf_arc_label: "참여하고 종료된 독서방",
+        lib_shelf_arc_notice: "아카이브는 독서방 종료 후 생성된 감상 기록집이에요. 내가 참여한 독서방이 종료되면 여기에 보관돼요.",
+        lib_empty_saved: "'내 서재에 담기'로 책을 수집해보세요.",
+        lib_empty_writings: "아직 남긴 감상이나 댓글이 없어요.",
+        lib_empty_arc: "참여한 독서방이 종료되면 여기에 아카이브가 쌓여요.",
+        lib_view_arc_btn: "아카이브 보기",
+        footer_contact: "1:1 문의",
+        footer_info: "이용 안내",
+        footer_terms: "이용약관",
+        footer_privacy: "개인정보처리방침"
+      },
+      ja: {
+        nav_home: "読書室一覧",
+        nav_lib: "私の書斎",
+        nav_guide: "ご利用案内",
+        hero_label: "FICTION READING CLUB",
+        hero_title: "実在しない本を<br>共に読む",
+        hero_desc: "AIが作成した架空の書籍のあらすじを見て、どのような物語か想像しながら他の読者と語り合います。<br>一度も読んだことのない本について、最も深い感想を分かち合いましょう。",
+        gen_section_title: "新しい本を召喚する",
+        gen_section_desc: "AIが3冊の候補本を生成します。お気に入りの1冊を選んで読書室を開設しましょう。",
+        gen_btn: "✦ 新本作成",
+        genre_section_title: "ジャンル別で見る",
+        deadline_section_title: "締め切り間近順で見る",
+        deadline_section_sub: "終了間近の読書室",
+        cand_back: "← 戻る",
+        cand_label: "BOOK CURATION",
+        cand_title: "どの本を<br>読書室として開きますか？",
+        cand_desc: "AIが3冊の候補本を準備しました。1冊を選択すると正式な読書室が開設されます。",
+        cand_select_btn: "この本で読書室を開く",
+        cand_loading_cover: "AI表紙生成中...",
+        arc_tab: "🗃 アーカイブ",
+        genre_all: "すべて",
+        days_left: "日残り",
+        people_count: "人",
+        join_chat_btn: "読書室に参加する",
+        add_lib_btn: "+ 書斎に追加",
+        remove_lib_btn: "✓ 書斎から削除",
+        detail_back: "← 読書室一覧へ",
+        detail_chat_history: "💬 チャットを閲覧",
+        detail_hall_of_fame: "👑 殿堂入り・ベスト想像読者レビュー",
+        detail_toc_title: "書籍の詳細目次",
+        detail_publisher_review: "出版社による書評",
+        detail_endorsements: "推薦の言葉",
+        detail_stats_analysis: "読書統計分析",
+        detail_avg_rating: "平均評価",
+        detail_reader_keywords: "読者の感情キーワード",
+        profile_edit_btn: "⚙️ 編集",
+        lib_profile_since: "架空読書会 会員",
+        chat_input_placeholder: "メッセージを入力してください... (@司会者 と入力して意見を聞いてみましょう)",
+        chat_send_btn: "送信",
+        chat_reply_btn: "返信する",
+        rx_heart: "共感します",
+        rx_think: "意見が違います",
+        rx_laugh: "面白い",
+        rx_sparkle: "印象的",
+        chat_mod_name: "AI 司会者",
+        chat_readonly_notice: "終了したアーカイブ読書室です（閲覧専用）",
+        lib_title: "私の書斎",
+        lib_desc: "収集し思索した文学書籍と感想の記録を集めて見ます。",
+        lib_stat_saved: "保存した本",
+        lib_stat_writings: "残した感想",
+        lib_stat_chats: "作成したコメント",
+        lib_stat_arc: "参加アーカイブ",
+        lib_tab_saved: "保存した本",
+        lib_tab_archive: "参加アーカイブ",
+        lib_shelf_saved_label: "私が集めた書斎一覧",
+        lib_shelf_writings_label: "私が残した感想およびコメント",
+        lib_shelf_arc_label: "参加して終了した読書室",
+        lib_shelf_arc_notice: "アーカイブは読書室終了後に作成された感想の記録集です。参加した読書室が終了するとここに保存されます。",
+        lib_empty_saved: "「書斎に追加」で本を収集してみてください。",
+        lib_empty_writings: "まだ残した感想やコメントがありません。",
+        lib_empty_arc: "参加した読書室が終了するとここにアーカイブが蓄積されます。",
+        lib_view_arc_btn: "アーカイブを見る",
+        footer_contact: "1:1 お問い合わせ",
+        footer_info: "ご利用案内",
+        footer_terms: "利用規約",
+        footer_privacy: "プライバシーポリシー"
+      }
+    };
+
+    function setLanguage(lang) {
+      if (lang !== 'ko' && lang !== 'ja') lang = 'ko';
+      CURRENT_LANG = lang;
+      localStorage.setItem('app_lang', lang);
+
+      var btnKo = document.getElementById('lang-btn-ko');
+      var btnJa = document.getElementById('lang-btn-ja');
+      if (btnKo && btnJa) {
+        if (lang === 'ja') {
+          btnKo.classList.remove('active');
+          btnJa.classList.add('active');
+        } else {
+          btnJa.classList.remove('active');
+          btnKo.classList.add('active');
+        }
+      }
+
+      var dict = I18N_DICT[lang] || I18N_DICT.ko;
+      document.querySelectorAll('[data-i18n]').forEach(function(el) {
+        var key = el.getAttribute('data-i18n');
+        if (dict[key]) {
+          el.innerHTML = dict[key];
+        }
+      });
+
+      var genBtn = document.getElementById('gen-btn');
+      if (genBtn) genBtn.innerHTML = dict.gen_btn;
+
+      var heroLabel = document.querySelector('.hero-label');
+      if (heroLabel) heroLabel.textContent = dict.hero_label;
+
+      var heroTitle = document.querySelector('.hero-title');
+      if (heroTitle) heroTitle.innerHTML = dict.hero_title;
+
+      var heroDesc = document.querySelector('.hero-desc');
+      if (heroDesc) heroDesc.innerHTML = dict.hero_desc;
+
+      var chatInput = document.getElementById('chat-input');
+      if (chatInput) chatInput.placeholder = dict.chat_input_placeholder;
+
+      if (typeof renderHome === 'function') renderHome();
+      if (typeof renderLib === 'function') renderLib();
+    }
+
+    window.setLanguage = setLanguage;

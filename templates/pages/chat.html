@@ -4,11 +4,11 @@
       <button class="chat-header-back"
         onclick="if(currentBook)renderStats(currentBook);goPage(&#39;detail&#39;)">←</button>
       <div class="chat-header-info">
-        <div class="chat-header-title" id="chat-room-title">오후 세 시의 해부학 독서방</div>
-        <div class="chat-header-meta" id="chat-room-meta">13명 참여 중</div>
+        <div class="chat-header-title" id="chat-room-title"></div>
+        <div class="chat-header-meta" id="chat-room-meta"></div>
       </div>
       <button class="chat-search-icon" id="chat-search-toggle" onclick="toggleChatSearch()" title="메시지 검색">🔍</button>
-      <div class="chat-header-book" id="chat-header-book" style="background: rgb(123, 95, 184);">오후 세 시의 해부학</div>
+      <div class="chat-header-book" id="chat-header-book" style="background: rgb(123, 95, 184);"></div>
       <div class="chat-search-bar" id="chat-search-bar">
         <!-- 돋보기 + input 이 하나의 pill 컨테이너 안에 -->
         <div class="chat-search-pill">
@@ -26,11 +26,11 @@
         <button class="chat-search-close" onclick="closeChatSearch()">취소</button>
       </div>
     </div>
-    <!-- 📌 토론 주제 고정 배너 (첫 문장 / 명대사 / 핵심 딜레마 / 질문) -->
+    <!-- 📌 도서 감성 구절 상단 슬림 배너 (첫 문장 / 명대사) -->
     <div class="chat-topic-banner" id="chat-topic-banner" style="display:none;">
       <div class="chat-topic-header">
-        <span class="chat-topic-pin">📌</span>
-        <span class="chat-topic-label">이번 주 토론 주제</span>
+        <span class="chat-topic-pin">🔖</span>
+        <span class="chat-topic-label">작품 하이라이트</span>
         <button class="chat-topic-toggle" id="chat-topic-toggle" onclick="toggleTopicBanner()" title="접기/펼치기">▲</button>
       </div>
       <div class="chat-topic-body" id="chat-topic-body">
@@ -44,13 +44,6 @@
           <div class="chat-topic-section-label">💬 명대사</div>
           <div class="chat-topic-quote" id="chat-topic-quote"></div>
         </div>
-        <!-- 딜레마 -->
-        <div class="chat-topic-section" id="chat-topic-sec-dilemma">
-          <div class="chat-topic-section-label">🤔 핵심 딜레마</div>
-          <div class="chat-topic-dilemma" id="chat-topic-dilemma"></div>
-        </div>
-        <!-- 추가 질문 -->
-        <div class="chat-topic-questions" id="chat-topic-questions"></div>
       </div>
     </div>
     <div class="chat-body" id="chat-body">

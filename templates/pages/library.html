@@ -4,22 +4,29 @@
       <!-- 왼쪽 정렬 그룹: 타이틀 + 통계 정보 -->
       <div class="lib-header-left">
         <div class="lib-title-group">
-          <h2>내 서재</h2>
-          <p>책 등을 클릭하면 내가 남긴 감상을 볼 수 있어요.</p>
+          <h2 data-i18n="lib_title">내 서재</h2>
+          <p data-i18n="lib_desc">내가 수집하고 사색한 문학 도서와 감상 기록을 모아봅니다.</p>
         </div>
 
         <div class="lib-stats">
-          <div>
+          <div class="lib-stat-item">
             <div class="lib-stat-n" id="lib-count">0</div>
-            <div class="lib-stat-l">담아둔 책</div>
+            <div class="lib-stat-l" data-i18n="lib_stat_saved">담아둔 책</div>
           </div>
-          <div>
+          <div class="lib-stat-divider"></div>
+          <div class="lib-stat-item">
             <div class="lib-stat-n" id="lib-writings-count">0</div>
-            <div class="lib-stat-l">남긴 감상</div>
+            <div class="lib-stat-l" data-i18n="lib_stat_writings">남긴 감상</div>
           </div>
-          <div>
+          <div class="lib-stat-divider"></div>
+          <div class="lib-stat-item">
             <div class="lib-stat-n" id="lib-chat-count">0</div>
-            <div class="lib-stat-l">작성한 댓글</div>
+            <div class="lib-stat-l" data-i18n="lib_stat_chats">작성한 댓글</div>
+          </div>
+          <div class="lib-stat-divider"></div>
+          <div class="lib-stat-item">
+            <div class="lib-stat-n" id="lib-arc-count">0</div>
+            <div class="lib-stat-l" data-i18n="lib_stat_arc">참여 아카이브</div>
           </div>
         </div>
       </div>
@@ -30,38 +37,39 @@
         <div class="lib-profile-card" id="lib-profile-card">
           <div class="lib-profile-avatar" id="lib-profile-avatar">독</div>
           <div class="lib-profile-info">
-            <div style="display: flex; align-items: center; gap: 8px;">
-              <div class="lib-profile-name" id="lib-profile-name">독자</div>
-              <button class="lib-profile-edit-btn" onclick="openProfileEditModal()" title="프로필 편집">⚙️ 편집</button>
+            <div class="lib-profile-name-row">
+              <span class="lib-profile-name" id="lib-profile-name">독자</span>
+              <button class="lib-profile-edit-btn" data-i18n="profile_edit_btn" onclick="openProfileEditModal()" title="프로필 편집">⚙️ 편집</button>
             </div>
             <div class="lib-profile-email" id="lib-profile-email"></div>
-            <div class="lib-profile-since">가공독서회 회원</div>
+            <div class="lib-profile-since" data-i18n="lib_profile_since">가공독서회 회원</div>
           </div>
         </div>
       </div>
     </div>
 
-    <!-- 내 서재 탭 영역 (넓고 세련된 갭 배치 완료) -->
+    <!-- 내 서재 탭 영역 -->
     <div class="lib-tabs">
-      <button class="lib-tab-btn active" id="lib-tab-saved" onclick="switchLibTab(&#39;saved&#39;)">담아둔 책</button>
-      <button class="lib-tab-btn" id="lib-tab-archive" onclick="switchLibTab(&#39;archive&#39;)">참여 아카이브 <span
+      <button class="lib-tab-btn active" id="lib-tab-saved" data-i18n="lib_tab_saved" onclick="switchLibTab('saved')">담아둔 책</button>
+      <button class="lib-tab-btn" id="lib-tab-archive" onclick="switchLibTab('archive')"><span data-i18n="lib_tab_archive">참여 아카이브</span> <span
           id="lib-arc-badge"
           style="display:none;font-size:10px;background:#4a7a3a;color:#fff;border-radius:10px;padding:1px 6px;margin-left:4px;"></span></button>
     </div>
+
     <div class="shelf-area" id="shelf-area">
-      <div class="shelf-label">담아둔 책</div>
+      <div class="shelf-label" data-i18n="lib_shelf_saved_label">담아둔 책</div>
       <div class="shelf-row">
         <div class="books-row" id="books-row">
-          <div style="font-size:13px;color:var(--text-faint);padding:20px 0;">'내 서재에 담기'로 책을 모아보세요.</div>
+          <div style="font-size:13.5px;color:var(--text-faint);padding:20px 0;font-style:italic;" data-i18n="lib_empty_saved">'내 서재에 담기'로 책을 수집해보세요.</div>
         </div>
         <div class="shelf-plank"></div>
       </div>
 
-      <!-- 내가 남긴 댓글 책장 추가 -->
-      <div class="shelf-label" style="margin-top:24px;">내가 남긴 댓글</div>
+      <!-- 내가 남긴 댓글 책장 -->
+      <div class="shelf-label" style="margin-top:32px;" data-i18n="lib_shelf_writings_label">내가 남긴 감상 및 댓글</div>
       <div class="shelf-row">
         <div class="books-row" id="my-comments-books-row">
-          <div style="font-size:13px;color:var(--text-faint);padding:20px 0;">아직 남긴 감상이나 댓글이 없어요.</div>
+          <div style="font-size:13.5px;color:var(--text-faint);padding:20px 0;font-style:italic;" data-i18n="lib_empty_writings">아직 남긴 감상이나 댓글이 없어요.</div>
         </div>
         <div class="shelf-plank"></div>
       </div>
@@ -76,7 +84,7 @@
           </div>
         </div>
         <div class="bdp-body">
-          <div class="bdp-qlbl">MY IMPRESSION</div>
+          <div class="bdp-qlbl">MY IMPRESSION RECORD</div>
           <div id="lib-bdp-writings" class="bdp-writings"></div>
           <div class="bdp-qdate" id="lib-bdp-qdate"></div>
         </div>
@@ -85,12 +93,12 @@
     </div>
 
     <!-- 참여 아카이브 탭 -->
-    <div class="arc-shelf-area" id="arc-shelf-area">
-      <div class="shelf-label" style="margin-bottom:4px;">참여하고 종료된 독서방</div>
-      <div class="arc-shelf-notice">아카이브는 독서방 종료 후 생성된 감상 기록집이에요. 내가 참여한 독서방이 종료되면 여기에 보관돼요.</div>
+    <div class="arc-shelf-area" id="arc-shelf-area" style="display:none;">
+      <div class="shelf-label" style="margin-bottom:4px;" data-i18n="lib_shelf_arc_label">참여하고 종료된 독서방</div>
+      <div class="arc-shelf-notice" data-i18n="lib_shelf_arc_notice">아카이브는 독서방 종료 후 생성된 감상 기록집이에요. 내가 참여한 독서방이 종료되면 여기에 보관돼요.</div>
       <div class="arc-shelf-row">
         <div class="arc-books-row" id="arc-books-row">
-          <div class="arc-empty">참여한 독서방이 종료되면 여기에 아카이브가 쌓여요.</div>
+          <div class="arc-empty" data-i18n="lib_empty_arc">참여한 독서방이 종료되면 여기에 아카이브가 쌓여요.</div>
         </div>
         <div class="arc-shelf-plank"></div>
       </div>
@@ -101,7 +109,7 @@
             <div class="arc-bdp-title" id="arc-lib-bdp-title"></div>
             <div class="arc-bdp-sub" id="arc-lib-bdp-sub"></div>
           </div>
-          <button class="arc-bdp-btn" id="arc-lib-bdp-btn" onclick="openArchiveFromLib()">아카이브 보기</button>
+          <button class="arc-bdp-btn" id="arc-lib-bdp-btn" data-i18n="lib_view_arc_btn" onclick="openArchiveFromLib()">아카이브 보기</button>
         </div>
       </div>
     </div>

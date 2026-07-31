@@ -3,8 +3,9 @@
     <div class="detail-header">
       <button class="detail-back" onclick="goPage(&#39;home&#39;)">← 독서방 목록으로</button>
       <div class="detail-top">
-        <div class="detail-cover" id="dc-cover" style="background: rgb(123, 95, 184);">
+        <div class="detail-cover" id="dc-cover" style="background: rgb(123, 95, 184); cursor: pointer; position: relative;" onclick="openCoverZoom()" title="클릭하여 표지 크게 보기">
           <div class="detail-cover-spine"></div>
+          <div class="cover-zoom-hint" style="position: absolute; bottom: 8px; right: 8px; font-size: 11px; background: rgba(0,0,0,0.65); color: #fff; padding: 3px 8px; border-radius: 4px; pointer-events: none; backdrop-filter: blur(4px);">🔍 확대</div>
           <span id="dc-title-txt">오후 세 시의 해부학</span>
         </div>
         <div class="detail-info">
@@ -154,17 +155,16 @@
     <div class="endorse-section" id="endorse-section">
       <div class="endorse-block">
         <div class="endorse-label">추천사</div>
-        <div class="endorse-quote" id="endorse-quote">상실과 해부학이 만나는 지점에서 언어가 탄생한다. 박연우는 감정을 해부하는 법을 알고 있다.</div>
-        <div class="endorse-attr" id="endorse-attr">— 문학평론가 황수연</div>
+        <div class="endorse-quote" id="endorse-quote"></div>
+        <div class="endorse-attr" id="endorse-attr"></div>
       </div>
       <div class="endorse-block">
         <div class="endorse-label">출판사 서평</div>
-        <div class="publisher-txt" id="publisher-txt">인체의 구조와 기억의 구조가 얼마나 닮아 있는지, 이 소설은 그 사실을 조용하고 정확하게 보여준다. 외과의사의 손끝에서
-          시작된 이야기가 독자의 심장 어딘가를 정확히 건드릴 것이다.</div>
+        <div class="publisher-txt" id="publisher-txt"></div>
       </div>
       <!-- 도서 상세 목차 -->
       <div class="immersion-board-wrapper" style="margin-top: 36px; padding-top: 24px; border-top: 1px dashed #e0dbce;">
-        <div class="immersion-board-title" style="font-family: var(--serif); font-size: 16px; font-weight: 700; color: var(--text); margin-bottom: 16px; display: flex; align-items: center; gap: 6px;">
+        <div class="immersion-board-title" style="font-family: var(--serif); font-size: 18px; font-weight: 700; color: var(--text); margin-bottom: 16px; display: flex; align-items: center; gap: 6px;">
           <span style="color: var(--accent);">✦</span> 도서 상세 목차
         </div>
         
@@ -177,6 +177,12 @@
             <div id="dc-toc-empty" style="display: none; text-align: center; color: var(--text-muted); font-size: 13px; padding: 20px 0;">상세 목차 데이터가 없습니다.</div>
           </div>
         </div>
+      </div>
+    </div>
+    <!-- ── 표지 확대 뷰어 오버레이 ── -->
+    <div class="cover-zoom-overlay" id="cover-zoom-overlay" onclick="closeCoverZoom()">
+      <div class="cover-zoom-bg" id="cover-zoom-bg" onclick="event.stopPropagation()">
+        <span class="cover-zoom-close-hint">클릭하면 닫힙니다</span>
       </div>
     </div>
 

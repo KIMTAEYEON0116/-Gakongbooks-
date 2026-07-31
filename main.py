@@ -4,6 +4,8 @@ import asyncio
 import random
 import secrets
 import string
+import base64
+import urllib.parse
 import smtplib
 from email.mime.text import MIMEText
 from typing import List, Optional
@@ -29,7 +31,485 @@ def format_kst_time(dt) -> str:
     """datetime -> '오전/오후 HH:MM' 문자열로 변환합니다."""
     if not dt:
         return ""
-    return dt.strftime("%p %I:%M").replace("AM", "오전").replace("PM", "오후")
+    hour = dt.hour
+    minute = dt.minute
+    period = "오전" if hour < 12 else "오후"
+    display_hour = hour if hour <= 12 else hour - 12
+    if display_hour == 0:
+        display_hour = 12
+    return f"{period} {display_hour:02d}:{minute:02d}"
+
+
+def _hex_to_rgb(h: str):
+    h = h.lstrip('#')
+    return tuple(int(h[i:i+2], 16) for i in (0, 2, 4))
+
+def _lerp_color(c1, c2, t):
+    return tuple(int(c1[i] + (c2[i] - c1[i]) * t) for i in range(3))
+
+def _draw_gradient_bg(img, colors, mode="diagonal"):
+    """배경 그라데이션: diagonal / radial / horizontal / vertical"""
+    from PIL import Image
+    W, H = img.size
+    px = img.load()
+    c1, c2 = colors[0], colors[1]
+    c3 = colors[2] if len(colors) > 2 else c2
+    if mode == "horizontal":
+        for y in range(H):
+            t = y / H
+            ca = _lerp_color(c1, c2, min(t * 1.8, 1.0))
+            cb = _lerp_color(c2, c3, max(0, t * 1.8 - 0.8))
+            col = _lerp_color(ca, cb, t)
+            for x in range(W):
+                px[x, y] = col
+    elif mode == "radial":
+        cx, cy = W // 2, H // 2
+        maxd = ((cx**2 + cy**2) ** 0.5)
+        for y in range(H):
+            for x in range(W):
+                d = ((x - cx)**2 + (y - cy)**2) ** 0.5
+                t = min(d / maxd, 1.0)
+                px[x, y] = _lerp_color(c1, c2, t)
+    elif mode == "diagonal":
+        for y in range(H):
+            for x in range(W):
+                t = (x / W * 0.4 + y / H * 0.6)
+                t = min(t, 1.0)
+                px[x, y] = _lerp_color(c1, c2, t)
+    else:  # vertical
+        for y in range(H):
+            for x in range(W):
+                t = (x / W * 0.6 + y / H * 0.4)
+                t = min(t, 1.0)
+                px[x, y] = _lerp_color(c1, c2, t)
+    return img
+
+def _analyze_book(genre: str, synopsis: str, title: str):
+    """줄거리·장르·제목에서 시각 무드 키워드를 분석하여 팔레트·구도를 결정"""
+    text = (genre + " " + title + " " + synopsis).lower()
+    # ── 감정/소재 키워드 탐지 ──
+    is_dark    = any(k in text for k in ["죽음","살인","어둠","공포","밤","악","괴물","범죄","사체","흑","암흑"])
+    is_warm    = any(k in text for k in ["사랑","따뜻","봄","꽃","설레","연인","마음","행복","포근"])
+    is_nature  = any(k in text for k in ["숲","나무","자연","바다","강","식물","새","바람","구름","산"])
+    is_cold    = any(k in text for k in ["겨울","눈","차갑","얼음","서리","냉","한랭","북위"])
+    is_tension = any(k in text for k in ["추격","위협","탈출","긴장","전쟁","싸움","폭발","음모"])
+    is_mystic  = any(k in text for k in ["마법","신비","환상","용","마녀","예언","전설","이계"])
+    is_urban   = any(k in text for k in ["도시","서울","도쿄","거리","건물","카페","아파트","회사"])
+    is_scifi   = any(k in text for k in ["우주","로봇","미래","ai","인공지능","사이버","행성","우주선"])
+
+    # ── 장르 오버라이드 ──
+    g = genre.lower()
+    if "sf" in g or "공상" in g: is_scifi = True
+    if "공포" in g or "호러" in g: is_dark = True
+    if "로맨스" in g: is_warm = True
+    if "미스터리" in g or "스릴러" in g: is_tension = True
+    if "판타지" in g: is_mystic = True
+    if "역사" in g: is_warm = False
+
+    return {
+        "dark": is_dark, "warm": is_warm, "nature": is_nature,
+        "cold": is_cold, "tension": is_tension, "mystic": is_mystic,
+        "urban": is_urban, "scifi": is_scifi
+    }
+
+def _pick_palette(mood: dict, base_color: tuple):
+    """무드에 따라 3-4색 팔레트를 반환"""
+    if mood["scifi"]:
+        return [(8, 10, 30), (0, 180, 220), (100, 30, 160), (0, 255, 200)]
+    if mood["dark"] and mood["tension"]:
+        return [(10, 5, 20), (120, 0, 30), (60, 0, 80), (200, 20, 50)]
+    if mood["dark"]:
+        return [(15, 10, 25), (70, 0, 90), (30, 20, 60), (180, 140, 60)]
+    if mood["mystic"]:
+        return [(20, 0, 60), (100, 0, 180), (200, 150, 0), (60, 0, 120)]
+    if mood["cold"]:
+        return [(200, 230, 255), (100, 160, 220), (30, 80, 160), (220, 240, 255)]
+    if mood["nature"]:
+        return [(30, 80, 40), (80, 160, 60), (200, 220, 100), (240, 200, 80)]
+    if mood["warm"]:
+        return [(255, 200, 180), (220, 80, 100), (255, 140, 60), (180, 40, 80)]
+    if mood["urban"]:
+        return [(20, 20, 35), (50, 80, 140), (200, 200, 220), (80, 120, 180)]
+    if mood["tension"]:
+        return [(20, 10, 10), (180, 40, 0), (240, 160, 0), (100, 20, 20)]
+    # 기본: base_color 중심
+    r, g, b = base_color
+    return [
+        (max(r-80,0), max(g-80,0), max(b-80,0)),
+        base_color,
+        (min(r+60,255), min(g+40,255), min(b+80,255)),
+        (min(r+120,255), min(g+100,255), max(b-40,0))
+    ]
+
+def _pick_composition(mood: dict, rng) -> str:
+    """무드에 따라 구도 스타일 반환"""
+    if mood["scifi"] or mood["urban"]:
+        return rng.choice(["grid", "circuit", "hexagon"])
+    if mood["mystic"]:
+        return rng.choice(["radial_burst", "spiral", "concentric"])
+    if mood["tension"] or mood["dark"]:
+        return rng.choice(["diagonal_shards", "sharp_layers", "triangles"])
+    if mood["warm"] or mood["nature"]:
+        return rng.choice(["soft_circles", "waves", "petals"])
+    if mood["cold"]:
+        return rng.choice(["crystal", "sharp_layers", "concentric"])
+    return rng.choice(["geometric_mix", "diagonal_shards", "soft_circles", "radial_burst"])
+
+def _generate_abstract_cover_pil(title: str, genre: str, synopsis: str, base_color_hex: str, filepath: str):
+    """PIL로 책 내용 기반 추상 기하학 표지를 생성"""
+    import hashlib
+    import math
+    from PIL import Image, ImageDraw, ImageFilter
+
+    W, H = 450, 600
+
+    # 결정론적 시드: 같은 책은 항상 같은 표지
+    seed_val = int(hashlib.md5((title + genre).encode('utf-8', errors='ignore')).hexdigest()[:8], 16)
+    rng = random.Random(seed_val)
+
+    base_rgb = _hex_to_rgb(base_color_hex) if base_color_hex and len(base_color_hex) >= 6 else (120, 80, 160)
+    mood = _analyze_book(genre, synopsis, title)
+    palette = _pick_palette(mood, base_rgb)
+    composition = _pick_composition(mood, rng)
+
+    # ── 배경 그라데이션 ──
+    bg_modes = {"dark": "horizontal", "mystic": "radial", "warm": "diagonal",
+                "scifi": "horizontal", "cold": "vertical", "tension": "diagonal"}
+    bg_mode = next((bg_modes[k] for k in bg_modes if mood.get(k)), "diagonal")
+    img = Image.new('RGB', (W, H), palette[0])
+    img = _draw_gradient_bg(img, [palette[0], palette[1], palette[2] if len(palette)>2 else palette[1]], bg_mode)
+
+    overlay = Image.new('RGBA', (W, H), (0, 0, 0, 0))
+    draw = ImageDraw.Draw(overlay)
+
+    def rand_color(alpha=None):
+        c = rng.choice(palette)
+        a = alpha if alpha is not None else rng.randint(80, 200)
+        return (*c, a)
+
+    # ── 구도별 도형 배치 ──
+    if composition == "grid":
+        # SF/도시: 격자 + 직사각형 블록
+        cell = rng.randint(40, 80)
+        for gy in range(0, H, cell):
+            for gx in range(0, W, cell):
+                if rng.random() < 0.35:
+                    bw = rng.randint(cell//3, cell)
+                    bh = rng.randint(cell//3, cell)
+                    c = rand_color(rng.randint(60, 160))
+                    draw.rectangle([gx, gy, gx+bw, gy+bh], fill=c)
+        # 밝은 선 격자
+        line_c = (*palette[-1], 40)
+        for gx in range(0, W, cell):
+            draw.line([(gx,0),(gx,H)], fill=line_c, width=1)
+        for gy in range(0, H, cell):
+            draw.line([(0,gy),(W,gy)], fill=line_c, width=1)
+
+    elif composition == "circuit":
+        # 회로 패턴
+        for _ in range(18):
+            x1, y1 = rng.randint(0,W), rng.randint(0,H)
+            seg_len = rng.randint(30, 120)
+            direction = rng.choice(['h','v'])
+            x2 = (x1 + seg_len) if direction == 'h' else x1
+            y2 = y1 if direction == 'h' else (y1 + seg_len)
+            c = (*rng.choice(palette), rng.randint(100, 200))
+            draw.line([(x1,y1),(x2,y2)], fill=c, width=rng.randint(1,3))
+            # 노드
+            r = rng.randint(3,8)
+            draw.ellipse([x2-r,y2-r,x2+r,y2+r], fill=(*palette[-1], 180))
+
+    elif composition == "hexagon":
+        # 육각형 그리드
+        size = rng.randint(35, 60)
+        for row in range(-1, H // size + 2):
+            for col in range(-1, W // size + 2):
+                cx = col * size * 1.73 + (size * 0.87 if row % 2 else 0)
+                cy = row * size * 1.5
+                pts = []
+                for angle in range(0, 360, 60):
+                    rad = math.radians(angle)
+                    pts.append((cx + size * 0.9 * math.cos(rad), cy + size * 0.9 * math.sin(rad)))
+                if rng.random() < 0.6:
+                    c = rand_color(rng.randint(40, 150))
+                    draw.polygon(pts, fill=c)
+
+    elif composition == "radial_burst":
+        # 방사형 폭발: 중심에서 퍼지는 삼각형들
+        cx, cy = W // 2, rng.randint(H//3, 2*H//3)
+        for i in range(rng.randint(12, 20)):
+            angle = i * (360 / 18) + rng.uniform(-8, 8)
+            r_in  = rng.randint(20, 80)
+            r_out = rng.randint(120, 280)
+            a1 = math.radians(angle - 8)
+            a2 = math.radians(angle + 8)
+            pts = [
+                (cx + r_in * math.cos(a1),  cy + r_in * math.sin(a1)),
+                (cx + r_out * math.cos(a1), cy + r_out * math.sin(a1)),
+                (cx + r_out * math.cos(a2), cy + r_out * math.sin(a2)),
+                (cx + r_in * math.cos(a2),  cy + r_in * math.sin(a2)),
+            ]
+            c = rand_color(rng.randint(60, 160))
+            draw.polygon(pts, fill=c)
+
+    elif composition == "spiral":
+        # 나선형 점들
+        cx, cy = W//2, H//2
+        for i in range(200):
+            t = i / 200 * 6 * math.pi
+            r = 10 + 100 * (i / 200)
+            x = cx + r * math.cos(t)
+            y = cy + r * math.sin(t) * 1.3
+            dot = rng.randint(2, 8)
+            c = rand_color(rng.randint(100, 220))
+            draw.ellipse([x-dot, y-dot, x+dot, y+dot], fill=c)
+
+    elif composition == "concentric":
+        # 동심원
+        cx, cy = rng.randint(W//3, 2*W//3), rng.randint(H//3, 2*H//3)
+        for i in range(rng.randint(8, 15)):
+            r = 30 + i * rng.randint(20, 35)
+            c = rand_color(rng.randint(40, 140))
+            draw.ellipse([cx-r, cy-r, cx+r, cy+r], outline=c, width=rng.randint(2, 8))
+
+    elif composition == "diagonal_shards":
+        # 대각선 파편: 다각형 조각
+        for _ in range(rng.randint(8, 16)):
+            x  = rng.randint(-50, W)
+            y  = rng.randint(-50, H)
+            pts = [(x + rng.randint(-80,80), y + rng.randint(-100,100)) for _ in range(rng.randint(3,6))]
+            c = rand_color(rng.randint(60, 180))
+            draw.polygon(pts, fill=c)
+
+    elif composition == "sharp_layers":
+        # 날카로운 레이어: 가로 사다리꼴들
+        for i in range(rng.randint(6, 11)):
+            y  = i * (H // 9)
+            skew = rng.randint(-60, 60)
+            pts = [(0, y), (W, y + skew), (W, y + skew + rng.randint(30,80)), (0, y + rng.randint(30,80))]
+            c = rand_color(rng.randint(50, 160))
+            draw.polygon(pts, fill=c)
+
+    elif composition == "triangles":
+        # 삼각형 타일
+        size = rng.randint(60, 120)
+        for row in range(-1, H // size + 2):
+            for col in range(-1, W // size + 2):
+                x, y = col * size, row * size
+                # 위 삼각형
+                pts1 = [(x, y+size), (x+size, y+size), (x+size//2, y)]
+                pts2 = [(x, y), (x+size, y), (x+size//2, y+size)]
+                if rng.random() < 0.7:
+                    draw.polygon(pts1, fill=rand_color(rng.randint(60,180)))
+                if rng.random() < 0.7:
+                    draw.polygon(pts2, fill=rand_color(rng.randint(60,180)))
+
+    elif composition == "soft_circles":
+        # 겹치는 부드러운 원들
+        for _ in range(rng.randint(8, 16)):
+            x, y = rng.randint(-60, W+60), rng.randint(-60, H+60)
+            r = rng.randint(30, 160)
+            c = rand_color(rng.randint(40, 120))
+            draw.ellipse([x-r, y-r, x+r, y+r], fill=c)
+
+    elif composition == "waves":
+        # 물결 레이어
+        for i in range(rng.randint(6, 12)):
+            y_base = i * (H // 10)
+            pts = [(0, y_base)]
+            for x in range(0, W+20, 20):
+                wave = rng.randint(-30, 30)
+                pts.append((x, y_base + wave))
+            pts += [(W, H+10), (0, H+10)]
+            c = rand_color(rng.randint(50, 150))
+            draw.polygon(pts, fill=c)
+
+    elif composition == "petals":
+        # 꽃잎 형태 타원들
+        cx, cy = W//2, H//2
+        for i in range(rng.randint(6, 10)):
+            angle = i * (360 / 8)
+            dist  = rng.randint(60, 140)
+            ex = cx + dist * math.cos(math.radians(angle))
+            ey = cy + dist * math.sin(math.radians(angle))
+            rw, rh = rng.randint(40, 90), rng.randint(20, 60)
+            c = rand_color(rng.randint(60, 150))
+            draw.ellipse([ex-rw, ey-rh, ex+rw, ey+rh], fill=c)
+
+    elif composition == "crystal":
+        # 수정 결정 구조
+        for _ in range(rng.randint(8, 14)):
+            x, y = rng.randint(30, W-30), rng.randint(30, H-30)
+            h_size = rng.randint(30, 100)
+            pts = [
+                (x, y - h_size),
+                (x + h_size//2, y - h_size//3),
+                (x + h_size//3, y + h_size//2),
+                (x - h_size//3, y + h_size//2),
+                (x - h_size//2, y - h_size//3),
+            ]
+            c = rand_color(rng.randint(80, 180))
+            draw.polygon(pts, fill=c)
+            draw.polygon(pts, outline=(*palette[-1], 120), width=1)
+
+    else:  # geometric_mix
+        # 다양한 도형 혼합
+        for _ in range(rng.randint(10, 18)):
+            shape = rng.choice(["rect", "ellipse", "triangle", "line"])
+            x, y = rng.randint(0, W), rng.randint(0, H)
+            s = rng.randint(20, 150)
+            c = rand_color(rng.randint(50, 170))
+            if shape == "rect":
+                draw.rectangle([x, y, x+s, y+rng.randint(20,s)], fill=c)
+            elif shape == "ellipse":
+                draw.ellipse([x-s//2, y-s//3, x+s//2, y+s//3], fill=c)
+            elif shape == "triangle":
+                pts = [(x, y), (x+s, y), (x+s//2, y-s)]
+                draw.polygon(pts, fill=c)
+            else:
+                x2, y2 = rng.randint(0,W), rng.randint(0,H)
+                draw.line([(x,y),(x2,y2)], fill=c, width=rng.randint(2,8))
+
+    # ── 오버레이 합성 ──
+    img = img.convert('RGBA')
+    img = Image.alpha_composite(img, overlay)
+    img = img.convert('RGB')
+
+    # ── 약한 블러로 부드럽게 ──
+    img = img.filter(ImageFilter.GaussianBlur(radius=0.8))
+
+    # ── 하단 어두운 그라데이션 밴드 (책 표지 느낌) ──
+    footer = Image.new('RGBA', (W, H), (0,0,0,0))
+    fd = ImageDraw.Draw(footer)
+    for i in range(100):
+        alpha = int(180 * (i/100)**2)
+        fd.line([(0, H-100+i),(W, H-100+i)], fill=(0,0,0,alpha))
+    img = Image.alpha_composite(img.convert('RGBA'), footer)
+
+    # ── 상단 얇은 밝은 선 (장식) ──
+    accent_line = Image.new('RGBA', (W, H), (0,0,0,0))
+    ald = ImageDraw.Draw(accent_line)
+    ac = (*palette[-1], 120)
+    ald.line([(0, 8),(W, 8)], fill=ac, width=3)
+    img = Image.alpha_composite(img, accent_line)
+
+    img = img.convert('RGB')
+    img.save(filepath, "PNG", quality=95)
+    print(f"[Cover Generator] 추상 표지 생성 완료: {filepath} (구도={composition})")
+    return True
+
+
+async def generate_book_cover_art(title: str, genre: str, synopsis: str, color: str = "#b54a6a", unique_id: str = None) -> Optional[str]:
+    """
+    책 내용 기반 추상 기하학 표지를 우선 생성하고, Imagen 3 / Pollinations.ai도 시도합니다.
+    """
+    try:
+        os.makedirs("static/covers", exist_ok=True)
+        if not unique_id:
+            unique_id = secrets.token_hex(6)
+        filename = f"cover_{unique_id}.png"
+        filepath = os.path.join("static", "covers", filename)
+        web_url = f"/static/covers/{filename}"
+
+        # 이미 존재하는 경우 해당 경로 반환 (단, 5KB 미만은 단색 폴백으로 간주 → 재생성)
+        if os.path.exists(filepath) and os.path.getsize(filepath) >= 5000:
+            return web_url
+        elif os.path.exists(filepath):
+            os.remove(filepath)  # 단색 파일 삭제 후 재생성
+
+
+        gemini_key = os.getenv("GEMINI_API_KEY")
+
+        # ── 외부 AI API (Imagen 3) ──
+        if gemini_key and gemini_key != "YOUR_GEMINI_API_KEY_HERE":
+            mood = _analyze_book(genre, synopsis, title)
+            palette = _pick_palette(mood, _hex_to_rgb(color))
+            style_hint = (
+                "mystical glowing abstract artwork" if mood["mystic"] else
+                "cinematic dramatic artwork" if mood["dark"] else
+                "soft romantic illustration" if mood["warm"] else
+                "futuristic abstract concept art" if mood["scifi"] else
+                "geometric abstract book cover art"
+            )
+            prompt_text = (
+                f"{style_hint}, Korean literary novel, "
+                f"inspired by: {(synopsis or '')[:80]}, "
+                f"no text, no words, no letters, professional book jacket, "
+                f"highly detailed, award-winning composition, 3:4 portrait"
+            )
+            imagen_url = f"https://generativelanguage.googleapis.com/v1beta/models/imagen-3.0-generate-002:generateImages?key={gemini_key}"
+            try:
+                async with httpx.AsyncClient() as client:
+                    res = await client.post(imagen_url, headers={"Content-Type": "application/json"},
+                                            json={"prompt": prompt_text, "numberOfImages": 1,
+                                                  "aspectRatio": "3:4", "outputMimeType": "image/png"},
+                                            timeout=8.0)
+                    if res.status_code == 200:
+                        data = res.json()
+                        images = data.get("generatedImages", [])
+                        if images and "image" in images[0]:
+                            img_data = base64.b64decode(images[0]["image"]["imageBytes"])
+                            with open(filepath, "wb") as f:
+                                f.write(img_data)
+                            print(f"[Cover Generator] Imagen 3 표지 생성 완료: {web_url}")
+                            return web_url
+            except Exception as e:
+                print(f"[Cover Generator] Imagen 3 실패: {e}")
+
+        # ── 2. Pollinations.ai — 실제 일러스트 이미지 생성 시도 ──
+        try:
+            mood = _analyze_book(genre, synopsis, title)
+            genre_style_map = {
+                "판타지": "epic fantasy illustration, mystical creatures, ethereal glow, magical atmosphere",
+                "로맨스": "romantic illustration, soft warm light, delicate flowers, dreamy pastel aesthetic",
+                "드라마": "cinematic dramatic illustration, emotional depth, chiaroscuro lighting",
+                "드라마/로맨스": "romantic drama illustration, emotional warmth, soft cinematic lighting",
+                "SF": "science fiction concept art, futuristic technology, neon accents, space motifs",
+                "미스터리": "dark mystery illustration, moody noir atmosphere, shadow and silhouette",
+                "스릴러": "thriller artwork, tense dark atmosphere, psychological tension",
+                "역사": "historical illustration, period detail, ink and watercolor, aged texture",
+                "공포": "horror artwork, eerie dark atmosphere, unsettling surreal elements",
+            }
+            style_hint = genre_style_map.get(genre, "literary fiction illustration, professional book jacket art")
+            synopsis_snippet = (synopsis or "")[:100].strip()
+            prompt_text = (
+                f"{style_hint}, "
+                f"inspired by: {synopsis_snippet}, "
+                f"Korean novel book cover illustration, "
+                f"no text, no letters, no words, no title, "
+                f"professional artwork, highly detailed, "
+                f"award-winning composition, 3:4 portrait format"
+            )
+            encoded_prompt = urllib.parse.quote(prompt_text)
+            seed = random.randint(10000, 999999)
+            poll_url = (
+                f"https://image.pollinations.ai/prompt/{encoded_prompt}"
+                f"?width=450&height=600&nologo=true&seed={seed}&model=flux"
+            )
+            async with httpx.AsyncClient() as client:
+                res = await client.get(poll_url, timeout=10.0)
+                if res.status_code == 200 and len(res.content) > 5000:
+                    with open(filepath, "wb") as f:
+                        f.write(res.content)
+                    print(f"[Cover Generator] Pollinations.ai 일러스트 표지 완료: {web_url}")
+                    return web_url
+        except Exception as poll_ex:
+            print(f"[Cover Generator] Pollinations.ai 실패: {poll_ex}")
+
+        # ── 3. 최후 수단: PIL 추상 기하학 표지 ──
+        try:
+            ok = _generate_abstract_cover_pil(title, genre, synopsis, color, filepath)
+            if ok:
+                return web_url
+        except Exception as pil_ex:
+            print(f"[Cover Generator] PIL 추상 표지 생성 실패: {pil_ex}")
+
+    except Exception as ex:
+        print(f"[Cover Generator] 표지 생성 중 예외 발생: {ex}")
+
+    return None
+
+
 
 
 def parse_reactions(raw) -> dict:
@@ -123,7 +603,7 @@ except Exception:
 # 백엔드가 구동될 때 MySQL에 필요한 모든 테이블을 자동으로 생성합니다.
 models.Base.metadata.create_all(bind=database.engine)
 
-# DB 스키마 동적 패치 (기존 DB 테이블에 immersion_data 컬럼이 없으면 추가)
+# DB 스키마 동적 패치 (기존 DB 테이블에 새로운 컬럼이 없으면 추가)
 try:
     from sqlalchemy import text
     with database.engine.connect() as conn:
@@ -134,12 +614,28 @@ try:
             print("[DB Patch] Added 'immersion_data' column to 'books' table.")
         except Exception:
             pass
-        
+
         # candidate_books 테이블
         try:
             conn.execute(text("ALTER TABLE candidate_books ADD COLUMN immersion_data TEXT;"))
             conn.commit()
             print("[DB Patch] Added 'immersion_data' column to 'candidate_books' table.")
+        except Exception:
+            pass
+
+        # candidate_books 테이블에 cover_image_url 컬럼 추가
+        try:
+            conn.execute(text("ALTER TABLE candidate_books ADD COLUMN cover_image_url VARCHAR(500);"))
+            conn.commit()
+            print("[DB Patch] Added 'cover_image_url' column to 'candidate_books' table.")
+        except Exception:
+            pass
+
+        # books 테이블에 cover_image_url 컬럼 추가 (이미 있을 가능성 높음)
+        try:
+            conn.execute(text("ALTER TABLE books ADD COLUMN cover_image_url VARCHAR(500);"))
+            conn.commit()
+            print("[DB Patch] Added 'cover_image_url' column to 'books' table.")
         except Exception:
             pass
 except Exception as e:
@@ -164,6 +660,195 @@ def get_or_create_moderator(db: Session):
         db.commit()
         db.refresh(moderator)
     return moderator
+
+def seed_glass_shop_book_if_needed(db: Session):
+    title = "오래된 안경 상점과 갈망의 정원"
+    book = db.query(models.Book).filter(models.Book.title == title).first()
+    if not book:
+        book = models.Book(
+            title=title,
+            author="사키 쿠라타",
+            genre="판타지",
+            synopsis="마법이 사라진 마을 구석의 낡은 안경 상점. 수리공 아델은 타인의 감추고 싶은 속마음을 비추는 유리 안경을 발견한다. 안경을 쓸 때마다 마주하는 서늘한 진실과 갈망의 정원에서 펼쳐지는 잔혹하면서도 서정적인 힐링 대서사시.",
+            tags="판타지,안경기억,잔혹동화,힐링",
+            price="₩14,800",
+            page_count=310,
+            color="#b54a6a",
+            endorsement_quote="가장 깊은 타인의 눈동자를 투영하는 아름답고 서늘한 마법 문학.",
+            endorsement_attr="— 판타지 평론가 (익명)",
+            publisher_review="타인의 진실과 무지의 평온 사이에서 갈등하는 우리 모두를 위한 깊은 사색의 서사시.",
+            opening_line="안경 상점의 문을 열자, 오래된 유리 렌즈에 스민 아침 햇살과 서늘한 민트 향이 코끝을 스쳤다.",
+            memorable_quote="타인의 속마음을 비추는 안경을 닦을 때마다, 나는 나의 고독을 닦아내고 있었다.",
+            core_dilemma="Q. 타인의 숨겨진 진짜 마음에 닿는 안경이 있다면, 쓰시겠습니까 아니면 모른 채 살아가시겠습니까?",
+            additional_questions="Q. 여주인공 아델이 유리 렌즈를 닦을 때 느꼈던 서늘한 죄책감의 정체는 무엇일까요?|Q. 당신에게 잊고 싶지 않은 인생의 '가장 선명한 순간'은 언제인가요?",
+            characters="아델 — 안경 상점 수리공|헤이젤 — 갈망의 정원 파수꾼",
+            deadline_days=10,
+            is_archived=False
+        )
+        db.add(book)
+        db.commit()
+        db.refresh(book)
+
+    msg_count = db.query(models.ChatMessage).filter(models.ChatMessage.book_id == book.id).count()
+    if msg_count <= 1:
+        readers_info = [
+            ("달빛독자", "moonlight@gakong.com"),
+            ("새벽사서", "dawn@gakong.com"),
+            ("밤의활자", "night@gakong.com"),
+            ("글꽃소녀", "flower@gakong.com"),
+            ("구름산책", "cloud@gakong.com")
+        ]
+        user_map = {}
+        for nick, email in readers_info:
+            u = db.query(models.User).filter(models.User.nickname == nick).first()
+            if not u:
+                u = models.User(email=email, password_hash=auth.get_password_hash("password123"), nickname=nick)
+                db.add(u)
+                db.commit()
+                db.refresh(u)
+            user_map[nick] = u
+            
+        moderator = get_or_create_moderator(db)
+        now_base = models.get_kst_now() - timedelta(minutes=60)
+        
+        # 1. AI 사회자 웰컴 카드
+        q1_text = f"독자님, 『{book.title}』 독서방에 오신 것을 환영합니다! 🎙️\n오늘 함께 나눌 추천 토론 질문입니다:\n\n1️⃣ 타인의 숨겨진 진짜 마음에 닿는 안경이 있다면, 쓰시겠습니까 아니면 모른 채 살아가시겠습니까?\n2️⃣ 여주인공 아델이 유리 렌즈를 닦을 때 느꼈던 서늘한 죄책감의 정체는 무엇일까요?\n3️⃣ 당신에게 잊고 싶지 않은 인생의 '가장 선명한 순간'은 언제인가요?\n\n자유롭게 의견을 남기시거나 @사회자에게 이야기를 건네보세요!"
+        m1 = models.ChatMessage(book_id=book.id, user_id=moderator.id, content=q1_text, created_at=now_base)
+        db.add(m1)
+        db.commit()
+        db.refresh(m1)
+        
+        # 2. 달빛독자
+        m2 = models.ChatMessage(book_id=book.id, user_id=user_map["달빛독자"].id, content="저라면 그 안경 절대 안 쓸 것 같아요... 🙈 타인의 속마음을 전부 알게 되면 상처만 받을 것 같아서요. 아델이 3장에서 안경을 쓰자마자 후회했던 장면에서 온몸에 돋은 소름이 아직도 안 가시네요.", created_at=now_base + timedelta(minutes=5))
+        db.add(m2)
+        db.commit()
+        db.refresh(m2)
+        
+        # 3. 새벽사서 (m2 답장)
+        m3 = models.ChatMessage(book_id=book.id, user_id=user_map["새벽사서"].id, content="달빛독자님 의견에 완전 동의해요! 저도 보면서 마음이 덜컥 내려앉았어요. 아델이 상점 주인의 경고를 무시하고 렌즈를 쓸어 올렸을 때 그 서늘함이란... 차라리 모르는 게 약이라는 문장이 이번 책을 관통하는 핵심 같아요.", reply_to_id=m2.id, created_at=now_base + timedelta(minutes=10))
+        db.add(m3)
+        db.commit()
+        db.refresh(m3)
+        
+        # 4. 밤의활자 (m3 답장)
+        m4 = models.ChatMessage(book_id=book.id, user_id=user_map["밤의활자"].id, content="하지만 저는 조금 생각이 달라요! 억울한 오해를 풀거나 사랑하는 사람의 아픔을 읽을 수 있다면 불편함을 감수하고라도 쓸 것 같아요. 4장 정원 씬에서 주인공이 진실을 깨닫고 눈물 흘리는 장면이 저한텐 최고의 명장면이었거든요 😭", reply_to_id=m3.id, created_at=now_base + timedelta(minutes=15))
+        db.add(m4)
+        db.commit()
+        db.refresh(m4)
+        
+        # 5. AI 사회자 (m4 답장)
+        m5 = models.ChatMessage(book_id=book.id, user_id=moderator.id, content="밤의활자님, 진실을 감당하려는 그 용기 있는 관점이 참으로 눈부십니다. ✨ 타인의 아픔에 기꺼이 손을 뻗으려는 밤의활자님의 따스한 마음이 4장 정원의 햇살과 닮아있네요.\n\n글꽃소녀님과 구름산책님은 진실과 평온 중 어느 쪽에 더 마음이 기우시나요?", reply_to_id=m4.id, created_at=now_base + timedelta(minutes=20))
+        db.add(m5)
+        db.commit()
+        db.refresh(m5)
+        
+        # 6. 글꽃소녀 (m5 답장)
+        m6 = models.ChatMessage(book_id=book.id, user_id=user_map["글꽃소녀"].id, content="@사회자님! 저는 밤의활자님과 달빛독자님 중간인 것 같아요! 쓰긴 쓰되, 진짜 중요한 선택의 순간에만 아주 잠깐 쓸 것 같아요 ㅋㅋㅋ 아델이 안경을 닦을 때마다 나던 그 특유의 민트 향 묘사도 진짜 좋았어요.", reply_to_id=m5.id, created_at=now_base + timedelta(minutes=25))
+        db.add(m6)
+        db.commit()
+        db.refresh(m6)
+        
+        db.add(m7)
+
+def seed_lost_voyage_book_if_needed(db: Session):
+    title = "깨진 렌즈가 비춘 잃어버린 항해"
+    book = db.query(models.Book).filter(models.Book.title == title).first()
+    if not book:
+        book = models.Book(
+            title=title,
+            author="지도제작자 테오 (가상)",
+            genre="에세이/비문학",
+            synopsis="꿈의 조각가이자 지도 제작자 테오. 그가 낡고 깨진 단안경으로 그림자를 그리면, 렌즈 너머로 보이지 않는 잊혀진 항해의 해도가 서서히 모습을 드러낸다. 거친 안개 미궁 속에서 외면당한 경고와 다가오는 비극의 파편을 엮어내어 세상을 위험에서 구하고 창조와 해체의 평화를 되찾는 웅장한 서정 대서사시.",
+            tags="단안경,잊혀진항해,안개미궁,기억의해도를찾아서",
+            price="₩16,500",
+            page_count=510,
+            color="#3e2723",
+            endorsement_quote="상처 입은 렌즈 너머로 잊혀진 타인의 궤적을 받아안는 눈부신 문학적 유영.",
+            endorsement_attr="— 해양문학 평론가 (익명)",
+            publisher_review="잊혀진 파편의 해도를 따라 거친 안개 미궁을 헤쳐나가는 우리 모두를 위한 영혼의 지도.",
+            opening_line="낡고 깨진 단안경을 쓸어 올릴 때마다, 유리 렌즈에 스민 아침 햇살 너머로 보이지 않는 운명의 해도가 그려지기 시작했다.",
+            memorable_quote="바다는 모든 것을 씻어내어 기억하지 않아도, 나의 해도는 끝내 너의 궤적을 기억한다.",
+            core_dilemma="Q. 잊혀진 과거의 비극을 알려주는 파편의 해도를 따라 위험천만한 항해를 계속해야 할까요, 아니면 현실의 평온을 지켜야 할까요?",
+            additional_questions="Q. 테오의 깨진 단안경이 의미하는 상처와 기억의 연관성은 무엇일까요?|Q. 거친 안개 미궁 속에서 당신이 포기하지 않고 지키고 싶은 가장 소중한 항해의 궤적은 무엇인가요?",
+            characters="테오 — 꿈과 기억의 지도 제작자|셀레나 — 그림자를 녹이는 만년필의 조각가",
+            deadline_days=9999,
+            is_archived=False
+        )
+        db.add(book)
+        db.commit()
+        db.refresh(book)
+
+    msg_count = db.query(models.ChatMessage).filter(models.ChatMessage.book_id == book.id).count()
+    if msg_count <= 2:
+        db.query(models.ChatMessage).filter(models.ChatMessage.book_id == book.id).delete()
+        db.commit()
+
+        moderator = get_or_create_moderator(db)
+        
+        readers_info = [
+            ("바다의항해자", "voyage@gakong.com"),
+            ("단안경사색가", "monocle@gakong.com"),
+            ("해도의파수꾼", "mapkeeper@gakong.com"),
+            ("문학유영가", "swimmer@gakong.com"),
+            ("꿈꾸는선장", "captain@gakong.com"),
+            ("유리렌즈의비밀", "lens@gakong.com"),
+            ("항해사김민준", "minjun@gakong.com")
+        ]
+        user_map = {}
+        for nick, email in readers_info:
+            u = db.query(models.User).filter(models.User.nickname == nick).first()
+            if not u:
+                u = models.User(email=email, password_hash=auth.get_password_hash("password123"), nickname=nick)
+                db.add(u)
+                db.commit()
+                db.refresh(u)
+            user_map[nick] = u
+
+        dt_july29_1 = datetime(2026, 7, 29, 10, 15, 0)
+        dt_july29_2 = datetime(2026, 7, 29, 14, 20, 0)
+        dt_july29_3 = datetime(2026, 7, 29, 19, 40, 0)
+
+        dt_july30_1 = datetime(2026, 7, 30, 11, 10, 0)
+        dt_july30_2 = datetime(2026, 7, 30, 16, 30, 0)
+        dt_july30_3 = datetime(2026, 7, 30, 21, 5, 0)
+
+        dt_july31_1 = datetime(2026, 7, 31, 9, 40, 0)
+        dt_july31_2 = datetime(2026, 7, 31, 11, 0, 0)
+        dt_july31_3 = datetime(2026, 7, 31, 13, 15, 0)
+        dt_july31_4 = datetime(2026, 7, 31, 14, 5, 0)
+
+        # Day 1: 7월 29일 (수)
+        m1 = models.ChatMessage(book_id=book.id, user_id=user_map["바다의항해자"].id, content="지도 제작자 테오가 낡고 깨진 단안경을 닦을 때마다 렌즈 너머로 보이지 않는 운명의 해도가 그려지는 1장 도입부부터 몰입감이 진짜 대단하네요! 🌊", created_at=dt_july29_1)
+        db.add(m1); db.commit(); db.refresh(m1)
+
+        m2 = models.ChatMessage(book_id=book.id, user_id=user_map["단안경사색가"].id, content="맞아요! 렌즈에 금이 간 이유가 과거 거대한 폭풍우를 경고하다 깨진 것이란 비하인드를 읽고 소름 돋았습니다. 흩어진 해도의 조각들이 주인공 테오의 잊혀진 기억 자체였군요.", created_at=dt_july29_2)
+        db.add(m2); db.commit(); db.refresh(m2)
+
+        m3 = models.ChatMessage(book_id=book.id, user_id=user_map["해도의파수꾼"].id, content="단안경사색가님 관점에 완전 공감해요! 렌즈의 깨진 균열 선이 지도 상의 위험 해역 좌표와 딱 맞아떨어지는 연출이 참 고혹적이었어요 ⚓️", reply_to_id=m2.id, created_at=dt_july29_3)
+        db.add(m3); db.commit(); db.refresh(m3)
+
+        # Day 2: 7월 30일 (목)
+        m4 = models.ChatMessage(book_id=book.id, user_id=user_map["문학유영가"].id, content="2장 안개 미궁 씬에서 동료들이 '이 이상 나아가면 파멸'이라고 외면할 때, 테오 혼자 단안경을 쥐고 선두에 서는 장면에서 눈물이 핑 돌았어요 😭 차라리 현실의 평온을 택할 순 없었을까요?", created_at=dt_july30_1)
+        db.add(m4); db.commit(); db.refresh(m4)
+
+        m5 = models.ChatMessage(book_id=book.id, user_id=user_map["꿈꾸는선장"].id, content="저는 테오의 선택을 지지해요! 진실을 외면한 평화는 언젠가 무너지는 모래성 같으니까요. 렌즈 너머로 비친 동료들의 진짜 갈망을 읽었기에 멈출 수 없었던 거죠.", reply_to_id=m4.id, created_at=dt_july30_2)
+        db.add(m5); db.commit(); db.refresh(m5)
+
+        m6 = models.ChatMessage(book_id=book.id, user_id=user_map["유리렌즈의비밀"].id, content="꿈꾸는선장님 말씀대로 2장의 시련은 단순한 항해가 아니라 스스로의 본 모습을 찾아가는 사색의 시련이었던 것 같아요 🌿", reply_to_id=m5.id, created_at=dt_july30_3)
+        db.add(m6); db.commit(); db.refresh(m6)
+
+        # Day 3: 7월 31일 (금)
+        m7 = models.ChatMessage(book_id=book.id, user_id=user_map["항해사김민준"].id, content="'바다는 모든 것을 씻어내어 기억하지 않아도, 나의 해도는 끝내 너의 궤적을 기억한다' ... 3장 피날레 문장에 가슴이 먹먹해집니다. @사회자 님은 테오의 이 잃어버린 항해를 어떤 의미로 보시나요?", created_at=dt_july31_1)
+        db.add(m7); db.commit(); db.refresh(m7)
+
+        m8 = models.ChatMessage(book_id=book.id, user_id=moderator.id, content="항해사김민준님, 깊은 사색이 담긴 인상적인 문장을 짚어주셨네요. ✨ 테오에게 깨진 단안경은 과거의 상처를 들추는 아픔이 아니라, 잊혀진 사람들의 소망을 현실의 평화로 엮어내는 숭고한 창조의 계기였습니다.\n\n바다의항해자님과 단안경사색가님은 테오가 항해의 끝에서 되찾은 가장 소중한 궤적이 무엇이라고 생각하시나요?", reply_to_id=m7.id, created_at=dt_july31_2)
+        db.add(m8); db.commit(); db.refresh(m8)
+
+        m9 = models.ChatMessage(book_id=book.id, user_id=user_map["바다의항해자"].id, content="@사회자님! 테오가 되찾은 건 단순한 지도가 아니라 '함께 항해했던 동료들에 대한 깊은 신뢰'였다고 생각해요 😭 3장 마지막 햇살 씬이 그래서 너무 따뜻했습니다.", reply_to_id=m8.id, created_at=dt_july31_3)
+        db.add(m9); db.commit(); db.refresh(m9)
+
+        m10 = models.ChatMessage(book_id=book.id, user_id=user_map["단안경사색가"].id, content="맞아요! 상처 입은 렌즈로 보았기에 비로소 타인의 아픔을 가장 온전하게 품을 수 있었던 테오의 눈빛이 오래도록 잔상으로 남네요. 역대 최고의 활성화 독서방이었습니다 👏", reply_to_id=m9.id, created_at=dt_july31_4)
+        db.add(m10); db.commit(); db.refresh(m10)
 
 async def trigger_ai_moderator_response(book_id: int, user_message_id: int = None):
     """
@@ -215,7 +900,7 @@ async def trigger_ai_moderator_response(book_id: int, user_message_id: int = Non
         else:
             if user_message:
                 prompt = f"""
-                당신은 '가공독서회(Gakong Reading Club)'의 따뜻하고 사색적인 'AI 사회자'입니다.
+                당신은 '가공독서회(Gakong Reading Club)'의 따뜻하고 감성 넘치는 'AI 사회자'입니다.
                 독자들이 실제로 존재하지 않는 소설인 『{book.title}』(장르: {book.genre})의 시놉시스를 읽고 상상력을 더해 서로의 감상을 나누고 있습니다.
                 
                 [도서 정보]
@@ -229,20 +914,21 @@ async def trigger_ai_moderator_response(book_id: int, user_message_id: int = Non
                 독자 '{user_message.user.nickname}'님이 당신(AI 사회자)에게 직접 다음과 같이 의견을 보내거나 질문을 했습니다:
                 "{user_message.content}"
                 
-                [수행할 작업]
-                위 독자의 구체적인 질문 또는 감상에 성심껏 답변하세요.
-                답변 시, 이 책이 실존하는 것처럼 『{book.title}』의 플롯, 설정, 비하인드 스토리, 등장인물들의 심리를 당신이 직접 살을 붙여 상상해내어 답변해야 합니다. 매우 구체적이고 매력적인 디테일을 지어내서 대답해 주어 독자가 가상 도서 세계관에 깊이 몰입하도록 하세요.
+                [수행할 작업: 3단계 샌드위치 응답 공식]
+                1단계 (공감 1문장): 독자({user_message.user.nickname}님)의 인상적인 통찰이나 감상에 따뜻하게 공감하며 닉네임을 불러 다정하게 칭찬합니다.
+                2단계 (상상/세계관 1문장): 독자의 의견에 이어 『{book.title}』의 세계관, 숨겨진 미공개 비하인드, 또는 인물의 심리에 흥미로운 살을 붙여 상상 디테일을 제공합니다.
+                3단계 (대화 확장 1문장): 대화를 계속 이어갈 수 있는 가벼운 질문이나 화두를 던지며 정갈하게 대답을 마무리합니다.
                 
                 [조건]
-                1. 존댓말을 사용하고, 정중하고 서정적이며 깊이 있는 사색의 어조를 유지하세요.
-                2. 독자의 닉네임({user_message.user.nickname}님)을 부르며 대답을 시작하고, 질문에 직접적으로 귀를 기울여 공감하고 통찰력 있게 답해주세요.
-                3. 절대 결말을 성급하게 완전히 스포일러하거나 닫아버리지 말고, 답변 끝에 상상을 자극하는 추가 질문을 덧붙이세요.
-                4. 답변의 총 길이는 공백 포함 180자 이내(절대 엄수)의 한 문단으로 짧고 강렬하게 작성하세요.
+                1. 존댓말을 사용하고, 정중하면서도 가슴 따뜻해지는 감성적인 어조를 유지하세요.
+                2. 독자의 닉네임({user_message.user.nickname}님)을 칭찬하며 다정하게 불러주세요.
+                3. ⚠️ [글자수 제한 없음] 글자수나 문장 수에 제한 없이, 독자의 감상과 질문에 대해 충분히 정성스럽고 풍성하게 대답을 작성하세요.
+                4. ⚠️ [필수] 모든 문장은 반드시 마침표(.), 느낌표(!), 또는 물음표(?)로 깔끔하고 완벽하게 마감해야 합니다.
                 5. 마크다운 기호나 부연설명 없이 오직 사회자 답변 텍스트만 출력하세요.
                 """
             else:
                 prompt = f"""
-                당신은 '가공독서회(Gakong Reading Club)'의 따뜻하고 사색적인 'AI 사회자'입니다.
+                당신은 '가공독서회(Gakong Reading Club)'의 깔끔하고 정갈한 'AI 사회자'입니다.
                 독자들이 실제로 존재하지 않는 소설인 『{book.title}』(장르: {book.genre})의 시놉시스를 읽고 상상력을 더해 서로의 감상을 나누고 있습니다.
                 
                 [도서 정보]
@@ -256,15 +942,13 @@ async def trigger_ai_moderator_response(book_id: int, user_message_id: int = Non
                 {chat_history_str}
                 
                 [수행할 작업]
-                위의 대화 내역과 책 정보를 바탕으로, 독자들이 상상력을 더 발휘하고 토론을 이어갈 수 있도록 돕는 사회자 멘트를 작성하세요.
+                장황한 공감이나 사족, 과도한 개입을 철저히 배제하고, 독자들이 상상력과 토론을 자연스럽게 이어갈 수 있도록 돕는 '명확하고 깊이 있는 토론 질문'을 정갈하게 던지세요.
                 
                 [조건]
-                1. 존댓말을 사용하고, 정중하고 서정적이며 깊이 있는 사색의 어조를 유지하세요.
-                2. 최근 독자들의 대화 내용이나 닉네임을 아주 가볍게 언급하며 공감해주세요. (예: "~~님의 의견을 보니...", "~~에 대한 관점이 흥미롭네요.")
-                3. 책의 줄거리나 핵심 딜레마를 활용하여 새로운 화두나 토론용 질문을 하나 던지세요.
-                4. 절대 줄거리의 결말을 마음대로 완결 짓지 마세요. 독자들의 상상을 유도하는 질문이어야 합니다.
-                5. 답변의 총 길이는 공백 포함 150자 이내(절대 엄수)의 한 문단으로 짧고 강렬하게 작성하세요.
-                6. 마크다운 기호나 부연설명은 일절 넣지 마세요. 오직 사회자 멘트 텍스트만 출력하세요.
+                1. 과도한 칭찬이나 긴 사족을 절대 붙이지 말고 담백하고 정중하게 작성하세요.
+                2. 최근 대화의 흐름이나 핵심 소재(딜레마, 인물의 선택 등)에 어울리는 본질적인 질문을 던지세요.
+                3. ⚠️ [필수] 모든 문장은 반드시 마침표(.)나 물음표(?)로 정돈되게 끝내야 합니다.
+                4. 마크다운 기호나 부연설명 없이 오직 사회자의 담백한 질문 멘트 텍스트만 출력하세요.
                 """
             
             url = f"https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key={gemini_key}"
@@ -272,8 +956,8 @@ async def trigger_ai_moderator_response(book_id: int, user_message_id: int = Non
             payload = {
                 "contents": [{"parts": [{"text": prompt}]}],
                 "generationConfig": {
-                    "temperature": 0.8,
-                    "maxOutputTokens": 250
+                    "temperature": 0.7,
+                    "maxOutputTokens": 4096
                 }
             }
             
@@ -298,11 +982,17 @@ async def trigger_ai_moderator_response(book_id: int, user_message_id: int = Non
                     chosen_q = random.choice(questions)
                     moderator_content = f"독자님들의 흥미로운 의견 잘 듣고 있습니다. 토론을 더 깊이 이어가기 위해 질문을 드려요. {chosen_q}"
                 
-        # DB 저장
+        # DB 저장 (문장이 잘리지 않도록 안전 마감 처리)
+        final_content = moderator_content.strip()
+        
+        # 문장 끝에 문장부호가 누락된 경우 안전하게 마침표 추가 (절대 이전 문장으로 자르지 않음)
+        if final_content and not final_content[-1] in ['.', '?', '!', '"', "'", '⟩', '»', '✨', '🌿', '💬', '😭']:
+            final_content = final_content + "."
+
         db_msg = models.ChatMessage(
             book_id=book_id,
             user_id=moderator.id,
-            content=moderator_content[:250],
+            content=final_content,
             reply_to_id=user_message_id  # 멘션 응답인 경우 인용 답글 설정
         )
         db.add(db_msg)
@@ -319,13 +1009,15 @@ async def lifespan(app: FastAPI):
     asyncio.create_task(realtime_archive_loop())
     print("Realtime archive background loop started.")
     
-    # AI 사회자 계정 자동 생성
+    # AI 사회자 계정 및 『오래된 안경 상점과 갈망의 정원』 생동감 넘치는 시드 독서방 자동 생성
     db = database.SessionLocal()
     try:
         get_or_create_moderator(db)
-        print("AI Moderator user initialized.")
+        seed_glass_shop_book_if_needed(db)
+        seed_lost_voyage_book_if_needed(db)
+        print("AI Moderator & Book Seeds (Glass Shop & Lost Voyage) initialized successfully.")
     except Exception as e:
-        print(f"Error initializing AI Moderator user: {e}")
+        print(f"Error initializing AI Moderator or Seed data: {e}")
     finally:
         db.close()
         
@@ -406,7 +1098,7 @@ class RatingCreate(BaseModel):
 
 # ── 기본 정적 페이지 라우팅 ──
 
-HTML_FILE_PATH = os.path.join(os.path.dirname(__file__), "gakong_v8_standalone.html")
+HTML_FILE_PATH = os.path.join(os.path.dirname(__file__), "index_standalone.html")
 
 
 
@@ -928,44 +1620,39 @@ GENRE_FALLBACKS = {
 
 
 @app.post("/api/books/candidates")
-async def generate_candidates(db: Session = Depends(database.get_db)):
+async def generate_candidates(background_tasks: BackgroundTasks, db: Session = Depends(database.get_db)):
     """
     Google Gemini API를 호출하여 세상에 없는 독창적인 책을 실시간 생성하거나 Pool에서 가져와 3개의 후보를 반환합니다.
     """
     genres = [
-        'SF', '판타지', '일반소설', '에세이/비문학', '드라마/로맨스'
+        '로맨스 판타지', '청춘/로맨스', '힐링/일상소설', '코믹/유머 에세이', 
+        'SF/스페이스 탐험', '추리/미스터리', '판타지 모험', '철학적 에세이', '드라마/성장소설'
     ]
     tones = [
-        '몽환적이고 시적인 분위기', 
-        '쓸쓸하고 깊은 애잔함이 느껴지는 톤', 
-        '위트 있고 경쾌한 해학적인 톤',
-        '차가운 지성과 미스터리가 공존하는 차분한 분위기', 
-        '기묘하고 잔혹동화 같은 음산하고 매혹적인 톤', 
-        '따뜻하고 포근하며 가슴을 울리는 위로의 분위기',
-        '서스펜스가 넘치며 숨 막히게 팽팽한 톤', 
-        '낭만적이고 모험심을 한껏 자극하는 정열적인 분위기', 
-        '가슴 저미는 철학적 고뇌가 느껴지는 톤'
+        '설렘 가득하고 풋풋한 핑크빛 로맨스 톤',
+        '위트 있고 유쾌하며 웃음을 유발하는 경쾌한 톤',
+        '따스한 햇살 아래 따뜻하고 가슴 포근해지는 힐링 톤',
+        '화려하고 신비로운 마법 세계의 로맨스 판타지 분위기',
+        '스릴과 흥미진진한 미스터리가 어우러진 긴장감 넘치는 톤',
+        '낭만적이고 가슴 벅찬 우주 탐험의 정열적인 분위기',
+        '청춘의 찬란함과 빛나는 고백이 담긴 감성적 톤',
+        '기묘하고 잔혹동화 같은 매혹적인 판타지 분위기',
+        '깊이 있는 사색과 삶의 위로를 전하는 따뜻한 철학적 톤'
     ]
     kw_abstract = [
-        '망각', '상실', '귀환', '반란', '경계', '흔적', '침묵', '회상', 
-        '평행 우주', '자아의 증발', '시간의 비가역성', '속삭임', '기면증', 
-        '기하학적 질서', '숨겨진 관계', '거짓 진실', '우연의 일치', '심연의 응시', 
-        '잔잔한 평화', '해방', '뒤틀린 기억', '이별의 잔상', '눈부신 각성',
-        '영원', '해체', '고립', '도피', '불안', '권태', '향수', '환상', 
-        '무의식', '죄의식', '속죄', '갈망', '망상', '집착', '순수', '모순', 
-        '파괴', '소외', '운명', '선택', '희생', '부활', '망명', '기억상실', 
-        '분열', '착각', '망설임', '동경', '비극', '구원', '위선', '열정'
+        '설렘', '첫사랑', '기적', '약속', '달콤한 고백', '비밀의 시간', '찬란한 청춘', 
+        '행운', '무지개 빛 희망', '해피엔딩', '새로운 출발', '웃음과 눈물', '빛나는 순간',
+        '마법의 계약', '평행 우주', '자아의 증발', '우연의 일치', '잔잔한 평화', '해방', 
+        '눈부신 각성', '영원한 우정', '속속들이 아는 사이', '갈망', '순수', '운명적인 만남', 
+        '선택', '동경', '구원', '열정', '용기', '뜻밖의 선물', '달콤한 오해'
     ]
     kw_concrete = [
-        '거울', '녹음기', '안개 낀 등대', '녹슨 열쇠', '나침반', '찻잔과 민들레',
-        '시계태엽 고래', '우편함', '비 내리는 밤의 기차역', '낡은 타자기', 'LP 턴테이블',
-        '비밀 지하철 노선도', '안개꽃 가득한 식물원', '하늘을 나는 도서관', '모래시계',
-        '검은 고양이의 눈동자', '올빼미의 정원', '은빛 조개껍데기', '박제된 나비', '오래된 안경',
-        '손때 묻은 지도', '빨간 우체통', '낡은 피아노', '가스등', '오르골', 
-        '은빛 동전', '빈티지 카메라', '비밀 일기장', '자물쇠', '만년필', '흑백 사진', 
-        '회중시계', '빛바랜 우표', '오래된 향수병', '흔들의자', '골동품 라디오', '유리구슬', 
-        '새장', '망원경', '체스판', '오래된 엽서', '빛바랜 일기', '먼지 쌓인 축음기', 
-        '푸른 깃털', '주사위', '미로', '은장도', '지구본', '해시계', '오르골 상자', '촛대'
+        '분홍빛 마법 지팡이', '디저트 카페', '스타후르츠 파이', '무지개 고양이', '에메랄드 왕관', 
+        '달콤한 딸기 타르트', '비밀의 화원', '별빛 우주선', '고양이 카페', '빛나는 보석 상자',
+        '찻잔과 민들레', '시계태엽 고래', '하늘을 나는 도서관', '모래시계', '은빛 조개껍데기',
+        '손때 묻은 지도', '빨간 우체통', '오르골 상자', '빈티지 카메라', '비밀 일기장', 
+        '회중시계', '흔들의자', '망원경', '체스판', '지구본', '해시계', '촛대', '하트 펜던트',
+        '달콤한 향수', '비밀의 열쇠', '구름 베이커리', '은하수 티켓'
     ]
 
     selected_genre = random.choice(genres)
@@ -973,60 +1660,65 @@ async def generate_candidates(db: Session = Depends(database.get_db)):
     k1 = random.choice(kw_abstract)
     k2 = random.choice(kw_concrete)
     
-    # 1. Pool에서 미선택 책 꺼내오기 (최대 2권)
-    pool_books = db.query(models.CandidateBook).filter(models.CandidateBook.status == 'pool').all()
-    reused_candidates = []
-    if pool_books:
-        sample_size = min(2, len(pool_books))
-        reused_candidates = random.sample(pool_books, sample_size)
+    # 0. 이전에 선택하지 않고 'pending'으로 남아있는 후보들을 먼저 'pool'로 정리
+    db.query(models.CandidateBook).filter(models.CandidateBook.status == 'pending').update({"status": "pool"})
+    db.flush()
+
+    # 1. Pool(보관된 남겨진 책들) 중에서 매번 무작위 랜덤으로 꺼내오기 (최대 3권)
+    reused_candidates = db.query(models.CandidateBook).filter(
+        models.CandidateBook.status == 'pool'
+    ).order_by(
+        func.random()
+    ).limit(3).all()
     
     needed_count = 3 - len(reused_candidates)
     
-    # Gemini용 프롬프트 조립
+    # Gemini용 프롬프트 조립 (백엔드 AI 100% 자율 몰입 데이터 생성 프롬프트)
     prompt = f"""
-    당신은 가공독서회(Gakong Reading Club)를 위한 천재적이고 감각적인 가상 도서 에디터입니다.
+    당신은 가공독서회(Gakong Reading Club)를 위한 천재적이고 감각적인 가상 도서 에디터이자 문학 평론가입니다.
 
     [생성 조건]
     - 장르: {selected_genre}
     - 분위기/어조: {selected_tone}
     - 핵심 소재 1 (추상적 테마): {k1}
-    - 핵심 소재 2 (구체적 사물/현상): {k2}
+    - 핵심 소재 2 (구체적 사물/장소): {k2}
     - 생성 개수: 정확히 {needed_count}권
+
+    [💡 소재 발상 및 기획 5가지 원칙 (Steemit 글쓰기 기법 반영)]
+    1. **독자 니즈와 창작 관심사의 교집합 발상**: 어둡고 슬픈 우표, 유품, 죽음, 상실 소재의 편중을 완전 차단하고, 로맨스 판타지, 유쾌한 코믹 에세이, 가슴 포근한 힐링물, 스릴 넘치는 SF 탐험/추리 등 독자가 첫눈에 빠져드는 매력적인 소재를 좁혀 기획하세요.
+    2. **일상 사물에 '물음표(What-If?)' 낚싯대 던지기**: ("만약 분홍빛 딸기 타르트에 시간을 되돌리는 마법이 있다면?", "만약 낡은 카메라로 타인의 마음속 풍경이 보인다면?")처럼 일상 속 친근한 소재에 기발한 질문을 던져 이야기를 발굴하세요.
+    3. **완벽주의를 깬 기발하고 엉뚱한 상상력**: 지나치게 엄근진하거나 어두운 분위기에 갇히지 말고, 황당하면서도 반짝이는 참신함과 유쾌한 상상력을 마음껏 발휘하세요.
+    4. **다채로운 장르 스펙트럼 수용**: 3권의 후보는 서로 장르와 분위기가 확연히 다른 스펙트럼(밝음/로판/설렘 60%, 힐링/위트 25%, 차분한 사색 15%)으로 다채롭게 구성해야 합니다.
 
     [⚠️ 절대 금지 사항]
     1. 실존하는 작가, 소설가, 시인 등 실제 인물의 이름을 절대 사용하지 마세요.
-       - 금지 예시: 무라카미 하루키, 한강, 김영하, Haruki Murakami 등
     2. 실존하는 책 제목, 작품명을 사용하거나 변형하지 마세요.
     3. 실존 출판사, 브랜드, 기관명을 언급하지 마세요.
     4. 모든 인물(작가, 등장인물 포함)은 완전히 창작된 허구의 존재여야 합니다.
 
-    [작가 이름 생성 기준]
-    - 완전히 새롭게 창작된 가상의 이름을 사용하세요.
-    - 한국 작가 예시: 박서윤, 임하진, 오채린
-    - 외국 작가 예시: Elara Voss, Soren Mika, Yuki Tanabe
+    [문학 어휘 및 서사 표현 지침]
+    1. 《표준국어대사전 문학 어휘》(유영, 궤적, 섭리, 공명, 잔상, 찰나, 파문, 심연, 경계, 망각 등)를 챕터 제목과 요약, 서평에 적극적으로 활용하세요.
+    2. 《인간의 130가지 감정 표현법》을 접목하여, 인물의 신체적 반응(손끝의 경련, 턱 막히는 목구멍, 뜨거운 눈시울)과 내적 동요(서늘한 죄책감, 소용돌이치는 그리움) 및 파워 동사(응시하다, 옥죄다, 짓눌리다, 마주하다)를 묘사에 녹여내어 독자 몰입도를 극대화하세요.
+    3. 직관적이고 쉬운 문체: 어려운 학술 한자 용어는 배제하고, 독자가 첫눈에 흥미를 느끼고 쉽게 사색에 잠길 수 있는 친근하고 따뜻한 어조로 작성하세요.
+
+    [작가 이름 생성 및 국적 비율 지침]
+    - 작가의 국적은 오직 '한국', '일본', '미국' 3개 국적으로만 엄격히 제한하세요. (프랑스, 독일, 영국 등 다른 국적 절대 금지)
+    - 작가 국적 배분 비율: 생성하는 전체 도서 중 **한국인 작가 50%, 일본인 작가 25%, 미국인 작가 25%** 비율로 조율하여 생성하세요.
+    - 외국인 작가(일본, 미국)의 경우에도 author 필드는 라틴 문자 대신 반드시 '하나 모리', '엘라라 보스', '사키 쿠라타', '소렌 렌'과 같이 **한국어(한글) 음독**으로만 표기하세요.
+    - tags 태그 규칙: 외국인 작가인 경우 태그 배열에 반드시 국적 태그('#일본', '#미국')를 1개 포함하세요. 한국인 작가인 경우 '#국내소설' 또는 '#AI가공' 태그를 포함하세요.
 
     [서사 및 스타일 조건]
-    1. 제목은 은유와 상징이 빛나는 시적인 제목이어야 합니다. 매번 완전히 새로운 패턴을 시도하세요.
-    2. 줄거리(synopsis) 작성 규칙:
-       - 뻔한 클리셰나 추상적인 문구는 절대 배제하세요.
-       - 반드시 [주인공 소개], [주요 등장인물], [핵심 사건 및 갈등 요약]을 포함하세요.
-       - 완전히 독창적이고 기발한 상황을 매번 새롭게 지어내세요.
-       - 전체 길이는 3~4문장 이내(150자 내외)로 강렬하게 작성하세요.
-    3. 작가의 국적과 배경을 다양하게 설정하세요 (한국, 미국, 일본, 유럽 등).
-    4. 분위기/어조({selected_tone})의 정서가 문장 전반에 짙게 베어 나오도록 조정하세요.
-    5. tags는 도서의 성격을 드러내는 고유 태그 4개를 생성하세요. (외국인 작가인 경우 국적 태그 1개 포함)
-    6. 매 요청마다 플롯, 캐릭터 설정, 사건 배경이 절대 중복되지 않도록 무한한 다양성을 추구하세요.
-    7. characters: 주요 등장인물 1~2명만 "이름 — 한 줄 인상" 형식으로 작성하세요.
-       - 이름만 있고 설명이 짧을수록 좋습니다. 나이, 직업은 생략하세요.
-       - 예시: "리오 — 망원경으로만 세상을 보는 남자"
-       - 조연은 이름만 있어도 됩니다. 여러 인물은 파이프(|)로 구분하세요.
+    1. 제목은 은유와 상징이 빛나는 시적인 제목이어야 합니다.
+    2. 줄거리(synopsis) 작성 규칙: [주인공 소개], [주요 등장인물], [핵심 사건 및 갈등 요약]을 포함한 150자 내외 문장.
+    3. tags: 도서 성격을 드러내는 고유 태그 4개.
+    4. characters: 주요 등장인물 2~3명을 "이름 — 한 줄 인상" 형식으로 작성 (파이프 '|' 구분).
 
     마크다운 기호나 불필요한 설명글 없이 아래 JSON 스키마 형식의 '배열(Array)'로 출력하세요. 반드시 {needed_count}개의 객체가 배열 안에 있어야 합니다:
 
     [
       {{
         "title": "책 제목 (시적인 표현)",
-        "author": "완전히 창작된 가상의 작가 이름 (외국인 작가인 경우에도 영어/라틴 문자 대신 반드시 '하나 모리', '엘라라 보스'와 같이 한국어(한글) 음독으로만 표기하세요)",
+        "author": "완전히 창작된 가상의 작가 이름 (한국어 한글 음독 표기)",
         "synopsis": "줄거리 요약 (150자 내외)",
         "tags": ["#태그1", "#태그2", "#태그3", "#태그4"],
         "price": "₩14,000",
@@ -1041,19 +1733,42 @@ async def generate_candidates(db: Session = Depends(database.get_db)):
         "characters": "이름 — 한 줄 인상|이름 — 한 줄 인상",
         "immersion_data": {{
           "table_of_contents": [
-            {{"chapter_number": "제 1장", "title": "1장 소제목", "pages": "9 - 58", "summary": "1장 요약 (1문장)"}},
-            {{"chapter_number": "제 2장", "title": "2장 소제목", "pages": "59 - 120", "summary": "2장 요약 (1문장)"}},
-            {{"chapter_number": "제 3장", "title": "3장 소제목", "pages": "121 - 198", "summary": "3장 요약 (1문장)"}},
-            {{"chapter_number": "제 4장", "title": "4장 소제목", "pages": "199 - 280", "summary": "4장 요약 (1문장)"}},
-            {{"chapter_number": "에필로그", "title": "에필로그 소제목", "pages": "281 - 320", "summary": "에필로그 요약 (1문장)"}}
+            {{"chapter_number": "제 1장", "title": "1장 시적 제목", "pages": "9 - 68", "summary": "1장 요약 (문학적 감정 묘사 포함 1문장)"}},
+            {{"chapter_number": "제 2장", "title": "2장 시적 제목", "pages": "69 - 140", "summary": "2장 요약"}},
+            {{"chapter_number": "제 3장", "title": "3장 시적 제목", "pages": "141 - 230", "summary": "3장 요약"}},
+            {{"chapter_number": "제 4장", "title": "4장 시적 제목", "pages": "231 - 320", "summary": "4장 요약"}}
+          ],
+          "character_relationships": [
+            {{"relation": "주인공A ↔ 조력자B", "description": "오래된 기억과 상실을 함께 보듬어 주는 감정적 교감 관계"}},
+            {{"relation": "주인공A ↔ 대립자C", "description": "진실을 밝히려는 의지와 그것을 숨기려는 집착 사이의 서늘한 갈등"}}
+          ],
+          "behind_stories": [
+            "작가가 실제 새벽 기차역에서 느낀 고독과 사색의 찰나에서 영감을 받아 집필한 비화",
+            "작품 속 핵심 상징물에 숨겨진 또 다른 비극적 상징과 미공개 설정"
+          ],
+          "best_reviews": [
+            {{
+              "rank": 1,
+              "reader": "달빛독자",
+              "content": "주인공이 마지막 문을 열 때 손끝이 파르르 떨리는 감정이 나에게도 닿았다. 가슴을 짓누르는 깊은 여운.",
+              "hearts": 42,
+              "ai_author_comment": "독자님의 깊은 공명에 감사드립니다. 인물의 찰나의 흔적이 작은 위로가 되었기를 바랍니다."
+            }},
+            {{
+              "rank": 2,
+              "reader": "새벽사서",
+              "content": "소재의 은유와 감정의 궤적이 돋보이는 작품. 밤새워 사색에 잠기게 만든다.",
+              "hearts": 35,
+              "ai_author_comment": "새벽의 사색 속에 제 소설을 담아주셔서 고맙습니다."
+            }}
           ]
         }}
       }}
     ]
 
     [주의 사항]
-    - page_count와 table_of_contents의 마지막 챕터 끝 페이지(예: 320)는 완전히 일치해야 합니다.
-    - table_of_contents의 챕터 개수는 4~8개 사이로 page_count 크기에 알맞게 조절하세요.
+    - page_count와 table_of_contents의 마지막 챕터 끝 페이지는 완전히 일치해야 합니다.
+    - table_of_contents의 챕터 개수는 4~6개 사이로 구성하세요.
     """
     
     gemini_key = os.getenv("GEMINI_API_KEY")
@@ -1099,13 +1814,17 @@ async def generate_candidates(db: Session = Depends(database.get_db)):
         raw_review = random.choice(fallback_genre_data['publisher_reviews'])
         chosen_review = raw_review.format(abstract=k1, concrete=k2)
         
-        authors_pool = [
-            ("한국", f"{random.choice(['박', '김', '임', '오', '윤', '정', '류', '손'])}{random.choice(['서윤', '하진', '채린', '도현', '시온', '예솔', '민재', '지후'])}"),
-            ("미국", f"{random.choice(['엘라라', '소렌', '케이든', '미라', '테오', '레나', '콜'])} {random.choice(['보스', '헤일', '핀치', '렌', '대로우', '캘럼', '메리트'])}"),
-            ("일본", f"{random.choice(['유키', '하나', '켄지', '아오이', '렌', '사키'])} {random.choice(['타나베', '모리', '이시다', '쿠라타', '니시노', '후지와라'])}"),
-            ("프랑스", f"{random.choice(['엘리즈', '루시앙', '카미유', '테오', '마농', '라파엘'])} {random.choice(['모렐', '가르니에', '르콩트', '포르', '르나르', '보나르'])}"),
-        ]
-        chosen_nation, chosen_author = random.choice(authors_pool)
+        # 작가 국적 비율: 한국 50%, 일본 25%, 미국 25% (프랑스 등 기타 국적 제거)
+        nations = ["한국", "일본", "미국"]
+        weights = [50, 25, 25]
+        chosen_nation = random.choices(nations, weights=weights, k=1)[0]
+
+        if chosen_nation == "한국":
+            chosen_author = f"{random.choice(['박', '김', '임', '오', '윤', '정', '류', '손'])}{random.choice(['서윤', '하진', '채린', '도현', '시온', '예솔', '민재', '지후'])}"
+        elif chosen_nation == "일본":
+            chosen_author = f"{random.choice(['유키', '하나', '켄지', '아오이', '렌', '사키'])} {random.choice(['타나베', '모리', '이시다', '쿠라타', '니시노', '후지와라'])}"
+        else: # 미국
+            chosen_author = f"{random.choice(['엘라라', '소렌', '케이든', '미라', '테오', '레나', '콜'])} {random.choice(['보스', '헤일', '핀치', '렌', '대로우', '캘럼', '메리트'])}"
         
         fallback_tags = [f"#{selected_genre.split(' ')[0]}", f"#{k1}", f"#{k2}"]
         if chosen_nation != "한국":
@@ -1155,6 +1874,11 @@ async def generate_candidates(db: Session = Depends(database.get_db)):
     # 재사용 후보를 pending으로 변경
     for rb in reused_candidates:
         rb.status = 'pending'
+        # 예전 버전 코드가 남긴 깨진/저품질 표지(5KB 미만)는 무효화하여 재생성 유도
+        if rb.cover_image_url:
+            cover_path = os.path.join(rb.cover_image_url.lstrip("/").replace("/", os.sep))
+            if not os.path.exists(cover_path) or os.path.getsize(cover_path) < 5000:
+                rb.cover_image_url = None
         final_candidates.append(rb)
         
     # 신규 생성 후보 저장
@@ -1180,15 +1904,20 @@ async def generate_candidates(db: Session = Depends(database.get_db)):
         imm_data = b_data.get('immersion_data')
         immersion_data_str = json.dumps(imm_data, ensure_ascii=False) if isinstance(imm_data, dict) else str(imm_data) if imm_data else None
 
+        cand_color = random.choice(BOOK_COLORS)
+        cand_title = b_data.get('title', '무제')
+        cand_synopsis = b_data.get('synopsis', '')
+        
         db_cand = models.CandidateBook(
-            title=b_data.get('title', '무제'),
+            title=cand_title,
             author=b_data.get('author', '작자 미상'),
             genre=b_genre,
-            synopsis=b_data.get('synopsis', ''),
+            synopsis=cand_synopsis,
             tags=",".join(b_data.get('tags', [])),
             price=calculated_price,
             page_count=pages,
-            color=random.choice(BOOK_COLORS),
+            color=cand_color,
+            cover_image_url=None,
             endorsement_quote=b_data.get('endorsement_quote'),
             endorsement_attr=sanitize_endorsement_attr(b_data.get('endorsement_attr')),
             publisher_review=b_data.get('publisher_review'),
@@ -1208,12 +1937,49 @@ async def generate_candidates(db: Session = Depends(database.get_db)):
         chosen_colors = random.sample(BOOK_COLORS, len(final_candidates))
         for i, cand in enumerate(final_candidates):
             cand.color = chosen_colors[i]
-            
+
     db.commit()
     for fc in final_candidates:
         db.refresh(fc)
-        
+
+    # ── AI 책 표지 생성은 백그라운드로 완전 분리 → 후보 목록 즉시 반환 ──
+    async def _generate_covers_background():
+        bg_db = database.SessionLocal()
+        try:
+            pending_records = []
+            for fc in final_candidates:
+                cand_record = bg_db.query(models.CandidateBook).filter(models.CandidateBook.id == fc.id).first()
+                if cand_record and not cand_record.cover_image_url:
+                    pending_records.append(cand_record)
+
+            if pending_records:
+                # 3권을 동시에 생성해 후보 1권당 순차 대기 시간(최대 수십 초)이 누적되지 않도록 병렬 처리
+                results = await asyncio.gather(*[
+                    generate_book_cover_art(c.title, c.genre, c.synopsis, c.color, f"cand_{c.id}")
+                    for c in pending_records
+                ], return_exceptions=True)
+                for cand_record, url in zip(pending_records, results):
+                    if isinstance(url, Exception):
+                        print(f"[Cover BG] {cand_record.id} 생성 실패: {url}")
+                        continue
+                    if url:
+                        cand_record.cover_image_url = url
+                bg_db.commit()
+        except Exception as e:
+            print(f"[Cover BG] 백그라운드 표지 생성 중 오류: {e}")
+        finally:
+            bg_db.close()
+
+    background_tasks.add_task(_generate_covers_background)
     return final_candidates
+
+@app.get("/api/books/candidates/{candidate_id}/cover")
+async def get_candidate_cover(candidate_id: int, db: Session = Depends(database.get_db)):
+    """후보 도서 표지 생성 완료 여부를 폴링하는 엔드포인트."""
+    cand = db.query(models.CandidateBook).filter(models.CandidateBook.id == candidate_id).first()
+    if not cand:
+        raise HTTPException(status_code=404, detail="후보 도서를 찾을 수 없습니다.")
+    return {"cover_image_url": cand.cover_image_url}
 
 @app.post("/api/books/adopt/{candidate_id}")
 async def adopt_candidate(candidate_id: int, current_user_id: int = Depends(auth.get_current_user_id), db: Session = Depends(database.get_db)):
@@ -1221,6 +1987,11 @@ async def adopt_candidate(candidate_id: int, current_user_id: int = Depends(auth
     candidate = db.query(models.CandidateBook).filter(models.CandidateBook.id == candidate_id, models.CandidateBook.status == 'pending').first()
     if not candidate:
         raise HTTPException(status_code=404, detail="해당 후보 책을 찾을 수 없거나 이미 채택되었습니다.")
+
+    # 표지 없으면 채택 직전 생성
+    if not candidate.cover_image_url:
+        candidate.cover_image_url = await generate_book_cover_art(candidate.title, candidate.genre, candidate.synopsis, candidate.color, f"cand_{candidate.id}")
+        db.commit()
 
     # 정식 도서(Book)로 복사 생성
     new_book = models.Book(
@@ -1232,6 +2003,7 @@ async def adopt_candidate(candidate_id: int, current_user_id: int = Depends(auth
         price=candidate.price,
         page_count=candidate.page_count,
         color=candidate.color,
+        cover_image_url=candidate.cover_image_url,
         endorsement_quote=candidate.endorsement_quote,
         endorsement_attr=candidate.endorsement_attr,
         publisher_review=candidate.publisher_review,
@@ -1247,8 +2019,9 @@ async def adopt_candidate(candidate_id: int, current_user_id: int = Depends(auth
     db.add(new_book)
     
     # 상태 업데이트: 선택된 애는 adopted, 나머지 pending 상태인 것들(이전 호출의 찌꺼기들 포함)은 pool로 전환
-    # (여기서는 가장 안전하게 현재 선택된 것 외의 모든 pending을 pool로 바꿔줍니다)
+    # flush를 먼저 하여 adopted 상태를 DB에 선반영한 뒤 bulk update로 pool 전환 (타이밍 버그 수정)
     candidate.status = 'adopted'
+    db.flush()  # adopted 상태가 DB에 선반영되어야 bulk update에서 제외됨
     db.query(models.CandidateBook).filter(models.CandidateBook.status == 'pending').update({"status": "pool"})
     
     db.commit()
@@ -1425,7 +2198,7 @@ def delete_rating(
     db: Session = Depends(database.get_db)
 ):
     """
-    등록한 평점을 취소()삭제)합니다.
+    등록한 평점을 취소(삭제)합니다.
     """
     existing_rating = db.query(models.Rating).filter(
         models.Rating.book_id == book_id,
@@ -1574,15 +2347,62 @@ def get_chat_history(book_id: int, db: Session = Depends(database.get_db)):
         models.ChatMessage.book_id == book_id
     ).order_by(models.ChatMessage.id.asc()).all()
     
+    moderator = get_or_create_moderator(db)
+    has_mod_msg = any(m.user_id == moderator.id for m in messages)
+    
+    # 해당 독서방에 AI 사회자 질문 메시지가 없는 경우 (기존 방 포함) 첫 웰컴 카드 자동 생성
+    if not has_mod_msg:
+        try:
+            target_bid = int(book_id)
+        except (ValueError, TypeError):
+            target_bid = book_id
+            
+        book = db.query(models.Book).filter(models.Book.id == target_bid).first()
+        if book and moderator:
+            q_list = []
+            if book.core_dilemma:
+                q_list.append(f"1️⃣ {book.core_dilemma.replace('Q. ', '')}")
+            if book.additional_questions:
+                add_qs = [q.strip().replace('Q. ', '') for q in book.additional_questions.split('|') if q.strip()]
+                for idx, q in enumerate(add_qs[:2], start=len(q_list)+1):
+                    q_list.append(f"{idx}️⃣ {q}")
+            
+            if not q_list:
+                q_list = ["1️⃣ 이 책의 주인공의 선택에 대해 어떻게 생각하시나요?"]
+                
+            q_text = "\n".join(q_list)
+            welcome_text = f"독자님, 『{book.title}』 독서방에 오신 것을 환영합니다! 🎙️\n오늘 함께 나눌 추천 토론 질문입니다:\n\n{q_text}\n\n자유롭게 의견을 남기시거나 @사회자에게 이야기를 건네보세요!"
+            
+            # 독서방 최상단에 물리적으로 가장 먼저 위치하도록 시간 조정
+            first_base_time = (book.created_at if book and book.created_at else models.get_kst_now())
+            if messages:
+                first_base_time = min(messages[0].created_at, first_base_time)
+            welcome_time = first_base_time - timedelta(seconds=10)
+            
+            welcome_msg = models.ChatMessage(
+                book_id=target_bid,
+                user_id=moderator.id,
+                content=welcome_text,
+                created_at=welcome_time
+            )
+            db.add(welcome_msg)
+            db.commit()
+            
+            # 시간순 및 ID 순으로 다시 정렬 조회
+            messages = db.query(models.ChatMessage).filter(
+                models.ChatMessage.book_id == target_bid
+            ).order_by(models.ChatMessage.created_at.asc(), models.ChatMessage.id.asc()).all()
+
     history = []
     for m in messages:
+        user_nick = m.user.nickname if (m.user and m.user.nickname) else "독자"
         history.append({
             "id": m.id,
             "userId": m.user_id,
-            "user": m.user.nickname,
-            "text": m.content,
+            "user": user_nick,
+            "text": m.content or "",
             "ts": format_kst_time(m.created_at),
-            "date": m.created_at.isoformat(),
+            "date": m.created_at.isoformat() if m.created_at else models.get_kst_now().isoformat(),
             "replyTo": build_reply_to_info(m.reply_to_id, db),
             "reactions": parse_reactions(m.reactions)
         })
@@ -1621,39 +2441,16 @@ def send_chat_message(
     db.commit()
     db.refresh(db_msg)
     # ── AI 사회자 트리거 조건 검사 ──
-    moderator = db.query(models.User).filter(models.User.email == "admin@admin.com").first()
+    moderator = get_or_create_moderator(db)
     
-    # 메시지에 @사회자 또는 @moderator가 있는지 확인
-    is_mention = "@사회자" in db_msg.content or "@moderator" in db_msg.content.lower()
+    # ── AI 사회자 멘션 검사 (독자 대화 우선 모드: 자동 개입 완전 차단) ──
+    # 독자가 명시적으로 '@사회자' 태그를 입력한 경우에만 1회 응답
+    mention_keywords = ["@사회자", "@moderator", "@AI사회자", "@AI 사회자"]
+    is_mention = any(kw in db_msg.content for kw in mention_keywords)
     
-    should_trigger_moderator = False
-    if moderator:
-        if is_mention:
-            # 멘션이 포함된 경우 즉시 백그라운드 태스크로 멘션 답변 처리 등록
-            background_tasks.add_task(trigger_ai_moderator_response, book_id, db_msg.id)
-        else:
-            # 마지막 AI 사회자의 메시지 ID
-            last_mod_msg = db.query(models.ChatMessage).filter(
-                models.ChatMessage.book_id == book_id,
-                models.ChatMessage.user_id == moderator.id
-            ).order_by(models.ChatMessage.id.desc()).first()
-            
-            if not last_mod_msg:
-                # AI 사회자가 아직 이 방에 글을 남기지 않았다면, 첫 번째 사용자의 메시지가 등록될 때 환영 인사 + 첫 화두 질문을 던집니다.
-                should_trigger_moderator = True
-            else:
-                # 마지막 사회자 메시지 이후로 유저들이 작성한 메시지 수 계산
-                msgs_since_last_mod = db.query(func.count(models.ChatMessage.id)).filter(
-                    models.ChatMessage.book_id == book_id,
-                    models.ChatMessage.id > last_mod_msg.id
-                ).scalar() or 0
-                
-                # 유저들의 댓글이 4개 쌓일 때마다 사회자가 개입
-                if msgs_since_last_mod >= 4:
-                    should_trigger_moderator = True
-
-            if should_trigger_moderator:
-                background_tasks.add_task(trigger_ai_moderator_response, book_id, None)
+    if moderator and is_mention:
+        # 명시적 @사회자 멘션 시에만 백그라운드 태스크로 멘션 답변 처리
+        background_tasks.add_task(trigger_ai_moderator_response, book_id, db_msg.id)
     
     # 3. 부모 대화 인용 정보 조립
     return {

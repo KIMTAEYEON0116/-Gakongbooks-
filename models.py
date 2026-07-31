@@ -36,6 +36,7 @@ class Book(Base):
     tags = Column(String(255), nullable=False)  # 쉼표(,)로 구분되는 태그 문자열
     price = Column(String(50), default="₩14,000")
     color = Column(String(150), default="#7b5fb8")  # 책등 표지 색상 코드
+    cover_image_url = Column(String(500), nullable=True) # AI 생성 표지 이미지 경로/URL
     endorsement_quote = Column(String(500), nullable=True)
     endorsement_attr = Column(String(100), nullable=True)
     publisher_review = Column(Text, nullable=True)
@@ -70,6 +71,7 @@ class CandidateBook(Base):
     tags = Column(String(255), nullable=False)
     price = Column(String(50), default="₩14,000")
     color = Column(String(150), default="#7b5fb8")
+    cover_image_url = Column(String(500), nullable=True) # AI 생성 표지 이미지 경로/URL
     endorsement_quote = Column(String(500), nullable=True)
     endorsement_attr = Column(String(100), nullable=True)
     publisher_review = Column(Text, nullable=True)
@@ -94,7 +96,7 @@ class ChatMessage(Base):
     id = Column(Integer, primary_key=True, index=True, autoincrement=True)
     book_id = Column(Integer, ForeignKey("books.id", ondelete="CASCADE"), nullable=False)
     user_id = Column(Integer, ForeignKey("users.id", ondelete="CASCADE"), nullable=False)
-    content = Column(String(255), nullable=False)  # 140자 이내의 대화 본문
+    content = Column(Text, nullable=False)  # 대화 본문 (Text 타입으로 문장 잘림 방지)
     reply_to_id = Column(Integer, ForeignKey("chat_messages.id", ondelete="SET NULL"), nullable=True)
     # 반응 카운트를 JSON 문자열로 저장
     reactions = Column(String(500), nullable=True, default=None)
@@ -150,12 +152,12 @@ class PastChatMessage(Base):
     # 닉네임을 직접 저장 (탈퇴 후에도 닉네임이 기록에 영구 보존됨)
     user_nickname = Column(String(50), nullable=False)
 
-    content = Column(String(255), nullable=False)
+    content = Column(Text, nullable=False)
 
     # 답장 원본 정보: 원본 메시지가 삭제되어도 인용이 보존되도록 비정규화하여 저장
     reply_to_id = Column(Integer, nullable=True)
     reply_to_user = Column(String(50), nullable=True)
-    reply_to_content = Column(String(255), nullable=True)
+    reply_to_content = Column(Text, nullable=True)
 
     reactions = Column(String(500), nullable=True, default=None)
 
