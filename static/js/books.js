@@ -1703,7 +1703,7 @@ function renderGenreSection() {
       if (!text) return '';
       var escaped = escHtml(text);
       return escaped.replace(/@([가-힣a-zA-Z0-9_]+)/g, function(match, name) {
-        var isModTag = (name === '사회자' || name === 'moderator' || name === 'AI사회자');
+        var isModTag = (name === '사회자' || name.indexOf('사회자') === 0 || name === 'moderator' || name === 'AI사회자' || name.indexOf('AI사회자') === 0);
         var style = isModTag 
           ? 'background:#fef3c7;color:#b45309;border:1px solid #fde68a;font-weight:700;padding:1px 6px;border-radius:4px;display:inline-block;margin:0 2px;'
           : 'background:#e0f2fe;color:#0369a1;border:1px solid #bae6fd;font-weight:600;padding:1px 6px;border-radius:4px;display:inline-block;margin:0 2px;';
@@ -1737,7 +1737,7 @@ function buildMsgEl(msg, bookId) {
       if (msg.replyTo) {
         replyQuote = '<div class="chat-reply-quote">' +
           '<div class="chat-reply-quote-name">↩ ' + escHtml(msg.replyTo.user) + '</div>' +
-          '<div class="chat-reply-quote-text">' + formatMsgText(msg.replyTo.text.slice(0, 60) + (msg.replyTo.text.length > 60 ? '…' : '')) + '</div>' +
+          '<div class="chat-reply-quote-text">' + escHtml(msg.replyTo.text.slice(0, 60) + (msg.replyTo.text.length > 60 ? '…' : '')) + '</div>' +
           '</div>';
       }
 
