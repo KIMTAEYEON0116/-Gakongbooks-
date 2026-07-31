@@ -1015,6 +1015,8 @@ async def lifespan(app: FastAPI):
         get_or_create_moderator(db)
         seed_glass_shop_book_if_needed(db)
         seed_lost_voyage_book_if_needed(db)
+        seed_fountain_pen_book_if_needed(db)
+        seed_faded_gaze_book_if_needed(db)
         print("AI Moderator & Book Seeds (Glass Shop & Lost Voyage) initialized successfully.")
     except Exception as e:
         print(f"Error initializing AI Moderator or Seed data: {e}")
@@ -2028,6 +2030,205 @@ async def adopt_candidate(candidate_id: int, current_user_id: int = Depends(auth
     db.refresh(new_book)
     return new_book
 
+
+
+
+def seed_fountain_pen_book_if_needed(db: Session):
+    title = "그림자를 녹이는 만년필의 시간"
+    book = db.query(models.Book).filter(models.Book.title == title).first()
+    if not book:
+        book = models.Book(
+            title=title,
+            author="Elara Voss",
+            genre="판타지",
+            synopsis="꿈의 조각가 '셀레나'는 자신의 만년필로 그림자를 그리면, 그 그림자가 현실 속 사물의 일부를 서서히 해체시키는 신비로운 능력을 지녔다. 우연히 고요한 도시의 중심에 드리워진 거대한 '존재의 그림자'를 그리게 되면서, 그녀는 도시 전체가 서서히 붕괴될 위기에 처했음을 깨닫고 자신의 펜촉으로 새로운 창조와 해체의 균형을 찾아야 한다.",
+            tags="#유럽판타지,#예술가의고뇌,#그림자마법,#존재의해체",
+            price="₩25,650",
+            page_count=510,
+            color="#a03030",
+            cover_image_url="/static/covers/cover_cand_11.png",
+            endorsement_quote="예술과 파괴의 경계에 선 독특한 판타지를 직조해낸 Elara Voss의 섬세한 묘사에 매료될 것이다.",
+            endorsement_attr="— 문화예술 (익명)",
+            publisher_review="Elara Voss는 예술과 파괴의 경계에 선 독특한 판타지를 직조해냈다. 만년필이라는 매개를 통해 현실이 해체되는 과정은 시적인 비극미를 선사하며, 독자에게 존재의 의미를 다시 묻게 한다. 섬세한 묘사와 깊이 있는 철학적 사유가 돋보이는 수작이다.",
+            opening_line="펜촉 끝에서 피어난 한 줄기 그림자는, 세계의 윤곽을 천천히 흐트러뜨리기 시작했다.",
+            memorable_quote="사라지는 것들의 아름다움은, 영원히 머무는 것들보다 더 깊은 여운을 남긴다.",
+            core_dilemma="Q. 창조자의 책임은 파괴의 결과까지 포괄하는가?",
+            additional_questions="Q. 그림자는 대상의 일부인가, 별개의 존재인가?|Q. 해체되지 않는 유일한 것은 무엇일까?",
+            characters="셀레나 — 그림자로 세상을 해체하는 조각가|엘리시움 — 사라져가는 도시의 혼",
+            deadline_days=9999,
+            is_archived=False
+        )
+        db.add(book)
+        db.commit()
+        db.refresh(book)
+
+    msg_count = db.query(models.ChatMessage).filter(models.ChatMessage.book_id == book.id).count()
+    if msg_count <= 2:
+        db.query(models.ChatMessage).filter(models.ChatMessage.book_id == book.id).delete()
+        db.commit()
+
+        moderator = get_or_create_moderator(db)
+        
+        readers_info = [
+            ("그림자조각가", "shadow@gakong.com"),
+            ("만년필의향기", "fountainpen@gakong.com"),
+            ("빛과어둠", "lightdark@gakong.com"),
+            ("도시의혼", "citysoul@gakong.com"),
+            ("은하수펜촉", "milkyway@gakong.com"),
+            ("파스텔문장", "pastel@gakong.com"),
+            ("사색의시간", "contemplation@gakong.com")
+        ]
+        user_map = {}
+        for nick, email in readers_info:
+            u = db.query(models.User).filter(models.User.nickname == nick).first()
+            if not u:
+                u = models.User(email=email, password_hash=auth.get_password_hash("password123"), nickname=nick)
+                db.add(u); db.commit(); db.refresh(u)
+            user_map[nick] = u
+
+        dt1 = datetime(2026, 7, 29, 11, 20, 0)
+        dt2 = datetime(2026, 7, 29, 16, 45, 0)
+        dt3 = datetime(2026, 7, 29, 21, 10, 0)
+        dt4 = datetime(2026, 7, 30, 10, 30, 0)
+        dt5 = datetime(2026, 7, 30, 15, 15, 0)
+        dt6 = datetime(2026, 7, 30, 20, 50, 0)
+        dt7 = datetime(2026, 7, 31, 10, 5, 0)
+        dt8 = datetime(2026, 7, 31, 11, 40, 0)
+        dt9 = datetime(2026, 7, 31, 13, 50, 0)
+        dt10 = datetime(2026, 7, 31, 14, 25, 0)
+
+        # Day 1
+        m1 = models.ChatMessage(book_id=book.id, user_id=user_map["그림자조각가"].id, content="셀레나가 만년필로 그린 그림자가 흑백 잉크처럼 흩어지며 현실의 벽을 서서히 해체시키는 1장 장면에서 손끝이 덜덜 떨렸어요! ✒️", created_at=dt1)
+        db.add(m1); db.commit(); db.refresh(m1)
+
+        m2 = models.ChatMessage(book_id=book.id, user_id=user_map["만년필의향기"].id, content="맞아요! 펜촉 끝에서 감도는 은은한 바이올렛 잉크 향과 서늘한 민트 향 묘사가 문장 너머로 느껴지는 듯해서 가슴이 덜컥 내려앉았습니다.", created_at=dt2)
+        db.add(m2); db.commit(); db.refresh(m2)
+
+        m3 = models.ChatMessage(book_id=book.id, user_id=user_map["빛과어둠"].id, content="만년필의향기님 말씀에 100% 동감해요! 창조와 파괴가 펜 한 자루에서 갈라지는 미학이 정통 유럽 판타지 문학의 정수를 보여주네요 ✨", reply_to_id=m2.id, created_at=dt3)
+        db.add(m3); db.commit(); db.refresh(m3)
+
+        # Day 2
+        m4 = models.ChatMessage(book_id=book.id, user_id=user_map["도시의혼"].id, content="2장 자정의 시계탑 씬에서 셀레나가 도시 전체를 삼키려는 거대한 그림자를 목격하고 턱 막히는 목구멍을 누르는 장면이 잊히지 않네요 😭", created_at=dt4)
+        db.add(m4); db.commit(); db.refresh(m4)
+
+        m5 = models.ChatMessage(book_id=book.id, user_id=user_map["은하수펜촉"].id, content="저는 셀레나가 자신의 잉크로 새로운 구원의 궤적을 그리려 결심하는 손끝의 응시 씬이 너무 가슴 벅찼어요!", reply_to_id=m4.id, created_at=dt5)
+        db.add(m5); db.commit(); db.refresh(m5)
+
+        m6 = models.ChatMessage(book_id=book.id, user_id=user_map["파스텔문장"].id, content="은하수펜촉님 의견처럼 예술가의 고뇌가 파괴를 넘어 새로운 생명의 섭리로 이어지는 연출이 참 아름다웠습니다 🌿", reply_to_id=m5.id, created_at=dt6)
+        db.add(m6); db.commit(); db.refresh(m6)
+
+        # Day 3
+        m7 = models.ChatMessage(book_id=book.id, user_id=user_map["사색의시간"].id, content="'사라지는 것들의 아름다움은, 영원히 머무는 것들보다 더 깊은 여운을 남긴다' ... @사회자 님은 셀레나의 이 선택을 어떻게 보시나요?", created_at=dt7)
+        db.add(m7); db.commit(); db.refresh(m7)
+
+        mod_txt1 = "사색의시간님, 깊은 울림을 전하는 명문장을 짚어주셨군요. ✨ 셀레나에게 만년필은 사물을 해체하는 차가운 도구가 아니라, 존재의 소중함을 다시 일깨우는 따스한 찰나의 매개였습니다.\n\n그림자조각가님과 빛과어둠님은 셀레나가 그린 마지막 펜촉의 궤적이 뜻하는 진짜 구원이 무엇이라 생각하시나요?"
+        m8 = models.ChatMessage(book_id=book.id, user_id=moderator.id, content=mod_txt1, reply_to_id=m7.id, created_at=dt8)
+        db.add(m8); db.commit(); db.refresh(m8)
+
+        m9 = models.ChatMessage(book_id=book.id, user_id=user_map["그림자조각가"].id, content="@사회자님! 셀레나가 구한 건 도시뿐만 아니라 자아의 죄책감에서 벗어난 자기 자신이었다고 생각해요 😭 최고의 감동이었습니다.", reply_to_id=m8.id, created_at=dt9)
+        db.add(m9); db.commit(); db.refresh(m9)
+
+        m10 = models.ChatMessage(book_id=book.id, user_id=user_map["빛과어둠"].id, content="저도요! 영원한 해체는 없으며, 파괴 속에서도 새로운 문장이 피어난다는 메시지에 눈시울이 뜨거워졌습니다. 명작 독서방이네요! 👏", reply_to_id=m9.id, created_at=dt10)
+        db.add(m10); db.commit(); db.refresh(m10)
+
+
+def seed_faded_gaze_book_if_needed(db: Session):
+    title = "닳아버린 시선에게 운명을 묻다"
+    book = db.query(models.Book).filter(models.Book.title == title).first()
+    if not book:
+        book = models.Book(
+            title=title,
+            author="한지우 (가상)",
+            genre="에세이/비문학",
+            synopsis="낡은 골목의 작은 안경점을 지키는 노인 '한지우'는 할아버지의 유품인 오래된 안경을 통해 타인의 운명의 파편을 보게 된다. 그의 안경을 쓴 이들은 저마다 감춰진 미래의 조각을 마주하고, 지우는 타인의 운명을 엿보는 행위가 축복인지 저주인지 고뇌하며 삶의 본질을 사색한다.",
+            tags="#운명,#안경,#사색,#기억,#골목안경점",
+            price="₩12,150",
+            page_count=280,
+            color="#5e4b8b",
+            cover_image_url="/static/covers/cover_cand_7.png",
+            endorsement_quote="타인의 시선과 운명의 깊이를 깊이 있게 성찰한 한 편의 아름다운 철학 에세이.",
+            endorsement_attr="— 서평가 (익명)",
+            publisher_review="낡은 골목 안경점이라는 소박한 공간을 배경으로 인간 운명의 굴레와 사색을 따뜻하게 풀어낸 수작.",
+            opening_line="오래된 렌즈 너머로 타인의 운명이 흐릿하게 비쳐 보일 때, 나는 고요히 내 몫의 숨을 삼켰다.",
+            memorable_quote="타인의 운명을 지우려 애쓸수록, 나의 시선은 더욱 닳아버리고 있었다.",
+            core_dilemma="Q. 지우고 싶은 타인의 운명을 엿보는 행위는 축복인가 저주인가?",
+            additional_questions="Q. 안경이 비춘 미래의 조각을 알게 되었을 때 당신은 그것을 바꿀 것인가?|Q. 닳아버린 시선이 의미하는 삶의 성숙은 무엇인가?",
+            characters="한지우 — 골목 안경점 노인|민서 — 운명의 지도를 찾는 젊은 여인",
+            deadline_days=9999,
+            is_archived=False
+        )
+        db.add(book)
+        db.commit()
+        db.refresh(book)
+
+    msg_count = db.query(models.ChatMessage).filter(models.ChatMessage.book_id == book.id).count()
+    if msg_count <= 2:
+        db.query(models.ChatMessage).filter(models.ChatMessage.book_id == book.id).delete()
+        db.commit()
+
+        moderator = get_or_create_moderator(db)
+        
+        readers_info = [
+            ("운명연구원", "destiny@gakong.com"),
+            ("단안경사서", "monocle_lib@gakong.com"),
+            ("안경상점주인", "optician@gakong.com"),
+            ("기억의조각", "memorypiece@gakong.com"),
+            ("바람의문장", "windsentence@gakong.com"),
+            ("시선의시간", "gaze@gakong.com"),
+            ("빛나는궤적", "glowing@gakong.com")
+        ]
+        user_map = {}
+        for nick, email in readers_info:
+            u = db.query(models.User).filter(models.User.nickname == nick).first()
+            if not u:
+                u = models.User(email=email, password_hash=auth.get_password_hash("password123"), nickname=nick)
+                db.add(u); db.commit(); db.refresh(u)
+            user_map[nick] = u
+
+        dt1 = datetime(2026, 7, 29, 9, 30, 0)
+        dt2 = datetime(2026, 7, 29, 13, 10, 0)
+        dt3 = datetime(2026, 7, 29, 18, 25, 0)
+        dt4 = datetime(2026, 7, 30, 11, 5, 0)
+        dt5 = datetime(2026, 7, 30, 16, 40, 0)
+        dt6 = datetime(2026, 7, 30, 20, 15, 0)
+        dt7 = datetime(2026, 7, 31, 9, 15, 0)
+        dt8 = datetime(2026, 7, 31, 10, 45, 0)
+        dt9 = datetime(2026, 7, 31, 12, 30, 0)
+        dt10 = datetime(2026, 7, 31, 14, 10, 0)
+
+        # Day 1
+        m1 = models.ChatMessage(book_id=book.id, user_id=user_map["운명연구원"].id, content="골목 안경점의 한지우 할아버지가 낡은 안경을 통해 손님들의 서늘한 운명의 파편을 마주하는 1장 도입부부터 문체가 참 고혹적이네요 👓", created_at=dt1)
+        db.add(m1); db.commit(); db.refresh(m1)
+
+        m2 = models.ChatMessage(book_id=book.id, user_id=user_map["단안경사서"].id, content="맞아요! 타인의 미래를 아는 것이 축복이 아니라 거대한 죄책감의 짐이 되는 장면에서 가슴이 덜컥 내려앉았습니다.", created_at=dt2)
+        db.add(m2); db.commit(); db.refresh(m2)
+
+        m3 = models.ChatMessage(book_id=book.id, user_id=user_map["안경상점주인"].id, content="단안경사서님 의견에 너무 공감해요! 렌즈에 스민 씁쓸한 커피 향과 골목길 비 내리는 묘사가 너무 정갈해서 한참 동안 페이지에 멈춰 섰습니다 ☕️", reply_to_id=m2.id, created_at=dt3)
+        db.add(m3); db.commit(); db.refresh(m3)
+
+        # Day 2
+        m4 = models.ChatMessage(book_id=book.id, user_id=user_map["기억의조각"].id, content="2장에서 주인공 지우가 비극을 막으려 손을 내밀다 자신의 시력이 닳아버리는 장면에서 눈물이 와칵 쏟아졌어요 😭", created_at=dt4)
+        db.add(m4); db.commit(); db.refresh(m4)
+
+        m5 = models.ChatMessage(book_id=book.id, user_id=user_map["바람의문장"].id, content="자신의 삶을 기꺼이 던져 타인의 궤적을 밝히는 그 희생 정신이야말로 2장의 진정한 명장면이 아닐까 싶네요.", reply_to_id=m4.id, created_at=dt5)
+        db.add(m5); db.commit(); db.refresh(m5)
+
+        m6 = models.ChatMessage(book_id=book.id, user_id=user_map["시선의시간"].id, content="바람의문장님 말씀처럼 타인을 응시하는 닳아버린 시선 속에 담긴 깊은 성숙에 온몸이 떨렸습니다 🌿", reply_to_id=m5.id, created_at=dt6)
+        db.add(m6); db.commit(); db.refresh(m6)
+
+        # Day 3
+        m7 = models.ChatMessage(book_id=book.id, user_id=user_map["빛나는궤적"].id, content="'타인의 운명을 지우려 애쓸수록, 나의 시선은 더욱 닳아버리고 있었다' ... @사회자 님은 이 닳아버린 시선의 의미를 어떻게 받아들이시나요?", created_at=dt7)
+        db.add(m7); db.commit(); db.refresh(m7)
+
+        mod_txt2 = "빛나는궤적님, 마음을 울리는 깊은 질의를 남겨주셨네요. ✨ 지우 할아버지에게 닳아버린 시선은 육신의 쇠퇴가 아니라, 타인의 상처와 죄책감을 온전히 안아낸 숭고한 사랑의 증표였습니다.\n\n운명연구원님과 단안경사서님은 이 에세이가 전하는 운명에 대한 가장 따스한 메시지가 무엇이라고 생각하시나요?"
+        m8 = models.ChatMessage(book_id=book.id, user_id=moderator.id, content=mod_txt2, reply_to_id=m7.id, created_at=dt8)
+        db.add(m8); db.commit(); db.refresh(m8)
+
+        m9 = models.ChatMessage(book_id=book.id, user_id=user_map["운명연구원"].id, content="@사회자님! 비록 운명을 바꿀 순 없어도 서로의 손을 꼭 잡아주는 온기만으로 충분하다는 깨달음이었습니다 😭", reply_to_id=m8.id, created_at=dt9)
+        db.add(m9); db.commit(); db.refresh(m9)
+
+        m10 = models.ChatMessage(book_id=book.id, user_id=user_map["단안경사서"].id, content="맞아요! 진정한 사색의 길잡이가 되어준 훌륭한 독서방이었습니다. 매일 밤 다시 읽고 싶어지는 책이네요 👏", reply_to_id=m9.id, created_at=dt10)
+        db.add(m10); db.commit(); db.refresh(m10)
 
 
 def _auto_archive_expired_books(db: Session):
