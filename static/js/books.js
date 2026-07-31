@@ -1728,7 +1728,7 @@ function buildMsgEl(msg, bookId) {
       row.id = 'chatrow-' + msg.id;
       row.style.position = 'relative';
 
-      var rxParts = rxHtml_parts(msg, bookId);
+      var rxParts = !isMod ? rxHtml_parts(msg, bookId) : '';
       var rxBlock = rxParts ? '<div class="chat-reactions"' + (msg.mine ? ' style="justify-content:flex-end"' : '') + '>' + rxParts + '</div>' : '';
       var editedTag = msg.edited ? '<span class="edited-tag">(수정됨)</span>' : '';
 
@@ -1737,14 +1737,15 @@ function buildMsgEl(msg, bookId) {
       if (msg.replyTo) {
         replyQuote = '<div class="chat-reply-quote">' +
           '<div class="chat-reply-quote-name">↩ ' + escHtml(msg.replyTo.user) + '</div>' +
-          '<div class="chat-reply-quote-text">' + escHtml(msg.replyTo.text.slice(0, 60) + (msg.replyTo.text.length > 60 ? '…' : '')) + '</div>' +
+          '<div class="chat-reply-quote-text">' + formatMsgText(msg.replyTo.text.slice(0, 60) + (msg.replyTo.text.length > 60 ? '…' : '')) + '</div>' +
           '</div>';
       }
 
       // bubble inner — in edit mode this will be swapped
-      var bubbleHtml = '<div class="chat-bubble" id="bubble-' + msg.id + '"' + (msg.mine ? ' ondblclick="showMsgMenu(\'' + bookId + '\',\'' + msg.id + '\',event)"' : ' ondblclick="showRxPicker(\'' + bookId + '\',\'' + msg.id + '\',event)"') + '>' +
+      var dblClickAttr = isMod ? '' : (msg.mine ? ' ondblclick="showMsgMenu(\'' + bookId + '\',\'' + msg.id + '\',event)"' : ' ondblclick="showRxPicker(\'' + bookId + '\',\'' + msg.id + '\',event)"');
+      var bubbleHtml = '<div class="chat-bubble" id="bubble-' + msg.id + '"' + dblClickAttr + '>' +
         replyQuote +
-        escHtml(msg.text) + editedTag +
+        formatMsgText(msg.text) + editedTag +
         '</div>';
 
       var actionToolbar = '';
@@ -1754,7 +1755,7 @@ function buildMsgEl(msg, bookId) {
           '<span class="chat-action-divider">|</span>' +
           '<button class="chat-action-btn danger" onclick="deleteMsg(\'' + bookId + '\',\'' + msg.id + '\')">삭제</button>' +
           '</div>';
-      } else {
+      } else if (!isMod) {
         actionToolbar = '<div class="chat-action-toolbar other">' +
           '<button class="chat-action-btn" onclick="startReplyById(\'' + bookId + '\',\'' + msg.id + '\')">↩ 답장</button>' +
           '<span class="chat-action-divider">|</span>' +
