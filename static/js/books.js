@@ -1698,7 +1698,22 @@ function renderGenreSection() {
       return d;
     }
 
-    function buildMsgEl(msg, bookId) {
+    
+    function formatMsgText(text) {
+      if (!text) return '';
+      var escaped = escHtml(text);
+      return escaped.replace(/@([가-힣a-zA-Z0-9_]+)/g, function(match, name) {
+        var isModTag = (name === '사회자' || name === 'moderator' || name === 'AI사회자');
+        var style = isModTag 
+          ? 'background:#fef3c7;color:#b45309;border:1px solid #fde68a;font-weight:700;padding:1px 6px;border-radius:4px;display:inline-block;margin:0 2px;'
+          : 'background:#e0f2fe;color:#0369a1;border:1px solid #bae6fd;font-weight:600;padding:1px 6px;border-radius:4px;display:inline-block;margin:0 2px;';
+        return '<span class="mention-tag" style="' + style + '">' + match + '</span>';
+      });
+    }
+    window.formatMsgText = formatMsgText;
+
+
+function buildMsgEl(msg, bookId) {
       var row = document.createElement('div');
       var isMod = (msg.user && (msg.user.indexOf('AI 사회자') !== -1 || msg.user.indexOf('사회자') !== -1));
       var rowClass = 'chat-row ';
@@ -2039,7 +2054,12 @@ function renderGenreSection() {
     }
 
     function showRxPicker(bookId, msgId, e) {
-      e.stopPropagation();
+      if (e) e.stopPropagation();
+      var msgs = chatMsgs[bookId] || [];
+      var msg = msgs.find(function(m) { return m.id == msgId; });
+      if (msg && msg.user && (msg.user.indexOf('AI 사회자') !== -1 || msg.user.indexOf('사회자') !== -1)) {
+        return;
+      }
       rxTargetMsgId = msgId;
       rxTargetBookId = bookId;
       var picker = document.getElementById('rx-picker');
