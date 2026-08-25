@@ -1,0 +1,574 @@
+<!DOCTYPE html>
+<html lang="ko">
+
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>도서 상세 · 아카이브 재배치 목업 — 가공독서회</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link
+    href="https://fonts.googleapis.com/css2?family=Noto+Sans+KR:wght@400;500;700&family=Noto+Serif+KR:wght@400;600;700&display=swap"
+    rel="stylesheet">
+  <style>
+    /* 실제 서비스의 디자인 토큰을 그대로 사용 */
+    :root {
+      --bg: #faf7f2;
+      --surface: #fff;
+      --border: #e8e0d5;
+      --border-light: #f0e8dc;
+      --text: #2c2418;
+      --text-muted: #8a7a6a;
+      --text-faint: #bbb;
+      --accent: #c17b3f;
+      --accent-bg: #fdf0e4;
+      --accent-border: #e8c89a;
+      --serif: 'Noto Serif KR', serif;
+      --sans: 'Noto Sans KR', sans-serif;
+      --bad: #b54a6a;
+      --good: #4a7a3a;
+    }
+
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+
+    body {
+      background: #e9e3d9;
+      font-family: var(--sans);
+      color: var(--text);
+      padding: 26px 24px 90px;
+    }
+
+    .wrap { max-width: 1460px; margin: 0 auto; }
+
+    h1 { font-family: var(--serif); font-size: 25px; margin-bottom: 6px; }
+
+    .lead { font-size: 13.5px; color: var(--text-muted); line-height: 1.8; }
+
+    .legend {
+      display: flex; gap: 18px; flex-wrap: wrap;
+      font-size: 12px; color: var(--text-muted);
+      margin: 14px 0 8px; padding: 10px 14px;
+      background: var(--surface); border: 1px solid var(--border); border-radius: 8px;
+    }
+    .legend b { color: var(--text); }
+
+    h2 {
+      font-family: var(--serif); font-size: 19px;
+      margin: 40px 0 2px; padding-top: 22px;
+      border-top: 2px solid var(--border);
+      display: flex; align-items: center; gap: 10px;
+    }
+    h2 .sub { font-family: var(--sans); font-size: 12.5px; color: var(--text-muted); font-weight: 400; }
+
+    .tag { font-size: 11px; padding: 3px 10px; border-radius: 12px; font-weight: 700; }
+    .tag.now { background: #f3e3e8; color: var(--bad); border: 1px solid #e6c8d2; }
+    .tag.new { background: #e9f0e5; color: var(--good); border: 1px solid #c8dcbc; }
+
+    /* ── PC 화면 프레임 (1400×760 기준) ── */
+    .monitor { margin-top: 14px; }
+
+    .monitor-bar {
+      display: flex; align-items: center; gap: 7px;
+      background: #ddd4c6; border: 1px solid var(--border); border-bottom: 0;
+      border-radius: 9px 9px 0 0; padding: 7px 12px;
+      font-size: 11px; color: #7a6a56;
+    }
+    .monitor-bar i { width: 9px; height: 9px; border-radius: 50%; background: #c9bda9; display: inline-block; }
+    .monitor-bar .url {
+      margin-left: 8px; background: #f3ede3; border-radius: 4px;
+      padding: 2px 10px; font-size: 10.5px; color: #8a7a6a;
+    }
+    .monitor-bar .size { margin-left: auto; font-size: 10.5px; color: #8a7a6a; }
+
+    .screen {
+      background: var(--bg);
+      border: 1px solid var(--border);
+      border-radius: 0 0 9px 9px;
+      overflow: hidden;
+      position: relative;
+    }
+
+    /* 첫 화면(뷰포트) 높이 표시 */
+    .fold { position: relative; border-bottom: 2px dashed var(--accent-border); }
+    .fold::after {
+      content: "▲ 여기까지가 첫 화면 (스크롤 없이 보이는 영역)";
+      position: absolute; right: 14px; bottom: -10px;
+      font-size: 10.5px; background: var(--bg); color: var(--accent);
+      padding: 0 8px; letter-spacing: .03em;
+    }
+
+    /* 앱 상단바 재현 */
+    .nav {
+      display: flex; align-items: center; gap: 10px;
+      background: var(--surface); border-bottom: 1px solid var(--border);
+      padding: 0 26px; height: 56px;
+    }
+    .nav .logo { font-family: var(--serif); font-size: 19px; }
+    .nav .logo em { color: var(--accent); font-style: normal; }
+    .nav .menu { margin-left: auto; display: flex; gap: 6px; }
+    .nav .menu span {
+      font-size: 11.5px; color: var(--text-muted);
+      border: 1px solid var(--border); border-radius: 14px; padding: 5px 11px;
+    }
+    .nav .menu span.on { background: var(--text); color: #fff; border-color: var(--text); }
+
+    .back { font-size: 12px; color: var(--text-muted); padding: 14px 26px 0; }
+
+    /* ── 현재 레이아웃: 전체 폭을 그대로 씀 ── */
+    .sec { padding: 18px 26px 20px; }
+    .sec.white { background: var(--surface); border-top: 1px solid var(--border); }
+
+    .row { display: flex; gap: 20px; align-items: flex-start; }
+
+    .cover {
+      width: 140px; height: 196px; flex-shrink: 0; border-radius: 5px;
+      background: linear-gradient(160deg, #7b5fb8, #4a3a72);
+      color: #fff; font-family: var(--serif); font-size: 11.5px;
+      display: flex; align-items: center; justify-content: center;
+      text-align: center; padding: 10px; line-height: 1.45;
+    }
+    .cover.lg { width: 186px; height: 260px; font-size: 13px; }
+
+    .chip {
+      display: inline-block; font-size: 12px; font-weight: 600;
+      padding: 3px 9px; border-radius: 5px; margin: 0 4px 5px 0;
+      background: var(--accent-bg); color: var(--accent); border: 1px solid var(--accent-border);
+    }
+    .chip.plain { background: #f2ede4; color: var(--text-muted); border-color: var(--border); }
+    .chip.dday { background: #fdeaea; color: #c0392b; border-color: #f2c4c4; }
+
+    .title-now { font-family: var(--serif); font-size: 22px; font-weight: 700; line-height: 1.3; margin: 7px 0 5px; }
+    .title-new { font-family: var(--serif); font-size: 30px; font-weight: 700; line-height: 1.26; margin: 0 0 8px; }
+    .author { font-size: 13.5px; color: var(--text-muted); margin-bottom: 10px; }
+
+    .synopsis { font-size: 14px; line-height: 1.8; color: #3d3428; }
+    .synopsis.full { max-width: none; }        /* 현재: 폭 제한 없음 */
+    .synopsis.measured { max-width: 640px; }   /* 제안: 읽기 좋은 폭 */
+
+    .ruler {
+      margin-top: 6px; font-size: 10.5px; color: var(--bad);
+      border-top: 1px dashed #d9b3c0; padding-top: 3px;
+    }
+    .ruler.ok { color: var(--good); border-color: #bcd4ae; }
+
+    .btn {
+      display: inline-block; padding: 11px 22px; border: 0; border-radius: 7px;
+      background: var(--accent); color: #fff; font-family: var(--sans);
+      font-size: 14px; font-weight: 700; cursor: default;
+    }
+    .btn.ghost { background: var(--surface); color: var(--text-muted); border: 1px solid var(--border); font-weight: 500; }
+    .btn.block { display: block; width: 100%; text-align: center; }
+
+    .meta-line {
+      display: flex; align-items: center; gap: 9px; flex-wrap: wrap;
+      font-size: 12.5px; color: var(--text-muted); margin-top: 12px;
+    }
+    .meta-line .dot { color: var(--border); }
+    .meta-line .dday { color: #c0392b; font-weight: 600; }
+
+    /* 통계 블록 (현재) */
+    .stat-box {
+      display: grid; grid-template-columns: 1fr 1px 1fr; gap: 16px;
+      align-items: center; text-align: center; padding: 22px 26px;
+      background: var(--surface); border-top: 1px solid var(--border);
+    }
+    .stat-box .vline { background: var(--border); height: 78px; }
+    .stat-lbl { font-size: 12.5px; color: var(--text-muted); margin-bottom: 8px; }
+    .stat-val { font-family: var(--serif); font-size: 32px; font-weight: 700; color: var(--text-faint); }
+    .stat-note { font-size: 11.5px; color: var(--text-faint); margin-top: 6px; }
+
+    /* 제안: 반응 한 줄 + 평점 접기 */
+    .rx-line {
+      display: flex; align-items: center; gap: 14px;
+      background: var(--surface); border-top: 1px solid var(--border);
+      padding: 13px 26px; font-size: 13px;
+    }
+    .rx-line .lbl { color: var(--text-muted); font-size: 12.5px; }
+    .rx-line .item { font-weight: 600; }
+    .rx-line .live {
+      margin-left: auto; font-size: 11px; color: var(--accent);
+      background: var(--accent-bg); border: 1px solid var(--accent-border);
+      border-radius: 10px; padding: 2px 9px;
+    }
+
+    .folded {
+      display: flex; align-items: center; justify-content: space-between;
+      background: var(--surface); border-top: 1px solid var(--border);
+      padding: 12px 26px; font-size: 12.5px; color: var(--text-muted);
+    }
+    .folded .caret { color: var(--text-faint); font-size: 11px; }
+
+    .section-lbl { font-family: var(--serif); font-size: 15px; font-weight: 700; margin-bottom: 9px; }
+
+    .quote {
+      font-family: var(--serif); font-size: 14px; line-height: 1.85; color: #3d3428;
+      padding-left: 12px; border-left: 2px solid var(--accent-border); max-width: 640px;
+    }
+    .quote .by { display: block; margin-top: 7px; font-size: 12px; color: var(--text-muted); font-family: var(--sans); }
+
+    .colophon { background: #f6f1e8; border-top: 1px solid var(--border); padding: 13px 26px; font-size: 12px; color: var(--text-muted); }
+    .colophon .head { display: flex; justify-content: space-between; font-weight: 600; color: #7a6a56; }
+    .colophon dl { display: grid; grid-template-columns: auto 1fr; gap: 4px 14px; margin-top: 10px; }
+    .colophon dt { color: var(--text-faint); }
+
+    /* 2단 레이아웃 (제안) */
+    .two-col { display: grid; grid-template-columns: 300px 1fr; gap: 34px; padding: 24px 26px 22px; align-items: start; }
+    .side .btn { margin-bottom: 8px; }
+
+    /* D-day 강조 카드 (신호등 규칙은 서비스와 동일: D-7 이상 초록 / D-6~3 주황 / D-2 이하 빨강) */
+    .dday-card {
+      border-radius: 9px; padding: 14px 16px; margin-bottom: 12px;
+      border: 1px solid transparent;
+    }
+    .dday-card .top { display: flex; align-items: baseline; gap: 7px; }
+    .dday-card .num { font-family: var(--serif); font-size: 34px; font-weight: 700; line-height: 1; }
+    .dday-card .unit { font-size: 13px; font-weight: 600; }
+    .dday-card .end { margin-left: auto; font-size: 11.5px; opacity: .85; }
+    .dday-card .bar { height: 5px; border-radius: 3px; background: rgba(255,255,255,.4); margin-top: 11px; overflow: hidden; }
+    .dday-card .bar i { display: block; height: 100%; border-radius: 3px; }
+    .dday-card .cap { font-size: 11.5px; margin-top: 7px; opacity: .9; }
+    .dday-card.urgent { background: #e05c3a; color: #fff; }
+    .dday-card.urgent .bar i { background: #fff; }
+    .dday-card.soon { background: #d97706; color: #fff; }
+    .dday-card.soon .bar i { background: #fff; }
+    .dday-card.active { background: rgba(56,161,90,.14); color: #2f7d4f; border-color: rgba(56,161,90,.3); }
+    .dday-card.active .bar { background: rgba(56,161,90,.18); }
+    .dday-card.active .bar i { background: #3aad6a; }
+
+    .rx-line.empty { color: var(--text-muted); }
+    .rx-line.empty .cta { color: var(--accent); font-weight: 600; }
+
+    .variants { display: grid; grid-template-columns: repeat(3, 1fr); gap: 12px; margin-top: 12px; }
+
+    /* 주석 */
+    .notes { margin-top: 12px; display: grid; grid-template-columns: repeat(2, 1fr); gap: 8px; }
+    .note {
+      display: flex; gap: 9px; font-size: 12.5px; line-height: 1.65;
+      background: var(--surface); border: 1px solid var(--border);
+      border-left: 3px solid var(--bad); border-radius: 6px; padding: 9px 12px;
+    }
+    .note.good { border-left-color: var(--good); }
+    .note .n { flex-shrink: 0; font-weight: 700; color: var(--bad); }
+    .note.good .n { color: var(--good); }
+
+    .measure {
+      font-size: 12.5px; color: var(--text-muted);
+      background: var(--surface); border: 1px dashed var(--accent-border);
+      border-radius: 6px; padding: 10px 14px; margin-top: 10px;
+    }
+    .measure b { color: var(--text); }
+
+    /* 채팅방 미니 목업 */
+    .chat-mini { background: var(--bg); border: 1px solid var(--border); border-radius: 9px; overflow: hidden; max-width: 660px; }
+    .chat-mini .head { background: #2c2418; color: #fff; padding: 12px 18px; font-size: 13.5px; }
+    .chat-mini .body { padding: 16px 18px; }
+    .bubble { background: var(--surface); border-radius: 12px; padding: 10px 14px; font-size: 13px; line-height: 1.6; display: inline-block; max-width: 78%; }
+    .rate-prompt {
+      margin-top: 14px; background: var(--accent-bg); border: 1px solid var(--accent-border);
+      border-radius: 9px; padding: 13px 16px; font-size: 13px;
+    }
+    .rate-prompt .stars { font-size: 21px; letter-spacing: 3px; color: var(--accent); margin-top: 7px; }
+    .rate-prompt .hint { font-size: 11.5px; color: var(--text-muted); margin-top: 6px; }
+
+    /* 아카이브 순서 */
+    .flow { display: flex; flex-direction: column; gap: 6px; }
+    .step {
+      display: flex; align-items: center; gap: 11px;
+      background: var(--surface); border: 1px solid var(--border);
+      border-radius: 7px; padding: 10px 13px; font-size: 13px;
+    }
+    .step .h { font-size: 11px; color: var(--text-faint); margin-left: auto; }
+    .step.core { border-color: var(--accent-border); background: var(--accent-bg); font-weight: 600; }
+    .step.dim { opacity: .5; }
+    .step .num {
+      width: 20px; height: 20px; border-radius: 50%; flex-shrink: 0;
+      background: var(--border-light); color: var(--text-muted);
+      font-size: 11px; font-weight: 700; display: flex; align-items: center; justify-content: center;
+    }
+    .step.core .num { background: var(--accent); color: #fff; }
+    .cols2 { display: grid; grid-template-columns: 1fr 1fr; gap: 24px; margin-top: 14px; }
+  </style>
+</head>
+
+<body>
+  <div class="wrap">
+    <h1>도서 상세 · 아카이브 재배치 목업 <span style="font-size:14px;color:var(--text-muted);font-family:var(--sans);">v2</span></h1>
+    <p class="lead">
+      <a href="/static/mockups/archive-redesign.html" style="color:var(--accent);">→ 아카이브 상세 목업 보기</a><br>
+      PC 화면(1400×760) 기준으로 그렸습니다. 실제 서비스의 색·서체 토큰을 그대로 사용했습니다.<br>
+      <b>반영한 결정</b> — 진행 중에도 반응 집계는 공개, 평균 평점만 종료 후 공개, 내 평점은 채팅방으로 이동.
+    </p>
+    <div class="legend">
+      <span><b>측정</b> 실제 화면 1425×900 기준</span>
+      <span><b>도서 상세</b> 현재 1.6화면 · 폰트 11종 · 본문 폭 제한 없음(1,207px)</span>
+      <span><b>아카이브</b> 8.7화면 · 감상 비중 36%</span>
+    </div>
+
+    <!-- ════════ 현재 ════════ -->
+    <h2><span class="tag now">현재</span> 도서 상세 <span class="sub">— 진행 중인 독서방</span></h2>
+    <div class="monitor">
+      <div class="monitor-bar">
+        <i></i><i></i><i></i>
+        <span class="url">localhost:8017 — 벚꽃 아래, 늙은 안경에 깃든 기다림</span>
+        <span class="size">1400 × 760</span>
+      </div>
+      <div class="screen">
+        <div class="fold">
+          <div class="nav">
+            <div class="logo"><em>가공</em>독서회</div>
+            <div class="menu"><span class="on">독서방 목록</span><span>내 서재</span><span>이용 안내</span><span>로그인</span></div>
+          </div>
+          <div class="back">← 독서방 목록으로</div>
+          <div class="sec">
+            <div class="row">
+              <div class="cover">벚꽃 아래,<br>늙은 안경에<br>깃든 기다림</div>
+              <div style="flex:1;min-width:0;">
+                <span class="chip">에세이/비문학</span>
+                <div class="title-now">벚꽃 아래, 늙은 안경에 깃든 기다림</div>
+                <span class="chip dday">D-4</span><span class="chip plain">👥 0명</span>
+                <div class="author">Akira Sato</div>
+                <p class="synopsis full">
+                  오래된 물건들을 수리하는 젊은 장인 '유키'는 어느 날 전설적인 인물의 낡은 안경 한 쌍을 맡게 된다. 안경을 쓰자마자 유키는 과거 착용자들의 마지막 순간들을 경험하게 되고, 그들의 슬픔과 체념 속에서 '기다림'이라는 운명의 메시지를 읽는다. 한 남자가 잃어버린 사랑을 기다리는 애잔한 운명을 엿보며, 유키 자신에게도 알 수 없는 '기다림'의 숙명이 다가오고 있음을 깨닫는다.
+                </p>
+                <div class="ruler">↑ 한 줄이 1,207px — 눈이 줄 끝에서 다음 줄 시작을 찾기 어려움</div>
+                <div style="margin-top:12px;">
+                  <span class="chip plain">#일본정서</span><span class="chip plain">#기다림의운명</span>
+                  <span class="chip plain">#시간의파편</span><span class="chip plain">#아련한회상</span>
+                </div>
+                <div style="margin-top:8px;">
+                  <span class="chip plain">210쪽</span><span class="chip plain">₩12,150 (10% 할인가)</span>
+                </div>
+                <div style="margin-top:14px;display:flex;gap:9px;">
+                  <button class="btn">독서방 참여하기</button>
+                  <button class="btn ghost">+ 내 서재에 담기</button>
+                </div>
+              </div>
+            </div>
+          </div>
+          <div class="stat-box">
+            <div>
+              <div class="stat-lbl">평균 평점</div>
+              <div class="stat-val">— / 5</div>
+              <div class="stat-note">종료 후 공개됩니다</div>
+            </div>
+            <div class="vline"></div>
+            <div>
+              <div class="stat-lbl">채팅 반응</div>
+              <div class="stat-val" style="font-size:24px;opacity:.35;">🔒</div>
+              <div class="stat-note">독서방 종료 후 아카이브에서 공개됩니다</div>
+            </div>
+          </div>
+        </div>
+        <div class="sec white">
+          <div class="section-lbl">추천사</div>
+          <div class="quote" style="max-width:none;">시간의 흐름 속에서도 변치 않는 인연의 끈, 그 애틋하고 쓸쓸한 운명의 서사를 만난다.
+            <span class="by">— 소설가 (익명)</span>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <div class="notes">
+      <div class="note"><span class="n">1</span><span><b>본문 폭 제한이 없어</b> 줄거리 한 줄이 1,207px. 데스크톱에서 가장 큰 가독성 손실입니다.</span></div>
+      <div class="note"><span class="n">2</span><span><b>빈 통계가 248px</b>. 값이 없는데 화면 지분은 콘텐츠급이고, 자물쇠가 "여긴 아무것도 없다"는 인상을 줍니다.</span></div>
+      <div class="note"><span class="n">3</span><span>가격·쪽수가 <b>참여 버튼 바로 위</b>에 있어 허구 설정이 실제 구매 정보처럼 읽힙니다.</span></div>
+      <div class="note"><span class="n">4</span><span>장르·D-day·인원·태그가 <b>비슷한 무게로 경쟁</b>합니다(폰트 11종).</span></div>
+    </div>
+
+    <!-- ════════ 제안 ════════ -->
+    <h2><span class="tag new">제안</span> 도서 상세 <span class="sub">— 2단 구성 · 반응은 실시간 공개 · 평점만 봉인</span></h2>
+    <div class="monitor">
+      <div class="monitor-bar">
+        <i></i><i></i><i></i>
+        <span class="url">localhost:8017 — 벚꽃 아래, 늙은 안경에 깃든 기다림</span>
+        <span class="size">1400 × 760</span>
+      </div>
+      <div class="screen">
+        <div class="fold">
+          <div class="nav">
+            <div class="logo"><em>가공</em>독서회</div>
+            <div class="menu"><span class="on">독서방 목록</span><span>내 서재</span><span>이용 안내</span><span>로그인</span></div>
+          </div>
+          <div class="back">← 독서방 목록으로</div>
+
+          <div class="two-col">
+            <!-- 좌측: 표지 + 행동 -->
+            <div class="side">
+              <div class="cover lg" style="margin-bottom:14px;">벚꽃 아래,<br>늙은 안경에<br>깃든 기다림</div>
+
+              <!-- D-day를 표지 아래, 참여 버튼 위에 배치 — "언제까지"가 행동 직전에 보이도록 -->
+              <div class="dday-card soon">
+                <div class="top">
+                  <span class="num">D-4</span><span class="unit">일 남음</span>
+                  <span class="end">8월 29일 종료</span>
+                </div>
+                <div class="bar"><i style="width:60%"></i></div>
+                <div class="cap">10일 중 6일 지남 · 종료되면 아카이브로 보관됩니다</div>
+              </div>
+
+              <button class="btn block">독서방 참여하기</button>
+              <button class="btn ghost block">+ 내 서재에 담기</button>
+              <div class="meta-line" style="margin-top:14px;">
+                <span>에세이/비문학</span><span class="dot">·</span>
+                <span>참여 0명</span>
+              </div>
+            </div>
+
+            <!-- 우측: 읽을거리 -->
+            <div>
+              <div class="title-new">벚꽃 아래, 늙은 안경에 깃든 기다림</div>
+              <div class="author">Akira Sato</div>
+              <p class="synopsis measured">
+                오래된 물건들을 수리하는 젊은 장인 '유키'는 어느 날 전설적인 인물의 낡은 안경 한 쌍을 맡게 된다. 안경을 쓰자마자 유키는 과거 착용자들의 마지막 순간들을 경험하게 되고, 그들의 슬픔과 체념 속에서 '기다림'이라는 운명의 메시지를 읽는다. 한 남자가 잃어버린 사랑을 기다리는 애잔한 운명을 엿보며, 유키 자신에게도 알 수 없는 '기다림'의 숙명이 다가오고 있음을 깨닫는다.
+              </p>
+              <div class="ruler ok">↑ 한 줄 640px — 한글 40자 안팎, 눈이 편하게 따라가는 폭</div>
+
+              <div style="margin-top:20px;">
+                <div class="section-lbl">추천사</div>
+                <div class="quote">시간의 흐름 속에서도 변치 않는 인연의 끈, 그 애틋하고 쓸쓸한 운명의 서사를 만난다.
+                  <span class="by">— 소설가 (익명)</span>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <!-- 반응은 진행 중에도 공개 -->
+          <div class="rx-line empty">
+            <span class="lbl">지금 이 방의 반응</span>
+            <span>아직 반응이 없어요.</span>
+            <span class="cta">첫 감상을 남겨보세요 &rarr;</span>
+          </div>
+          <!-- 평점만 봉인 -->
+          <div class="folded">
+            <span>평균 평점 · 별점 분포</span>
+            <span class="caret">독서방 종료 후 공개 ▾</span>
+          </div>
+        </div>
+
+        <div class="sec white">
+          <div class="section-lbl">출판사 서평</div>
+          <p class="synopsis measured">Akira Sato는 벚꽃이 흩날리는 고즈넉한 풍경 속에서 '오래된 안경'을 통해 운명과 기다림이라는 주제를 섬세하게 직조해낸다. 과거의 잔상과 현재의 애잔함이 교차하는 이야기 속에서, 독자들은 삶의 덧없음과 동시에 그 안에서 피어나는 깊은 사랑의 의미를 발견하게 될 것이다.</p>
+        </div>
+        <div class="colophon">
+          <div class="head"><span>가상 판권면</span><span>▾</span></div>
+          <dl>
+            <dt>분량</dt><dd>210쪽</dd>
+            <dt>정가</dt><dd>₩13,500 (10% 할인 ₩12,150)</dd>
+            <dt>주제어</dt><dd>#일본정서 #기다림의운명 #시간의파편 #아련한회상</dd>
+          </dl>
+        </div>
+      </div>
+    </div>
+
+    <div class="notes">
+      <div class="note good"><span class="n">1</span><span><b>2단 구성</b> — 왼쪽은 표지와 행동(참여·담기), 오른쪽은 읽을거리. 본문 폭을 640px로 제한했습니다.</span></div>
+      <div class="note good"><span class="n">2</span><span><b>반응 집계를 한 줄로 공개</b>. 이미 채팅에서 메시지별로 보이던 값이라 감출 이유가 없고, "살아있는 방" 신호가 됩니다. (총 5개 미만이면 줄 자체를 숨김)</span></div>
+      <div class="note good"><span class="n">3</span><span><b>평점만 봉인</b>. 진행 중 평균이 보이면 앵커링이 생기고 방의 성격이 '감상 나누기'에서 '평가하기'로 바뀝니다. 248px → 44px.</span></div>
+      <div class="note good"><span class="n">4</span><span>가격·쪽수·태그는 <b>「가상 판권면」으로 분리</b>. 세계관은 남기되 실제 버튼과 섞이지 않습니다.</span></div>
+    </div>
+    <div class="measure">
+      예상 효과 — 첫 화면에 <b>줄거리 전문 + 추천사 + 실시간 반응</b>이 모두 들어옵니다.
+      본문 한 줄 <b>1,207px → 640px</b>, 빈 통계 <b>248px → 44px</b>, 폰트 <b>11종 → 5종</b>.
+    </div>
+
+    <h2><span class="tag new">제안</span> D-day 상태 3단계 <span class="sub">— 홈 카드와 같은 신호등 규칙을 상세에도 그대로</span></h2>
+    <div class="variants">
+      <div>
+        <div class="dday-card active">
+          <div class="top"><span class="num">D-8</span><span class="unit">일 남음</span><span class="end">9월 2일 종료</span></div>
+          <div class="bar"><i style="width:20%"></i></div>
+          <div class="cap">10일 중 2일 지남 · 지금 들어가면 처음부터 함께</div>
+        </div>
+        <div style="font-size:12px;color:var(--text-muted);margin-top:6px;">D-7 이상 · 초록 — 여유</div>
+      </div>
+      <div>
+        <div class="dday-card soon">
+          <div class="top"><span class="num">D-4</span><span class="unit">일 남음</span><span class="end">8월 29일 종료</span></div>
+          <div class="bar"><i style="width:60%"></i></div>
+          <div class="cap">10일 중 6일 지남 · 종료되면 아카이브로 보관됩니다</div>
+        </div>
+        <div style="font-size:12px;color:var(--text-muted);margin-top:6px;">D-6 ~ D-3 · 주황 — 주의</div>
+      </div>
+      <div>
+        <div class="dday-card urgent">
+          <div class="top"><span class="num">D-1</span><span class="unit">일 남음</span><span class="end">내일 종료</span></div>
+          <div class="bar"><i style="width:90%"></i></div>
+          <div class="cap">마지막 하루 · 오늘 남긴 감상이 아카이브에 실립니다</div>
+        </div>
+        <div style="font-size:12px;color:var(--text-muted);margin-top:6px;">D-2 이하 · 빨강 — 마감 임박</div>
+      </div>
+    </div>
+    <div class="notes" style="grid-template-columns:1fr 1fr;">
+      <div class="note good"><span class="n">1</span><span>D-day를 <b>표지 아래·참여 버튼 위</b>에 놓아, "들어갈까?"를 정하는 순간에 남은 기간이 함께 보입니다.</span></div>
+      <div class="note good"><span class="n">2</span><span>숫자만 크게 두지 않고 <b>진행 바</b>로 "10일 중 며칠 지났는지"를 함께 보여줍니다. D-4가 얼마나 급한지 감이 옵니다.</span></div>
+      <div class="note good"><span class="n">3</span><span>색 규칙은 <b>홈 카드와 동일</b>(D-7↑ 초록 / D-6~3 주황 / D-2↓ 빨강)하게 맞춰, 목록에서 본 인상이 상세에서도 이어집니다.</span></div>
+      <div class="note good"><span class="n">4</span><span>남은 기간별로 <b>안내 문구가 바뀝니다</b> — 여유일 땐 "처음부터 함께", 임박하면 "오늘 남긴 감상이 아카이브에 실립니다".</span></div>
+    </div>
+
+    <!-- ════════ 내 평점 이동 ════════ -->
+    <h2><span class="tag new">제안</span> 내 평점을 채팅방으로 <span class="sub">— 대화 뒤에 자연스럽게 묻기</span></h2>
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:24px;margin-top:14px;align-items:start;">
+      <div>
+        <div class="chat-mini">
+          <div class="head">벚꽃 아래, 늙은 안경에 깃든 기다림 독서방 · 3명 참여 중</div>
+          <div class="body">
+            <div style="font-size:11.5px;color:var(--text-muted);margin-bottom:6px;">달빛독자</div>
+            <div class="bubble">유키가 안경을 처음 썼을 때의 묘사가 계속 맴돌아요. 기다린다는 게 이렇게 아픈 일이었나 싶어서…</div>
+            <div class="rate-prompt">
+              <b>이 책, 몇 점을 주시겠어요?</b>
+              <div class="stars">★ ★ ★ ★ ☆</div>
+              <div class="hint">다른 분들의 평점은 독서방이 끝난 뒤 아카이브에서 함께 열립니다.</div>
+            </div>
+          </div>
+        </div>
+      </div>
+      <div class="notes" style="grid-template-columns:1fr;margin-top:0;">
+        <div class="note good"><span class="n">1</span><span>지금은 <b>가려진 평균 옆</b>에 입력창이 있어, 눌러야 할 이유가 약합니다.</span></div>
+        <div class="note good"><span class="n">2</span><span>이미 <b>"채팅 1회 이상"</b>이 조건이므로, 대화한 자리에서 묻는 것이 맥락에 맞습니다.</span></div>
+        <div class="note good"><span class="n">3</span><span>"다른 사람 점수는 나중에 함께 열린다"는 안내가 <b>봉인을 재미로</b> 바꿔줍니다.</span></div>
+        <div class="note good"><span class="n">4</span><span>상세 페이지는 그만큼 더 가벼워집니다.</span></div>
+      </div>
+    </div>
+
+    <!-- ════════ 아카이브 ════════ -->
+    <h2>아카이브 상세 <span class="sub">— 8.7화면을 어떻게 읽게 할 것인가</span></h2>
+    <div class="cols2">
+      <div>
+        <div style="margin-bottom:10px;"><span class="tag now">현재</span> <span style="font-size:12.5px;color:var(--text-muted);">감상까지 2,151px</span></div>
+        <div class="flow">
+          <div class="step"><span class="num">1</span> 표지 (전면)<span class="h">678px</span></div>
+          <div class="step"><span class="num">2</span> 책 띠지 · 작가 · 가격<span class="h">290px</span></div>
+          <div class="step"><span class="num">3</span> 통계 바<span class="h">100px</span></div>
+          <div class="step"><span class="num">4</span> 편집자의 말<span class="h">613px</span></div>
+          <div class="step"><span class="num">5</span> 참여 독자 명단<span class="h">470px</span></div>
+          <div class="step core"><span class="num">6</span> 독자 감상 스레드<span class="h">1,809px</span></div>
+          <div class="step"><span class="num">7</span> 2장 · 반응 통계<span class="h">883px</span></div>
+          <div class="step"><span class="num">8</span> 맺음말<span class="h">311px</span></div>
+          <div class="step"><span class="num">9</span> 콜로폰<span class="h">257px</span></div>
+        </div>
+      </div>
+      <div>
+        <div style="margin-bottom:10px;"><span class="tag new">제안</span> <span style="font-size:12.5px;color:var(--text-muted);">감상까지 340px</span></div>
+        <div class="flow">
+          <div class="step"><span class="num">1</span> 표지 (반 화면) + 평점 개봉<span class="h">340px</span></div>
+          <div class="step core"><span class="num">2</span> <b>베스트 감상 3편</b> (반응 순)<span class="h">560px</span></div>
+          <div class="step core"><span class="num">3</span> 전체 감상 스레드<span class="h">1,809px</span></div>
+          <div class="step"><span class="num">4</span> 편집자의 말<span class="h">613px</span></div>
+          <div class="step"><span class="num">5</span> 통계 · 참여 독자<span class="h">570px</span></div>
+          <div class="step"><span class="num">6</span> 맺음말<span class="h">311px</span></div>
+          <div class="step dim"><span class="num">7</span> 콜로폰 — 접기<span class="h">44px</span></div>
+        </div>
+        <div class="measure" style="margin-top:12px;">
+          진행 중 봉인해 둔 <b>평균 평점을 표지 바로 아래에서 "개봉"</b>하면,
+          아카이브에 들어올 이유가 하나 더 생깁니다.
+        </div>
+      </div>
+    </div>
+
+    <p class="lead" style="margin-top:34px;">
+      ※ 구조·순서·위계 확인용 목업입니다. 실제 화면의 여백과 세부 스타일까지 1:1로 재현하지는 않았습니다.
+    </p>
+  </div>
+</body>
+
+</html>
