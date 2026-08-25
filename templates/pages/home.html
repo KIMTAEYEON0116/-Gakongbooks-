@@ -9,7 +9,7 @@
     <!-- 새 책 소환하기 -->
     <div class="gen-section">
       <div class="gen-text">
-        <h3 data-i18n="gen_section_title">새 책 소환하기</h3>
+        <h3 data-i18n="gen_section_title">✨ 새 책 소환하기</h3>
         <p data-i18n="gen_section_desc">AI가 3권의 후보 책을 만들어냅니다. 마음에 드는 한 권을 골라 독서방으로 열어보세요.</p>
       </div>
       <button class="gen-btn" id="gen-btn" data-i18n="gen_btn" onclick="generateBook()">✦ 새 책 생성</button>
@@ -23,9 +23,9 @@
             id="genre-count">1</span>개</span>
       </div>
       <div class="genre-tabs-wrapper">
-        <button class="genre-nav-btn" id="genre-btn-prev" onclick="navigateGenre(-1)" title="이전 장르 (좌로 이동)">‹</button>
+        <button class="genre-nav-btn" id="genre-btn-prev" onclick="navigateGenre(-1)" title="이전 장르 (좌로 이동)" data-i18n-title="genre_prev">‹</button>
         <div class="genre-tabs" id="genre-tabs" style="margin-bottom: 0;"></div>
-        <button class="genre-nav-btn" id="genre-btn-next" onclick="navigateGenre(1)" title="다음 장르 (우로 이동)">›</button>
+        <button class="genre-nav-btn" id="genre-btn-next" onclick="navigateGenre(1)" title="다음 장르 (우로 이동)" data-i18n-title="genre_next">›</button>
       </div>
       <div class="cards-grid" id="cards-grid">
       </div>

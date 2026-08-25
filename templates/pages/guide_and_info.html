@@ -161,8 +161,8 @@
   <div class="page" id="pg-archive">
     <div class="arc-page-header" style="position:sticky;top:54px;z-index:50;">
       <button class="arc-page-back" onclick="goPage(window.lastPageBeforeArchive || 'detail')">← 돌아가기</button>
+      <button class="arc-view-toggle-btn" id="arc-view-toggle-btn" onclick="toggleArcViewMode()" title="가로 보기 전환">⇄ 가로 보기</button>
       <div class="arc-page-book-row">
-        <div class="arc-page-mini-cover" id="arc-page-cover" style="background:#4a7a3a;">구름 위의<br>도서관</div>
         <div>
           <div class="arc-page-badge">READING ROOM ARCHIVE</div>
           <div class="arc-page-title" id="arc-page-title">구름 위의 도서관</div>
@@ -175,9 +175,6 @@
       <!-- COVER -->
       <div class="arc-cover">
         <div class="arc-cover-label">가공독서회 · 아카이브 북 · 제7호</div>
-        <div class="arc-cover-book-icon">
-          <div class="arc-cover-book-inner">구름 위의<br>도서관</div>
-        </div>
         <div class="arc-cover-title">구름 위의 도서관</div>
         <div class="arc-cover-subtitle">가상 작가 서하은 · 판타지 · ₩14,000</div>
         <div class="arc-cover-divider"></div>
@@ -694,20 +691,21 @@
     onclick="if(event.target===this) closeFindPasswordModal()">
     <div class="custom-modal-card" style="max-width: 420px;">
       <div class="custom-modal-header">
-        <h3>✉️ 비밀번호 찾기</h3>
+        <h3 data-i18n="reset_modal_title">✉️ 비밀번호 재설정</h3>
         <button class="custom-modal-close" onclick="closeFindPasswordModal()">&times;</button>
       </div>
       <div class="custom-modal-body">
-        <p style="font-size: 13.5px; color: #6d6d6d; margin-bottom: 20px; line-height: 1.6;">
+        <p style="font-size: 13.5px; color: #6d6d6d; margin-bottom: 20px; line-height: 1.6;"
+          data-i18n="reset_modal_desc">
           가입 시 사용하셨던 이메일 주소를 입력해 주세요.<br>
-          이메일이 확인되면 해당 메일로 임시 비밀번호를 즉시 전송해 드립니다.
+          비밀번호를 새로 설정할 수 있는 링크를 메일로 보내드립니다. (링크는 30분간 유효)
         </p>
         <div class="modal-input-group">
-          <label>가입 이메일 주소</label>
+          <label data-i18n="reset_modal_email_label">가입 이메일 주소</label>
           <input type="email" id="find-pw-email" placeholder="example@email.com">
         </div>
         <button class="modal-action-btn" id="find-pw-submit-btn" style="background: #a06020;"
-          onclick="submitFindPassword()">임시 비밀번호 전송</button>
+          onclick="submitFindPassword()" data-i18n="reset_send_btn">재설정 링크 받기</button>
       </div>
     </div>
   </div>
@@ -716,13 +714,13 @@
   <div class="page" id="pg-info">
     <div class="info-page-wrap">
       <div class="info-page-header">
-        <h1 class="info-page-title">이용 가이드</h1>
-        <button class="detail-back info-back-btn" onclick="goPage('home')">← 돌아가기</button>
+        <h1 class="info-page-title" data-i18n="info_guide_title">이용 가이드</h1>
+        <button class="detail-back info-back-btn" data-i18n="info_back_btn" onclick="goPage('home')">← 돌아가기</button>
       </div>
       <div class="info-page-body">
-        
+
         <!-- 소개 -->
-        <div class="info-section" style="background: var(--accent-bg); border-color: var(--accent-border);">
+        <div class="info-section" data-i18n="info_guide_intro" style="background: var(--accent-bg); border-color: var(--accent-border);">
           <div style="font-family: var(--serif); font-size: 17px; font-weight: 700; color: var(--accent); margin-bottom: 12px;">
             반갑습니다, 가공의 독자님! ✦
           </div>
@@ -733,7 +731,7 @@
         </div>
 
         <!-- 1. 핵심 규칙 -->
-        <div class="info-section">
+        <div class="info-section" data-i18n="info_guide_rules">
           <div class="info-section-label">
             <span>🤝</span> 꼭 지켜야 할 독서회 약속
           </div>
@@ -754,7 +752,7 @@
         </div>
 
         <!-- 2. 이용 흐름 -->
-        <div class="info-section">
+        <div class="info-section" data-i18n="info_guide_steps">
           <div class="info-section-label">
             <span>🧭</span> 독서회 참여하기: 5단계 가이드
           </div>
@@ -804,7 +802,7 @@
         </div>
 
         <!-- 3. AI 사회자의 역할 -->
-        <div class="info-section">
+        <div class="info-section" data-i18n="info_guide_mod_role">
           <div class="info-section-label">
             <span>🎙️</span> AI 사회자의 역할
           </div>
@@ -836,7 +834,7 @@
         </div>
 
         <!-- 4. 가이드성 Q&A -->
-        <div class="info-section">
+        <div class="info-section" data-i18n="info_guide_qa">
           <div class="info-section-label">
             <span>❓</span> 무엇이든 물어보세요 (Q&A)
           </div>
@@ -873,22 +871,22 @@
   <div class="page" id="pg-contact">
     <div class="info-page-wrap">
       <div class="info-page-header">
-        <h1 class="info-page-title">1:1 문의</h1>
-        <button class="detail-back info-back-btn" onclick="goPage('home')">← 돌아가기</button>
+        <h1 class="info-page-title" data-i18n="info_contact_title">1:1 문의</h1>
+        <button class="detail-back info-back-btn" data-i18n="info_back_btn" onclick="goPage('home')">← 돌아가기</button>
       </div>
       <div class="info-page-body">
-        <div class="info-section">
+        <div class="info-section" data-i18n="info_contact_s1">
           <div class="info-section-label">📬 문의 방법</div>
           <div class="info-section-text">
             서비스 이용 중 불편한 점이나 건의사항이 있으시면 아래 이메일로 문의해 주세요.<br><br>
             담당자가 확인 후 <strong>영업일 기준 1~3일 이내</strong>에 답변드립니다.
           </div>
         </div>
-        <div class="info-section">
+        <div class="info-section" data-i18n="info_contact_s2">
           <div class="info-section-label">✉ 문의 이메일</div>
           <div class="info-contact-email">gakongbooks@gmail.com</div>
         </div>
-        <div class="info-section">
+        <div class="info-section" data-i18n="info_contact_s3">
           <div class="info-section-label">📋 문의 시 포함해 주세요</div>
           <div class="info-section-text">
             <div class="info-list-item"><span class="info-list-dot"></span> 가입하신 이메일 주소</div>
@@ -896,7 +894,7 @@
             <div class="info-list-item"><span class="info-list-dot"></span> 문제 상황을 자세히 설명해 주시면 빠른 처리에 도움이 됩니다.</div>
           </div>
         </div>
-        <div class="info-section">
+        <div class="info-section" data-i18n="info_contact_s4">
           <div class="info-section-label">⏰ 운영 시간</div>
           <div class="info-section-text">
             평일 10:00 ~ 18:00 (토·일·공휴일 제외)<br>
@@ -911,17 +909,17 @@
   <div class="page" id="pg-terms">
     <div class="info-page-wrap">
       <div class="info-page-header">
-        <h1 class="info-page-title">이용약관</h1>
-        <button class="detail-back info-back-btn" onclick="goPage('home')">← 돌아가기</button>
+        <h1 class="info-page-title" data-i18n="info_terms_title">이용약관</h1>
+        <button class="detail-back info-back-btn" data-i18n="info_back_btn" onclick="goPage('home')">← 돌아가기</button>
       </div>
       <div class="info-page-body">
-        <div class="info-section">
+        <div class="info-section" data-i18n="info_terms_s1">
           <div class="info-section-label">제1조 (목적)</div>
           <div class="info-section-text">
             이 약관은 가공독서회(이하 "서비스")가 제공하는 AI 기반 가상 독서 모임 서비스의 이용과 관련하여 서비스와 이용자 간의 권리, 의무 및 책임사항을 규정함을 목적으로 합니다.
           </div>
         </div>
-        <div class="info-section">
+        <div class="info-section" data-i18n="info_terms_s2">
           <div class="info-section-label">제2조 (서비스 내용)</div>
           <div class="info-section-text">
             <div class="info-list-item"><span class="info-list-dot"></span> AI가 생성한 가상 도서 정보 제공</div>
@@ -930,7 +928,7 @@
             <div class="info-list-item"><span class="info-list-dot"></span> 종료된 독서방의 아카이브 열람</div>
           </div>
         </div>
-        <div class="info-section">
+        <div class="info-section" data-i18n="info_terms_s3">
           <div class="info-section-label">제3조 (회원의 의무)</div>
           <div class="info-section-text">
             이용자는 다음 행위를 하여서는 안 됩니다.<br><br>
@@ -940,13 +938,13 @@
             <div class="info-list-item"><span class="info-list-dot"></span> 상업적 목적의 무단 광고 게시</div>
           </div>
         </div>
-        <div class="info-section">
+        <div class="info-section" data-i18n="info_terms_s4">
           <div class="info-section-label">제4조 (콘텐츠 안내)</div>
           <div class="info-section-text">
             본 서비스의 모든 도서 정보는 AI가 생성한 <strong>가상의 창작물</strong>입니다. 실존하는 책, 작가, 출판사와 무관하며, 가격 또한 참고용 가상 가격입니다.
           </div>
         </div>
-        <div class="info-section">
+        <div class="info-section" data-i18n="info_terms_s5">
           <div class="info-section-label">제5조 (약관 변경)</div>
           <div class="info-section-text">
             서비스는 필요한 경우 약관을 변경할 수 있으며, 변경된 약관은 서비스 내 공지를 통해 이용자에게 안내합니다.<br>
@@ -961,11 +959,11 @@
   <div class="page" id="pg-privacy">
     <div class="info-page-wrap">
       <div class="info-page-header">
-        <h1 class="info-page-title">개인정보 처리방침</h1>
-        <button class="detail-back info-back-btn" onclick="goPage('home')">← 돌아가기</button>
+        <h1 class="info-page-title" data-i18n="info_privacy_title">개인정보 처리방침</h1>
+        <button class="detail-back info-back-btn" data-i18n="info_back_btn" onclick="goPage('home')">← 돌아가기</button>
       </div>
       <div class="info-page-body">
-        <div class="info-section">
+        <div class="info-section" data-i18n="info_privacy_s1">
           <div class="info-section-label">수집하는 개인정보</div>
           <div class="info-section-text">
             <div class="info-list-item"><span class="info-list-dot"></span> 이메일 주소 (회원가입 및 본인 확인 목적)</div>
@@ -973,19 +971,19 @@
             <div class="info-list-item"><span class="info-list-dot"></span> 작성한 댓글 및 메시지 (서비스 운영 목적)</div>
           </div>
         </div>
-        <div class="info-section">
+        <div class="info-section" data-i18n="info_privacy_s2">
           <div class="info-section-label">개인정보 이용 목적</div>
           <div class="info-section-text">
             수집된 개인정보는 회원 관리, 서비스 제공, 분쟁 해결 목적으로만 이용되며 외부에 제공되지 않습니다.
           </div>
         </div>
-        <div class="info-section">
+        <div class="info-section" data-i18n="info_privacy_s3">
           <div class="info-section-label">개인정보 보유 기간</div>
           <div class="info-section-text">
             회원 탈퇴 시 즉시 파기합니다. 단, 관련 법령에 따른 보존 의무가 있는 경우 해당 기간 동안 보관합니다.
           </div>
         </div>
-        <div class="info-section">
+        <div class="info-section" data-i18n="info_privacy_s4">
           <div class="info-section-label">이용자의 권리</div>
           <div class="info-section-text">
             이용자는 언제든지 본인의 개인정보 열람, 수정, 삭제를 요청하실 수 있습니다.<br>

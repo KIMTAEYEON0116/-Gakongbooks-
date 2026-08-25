@@ -1,11 +1,11 @@
 <!-- ── DETAIL PAGE ── -->
   <div class="page" id="pg-detail">
     <div class="detail-header">
-      <button class="detail-back" onclick="goPage(&#39;home&#39;)">← 독서방 목록으로</button>
+      <button class="detail-back" data-i18n="detail_back" onclick="goPage(&#39;home&#39;)">← 독서방 목록으로</button>
       <div class="detail-top">
-        <div class="detail-cover" id="dc-cover" style="background: rgb(123, 95, 184); cursor: pointer; position: relative;" onclick="openCoverZoom()" title="클릭하여 표지 크게 보기">
+        <div class="detail-cover" id="dc-cover" style="background: rgb(123, 95, 184); cursor: pointer; position: relative;" onclick="openCoverZoom()" title="클릭하여 표지 크게 보기" data-i18n-title="detail_zoom_title">
           <div class="detail-cover-spine"></div>
-          <div class="cover-zoom-hint" style="position: absolute; bottom: 8px; right: 8px; font-size: 11px; background: rgba(0,0,0,0.65); color: #fff; padding: 3px 8px; border-radius: 4px; pointer-events: none; backdrop-filter: blur(4px);">🔍 확대</div>
+          <div class="cover-zoom-hint" data-i18n="detail_zoom_hint" style="position: absolute; bottom: 8px; right: 8px; font-size: 11px; background: rgba(0,0,0,0.65); color: #fff; padding: 3px 8px; border-radius: 4px; pointer-events: none; backdrop-filter: blur(4px);">🔍 확대</div>
           <span id="dc-title-txt">오후 세 시의 해부학</span>
         </div>
         <div class="detail-info">
@@ -47,14 +47,14 @@
     </div>
 
     <!-- ── 👑 명예의 전당 (베스트 상상 독자 리뷰) ── -->
-    <div id="dc-best-imagination-section" style="display: none; margin: 20px 22px 0; padding: 20px 22px; background: linear-gradient(135deg, #fffcf5 0%, #f7f1e3 100%); border: 1.5px solid #e0c896; border-radius: 12px; box-shadow: 0 4px 16px rgba(180, 140, 60, 0.08);">
-      <div style="display: flex; align-items: center; justify-content: space-between; margin-bottom: 14px; border-bottom: 1px solid #ebd9b5; padding-bottom: 10px;">
-        <div style="font-family: var(--serif); font-size: 15px; font-weight: 700; color: #7a5016; display: flex; align-items: center; gap: 8px;">
-          <span style="font-size: 18px;">👑</span> 명예의 전당 · 베스트 상상 독자 리뷰
+    <div id="dc-best-imagination-section" style="display: none; margin: 24px 22px 0; padding: 22px 24px; background: linear-gradient(135deg, #fffcf5 0%, #f7f1e3 100%); border: 1.5px solid #e0c896; border-radius: 14px; box-shadow: 0 4px 16px rgba(180, 140, 60, 0.08);">
+      <div style="display: flex; align-items: center; justify-content: space-between; margin-bottom: 16px; border-bottom: 1px solid #ebd9b5; padding-bottom: 12px;">
+        <div style="font-family: var(--serif); font-size: 17px; font-weight: 700; color: #7a5016; display: flex; align-items: center; gap: 8px;">
+          <span style="font-size: 20px;">👑</span> 명예의 전당 · 베스트 상상 독자 리뷰
         </div>
-        <span style="font-size: 11px; font-weight: 600; color: #a36b1d; background: #f3e5c8; padding: 3px 9px; border-radius: 12px;">🏆 베스트 상상 픽</span>
+        <span style="font-size: 13px; font-weight: 700; color: #a36b1d; background: #f3e5c8; padding: 4px 12px; border-radius: 12px;">🏆 베스트 상상 픽</span>
       </div>
-      <div id="dc-best-imagination-list" style="display: flex; flex-direction: column; gap: 12px;">
+      <div id="dc-best-imagination-list" style="display: flex; flex-direction: column; gap: 14px;">
         <!-- JS에서 동적 렌더링 -->
       </div>
     </div>
@@ -65,7 +65,7 @@
 
         <!-- 평균 평점 -->
         <div id="stats-rating-panel">
-          <div class="stats-panel-label">평균 평점</div>
+          <div class="stats-panel-label" data-i18n="detail_avg_rating">평균 평점</div>
           <div class="stats-avg-row">
             <span class="stats-avg-num" id="stats-avg-num">4.4</span>
             <span class="stats-avg-denom">/ 5</span>
@@ -104,7 +104,7 @@
             </div>
           </div>
           <div class="stats-my-row" id="stats-my-row">
-            <span class="stats-my-lbl">내 평점</span>
+            <span class="stats-my-lbl" data-i18n="detail_my_rating">내 평점</span>
             <div class="stats-my-stars" id="stats-my-stars"><span class="stats-my-locked"><span
                   class="stats-my-locked-icon">🔒</span>독서방에 참여하면 평점을 남길 수 있어요 <button class="stats-my-join-btn"
                   onclick="openChat()">참여하기</button></span></div>
@@ -115,7 +115,7 @@
 
         <!-- 채팅 반응 -->
         <div style="padding-left:20px;" id="stats-rx-panel">
-          <div class="stats-panel-label">채팅 반응</div>
+          <div class="stats-panel-label" data-i18n="detail_chat_reactions">채팅 반응</div>
           <div class="rx-stat-top" id="stats-rx-top">
             <div class="rx-stat-top-emoji">❤️</div>
             <div class="rx-stat-top-info">
@@ -154,17 +154,17 @@
     <!-- 추천사 & 출판사 서평 -->
     <div class="endorse-section" id="endorse-section">
       <div class="endorse-block">
-        <div class="endorse-label">추천사</div>
+        <div class="endorse-label" data-i18n="detail_endorsements">추천사</div>
         <div class="endorse-quote" id="endorse-quote"></div>
         <div class="endorse-attr" id="endorse-attr"></div>
       </div>
       <div class="endorse-block">
-        <div class="endorse-label">출판사 서평</div>
+        <div class="endorse-label" data-i18n="detail_publisher_review">출판사 서평</div>
         <div class="publisher-txt" id="publisher-txt"></div>
       </div>
       <!-- 도서 상세 목차 -->
       <div class="immersion-board-wrapper" style="margin-top: 36px; padding-top: 24px; border-top: 1px dashed #e0dbce;">
-        <div class="immersion-board-title" style="font-family: var(--serif); font-size: 18px; font-weight: 700; color: var(--text); margin-bottom: 16px; display: flex; align-items: center; gap: 6px;">
+        <div class="immersion-board-title" data-i18n="detail_toc_title" style="font-family: var(--serif); font-size: 18px; font-weight: 700; color: var(--text); margin-bottom: 16px; display: flex; align-items: center; gap: 6px;">
           <span style="color: var(--accent);">✦</span> 도서 상세 목차
         </div>
         

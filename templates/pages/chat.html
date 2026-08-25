@@ -7,23 +7,16 @@
         <div class="chat-header-title" id="chat-room-title"></div>
         <div class="chat-header-meta" id="chat-room-meta"></div>
       </div>
-      <button class="chat-search-icon" id="chat-search-toggle" onclick="toggleChatSearch()" title="메시지 검색">🔍</button>
-      <div class="chat-header-book" id="chat-header-book" style="background: rgb(123, 95, 184);"></div>
-      <div class="chat-search-bar" id="chat-search-bar">
-        <!-- 돋보기 + input 이 하나의 pill 컨테이너 안에 -->
-        <div class="chat-search-pill">
-          <span class="chat-search-pill-icon">🔍</span>
-          <input class="chat-search-input" id="chat-search-input" type="text" placeholder="메시지 검색"
-            oninput="onChatSearch(this.value)">
-          <span class="chat-search-pill-divider">|</span>
-          <span class="chat-search-pill-text">통합검색</span>
-        </div>
+      <!-- 🔍 눈에 띄는 타원형 메인 대화 검색창 (책 표지 아이콘 제거됨) -->
+      <div class="chat-header-search-bar" id="chat-search-bar">
+        <span class="chat-search-icon-inside">🔍</span>
+        <input class="chat-search-input" id="chat-search-input" type="text" placeholder="대화 내용 검색..." data-i18n-placeholder="chat_search_placeholder"
+          oninput="onChatSearch(this.value)">
+        <span class="chat-search-count" id="chat-search-count"></span>
         <div class="chat-search-nav">
-          <span class="chat-search-count" id="chat-search-count"></span>
-          <button class="chat-search-arrow" id="chat-search-prev" onclick="navSearch(-1)" disabled="">▲</button>
-          <button class="chat-search-arrow" id="chat-search-next" onclick="navSearch(1)" disabled="">▼</button>
+          <button class="chat-search-arrow" id="chat-search-prev" onclick="navSearch(-1)" disabled title="이전 검색 결과" data-i18n-title="chat_search_prev">▲</button>
+          <button class="chat-search-arrow" id="chat-search-next" onclick="navSearch(1)" disabled title="다음 검색 결과" data-i18n-title="chat_search_next">▼</button>
         </div>
-        <button class="chat-search-close" onclick="closeChatSearch()">취소</button>
       </div>
     </div>
     <!-- 📌 도서 감성 구절 상단 슬림 배너 (첫 문장 / 명대사) -->
@@ -31,7 +24,7 @@
       <div class="chat-topic-header">
         <span class="chat-topic-pin">🔖</span>
         <span class="chat-topic-label">작품 하이라이트</span>
-        <button class="chat-topic-toggle" id="chat-topic-toggle" onclick="toggleTopicBanner()" title="접기/펼치기">▲</button>
+        <button class="chat-topic-toggle" id="chat-topic-toggle" onclick="toggleTopicBanner()" title="접기/펼치기" data-i18n-title="chat_topic_toggle">▲</button>
       </div>
       <div class="chat-topic-body" id="chat-topic-body">
         <!-- 소설의 첫 문장 -->
@@ -119,10 +112,10 @@
         <div class="reply-preview-name" id="reply-preview-name"></div>
         <div class="reply-preview-text" id="reply-preview-text"></div>
       </div>
-      <button class="reply-preview-cancel" onclick="cancelReply()" title="답장 취소">✕</button>
+      <button class="reply-preview-cancel" onclick="cancelReply()" title="답장 취소" data-i18n-title="chat_reply_cancel">✕</button>
     </div>
     <div class="chat-input-bar">
-      <textarea class="chat-textarea" id="chat-input" rows="1" placeholder="이 책에 대해 이야기해보세요..." maxlength="140"
+      <textarea class="chat-textarea" id="chat-input" rows="1" placeholder="이 책에 대해 이야기해보세요..." data-i18n-placeholder="chat_default_placeholder" maxlength="140"
         oninput="this.style.height='auto';this.style.height=Math.min(this.scrollHeight,90)+'px';var cntEl=document.getElementById('chat-char-count-display');if(cntEl){cntEl.textContent=this.value.length;if(this.value.length>=130){cntEl.parentElement.classList.add('warning');}else{cntEl.parentElement.classList.remove('warning');}}this.classList.toggle('at-limit',this.value.length>=140);"
         onkeydown="if(event.key==='Enter'&&!event.shiftKey){event.preventDefault();sendChatMsg();}"></textarea>
       <div class="chat-char-counter"><span id="chat-char-count-display">0</span>/140</div>
@@ -133,13 +126,13 @@
   <!-- Reaction picker -->
   <div class="rx-picker" id="rx-picker">
     <div class="rx-picker-item" onclick="pickRx(&#39;❤️&#39;,&#39;공감해요&#39;)"><span
-        class="rx-picker-emoji">❤️</span><span class="rx-picker-label">공감해요</span></div>
+        class="rx-picker-emoji">❤️</span><span class="rx-picker-label" data-i18n="rx_heart">공감해요</span></div>
     <div class="rx-picker-item" onclick="pickRx(&#39;🤔&#39;,&#39;생각이 달라요&#39;)"><span
-        class="rx-picker-emoji">🤔</span><span class="rx-picker-label">생각이 달라요</span></div>
+        class="rx-picker-emoji">🤔</span><span class="rx-picker-label" data-i18n="rx_think">생각이 달라요</span></div>
     <div class="rx-picker-item" onclick="pickRx(&#39;😄&#39;,&#39;재밌어요&#39;)"><span
-        class="rx-picker-emoji">😄</span><span class="rx-picker-label">재밌어요</span></div>
+        class="rx-picker-emoji">😄</span><span class="rx-picker-label" data-i18n="rx_laugh">재밌어요</span></div>
     <div class="rx-picker-item" onclick="pickRx(&#39;✨&#39;,&#39;인상 깊어요&#39;)"><span
-        class="rx-picker-emoji">✨</span><span class="rx-picker-label">인상 깊어요</span></div>
+        class="rx-picker-emoji">✨</span><span class="rx-picker-label" data-i18n="rx_sparkle">인상 깊어요</span></div>
     <div class="rx-picker-reply" onclick="pickReply()"><span class="rx-picker-reply-icon">↩</span><span
-        class="rx-picker-reply-label">답장하기</span></div>
+        class="rx-picker-reply-label" data-i18n="chat_reply_btn">답장하기</span></div>
   </div>

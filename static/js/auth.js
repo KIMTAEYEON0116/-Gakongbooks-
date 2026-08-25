@@ -1,3 +1,7 @@
+// 문구 번역은 books.js의 t() / I18N_DICT 하나만 사용한다.
+// (auth.js가 먼저 로드되지만 books.js가 같은 이름의 전역 함수를 다시 선언하므로,
+//  여기에 래퍼를 두면 실행되지 않는 죽은 코드가 된다. t()가 실제로 불리는 시점은
+//  사용자가 버튼을 누른 뒤라 books.js는 이미 준비돼 있다.)
 // === AUTH & ACCOUNT MODULE ===
     /* ── AUTH LOGIC ── */
     var isLoggedIn = false;
@@ -46,7 +50,7 @@
       // 회원가입 전용 유니크 독서 닉네임 백엔드 실시간 배정
       assignedNick = '';
       var display = document.getElementById('signup-nick-display');
-      if (display) display.textContent = '닉네임 불러오는 중...';
+      if (display) display.textContent = t('auth_nick_loading');
       try {
         var res = await fetch('/api/auth/generate-nickname');
         if (res.ok) {
@@ -120,7 +124,7 @@
           renderHome();
         } else {
           var errData = await res.json();
-          alert(errData.detail || '로그인에 실패했습니다. 이메일과 비밀번호를 다시 확인하세요.');
+          alert(errData.detail || t('alert_login_failed'));
         }
       } catch (err) {
         console.error('로그인 에러:', err);
@@ -149,7 +153,7 @@
       }
       if (!ok) return;
       if (!assignedNick) {
-        alert('닉네임이 배정되지 않았습니다. 잠시 후 다시 시도하십시오.');
+        alert(t('alert_nick_missing'));
         return;
       }
       try {
@@ -159,12 +163,12 @@
           body: JSON.stringify({ email: email, password: pw, nickname: assignedNick })
         });
         if (res.status === 201) {
-          alert('회원가입이 성공적으로 완료되었습니다! 🎉 로그인해주십시오.');
+          alert(t('alert_signup_done'));
           goPage('login');
           clearLoginForm();
         } else {
           var errData = await res.json();
-          alert(errData.detail || '회원가입에 실패했습니다.');
+          alert(errData.detail || t('alert_signup_failed'));
         }
       } catch (err) {
         console.error('회원가입 에러:', err);
@@ -214,15 +218,15 @@
       var confirmPw = document.getElementById('edit-confirm-pw').value.trim();
 
       if (!currPw || !newPw || !confirmPw) {
-        alert('모든 입력란을 작성해 주세요.');
+        alert(t('alert_fill_all'));
         return;
       }
       if (newPw.length < 8) {
-        alert('새 비밀번호는 8자 이상이어야 합니다.');
+        alert(t('alert_pw_short'));
         return;
       }
       if (newPw !== confirmPw) {
-        alert('새 비밀번호와 확인 입력이 일치하지 않습니다.');
+        alert(t('alert_pw_mismatch'));
         return;
       }
 
@@ -242,10 +246,20 @@
 
         var data = await res.json();
         if (res.ok) {
-          alert(data.message || '비밀번호 변경이 정상 완료되었습니다. 🔒');
+          alert(data.message || t('alert_pw_changed'));
+        // 서버가 기존 토큰을 무효화했으므로(비밀번호 변경 시 password_changed_at 갱신),
+        // 화면만 로그인 상태로 남겨두면 이후 모든 요청이 401이 되는 '좀비 세션'이 된다.
+        localStorage.removeItem('token');
+        localStorage.removeItem('user_nickname');
+        localStorage.removeItem('user_email');
+        localStorage.removeItem('user_id');
+        localStorage.removeItem('user_is_admin');
+        isLoggedIn = false;
+        if (typeof updateAuthUI === 'function') updateAuthUI();
+        goPage('login');
           closeProfileEditModal();
         } else {
-          alert(data.detail || '비밀번호 변경에 실패했습니다. 입력 값을 재확인해 주세요.');
+          alert(data.detail || t('alert_pw_change_failed'));
         }
       } catch (err) {
         console.error(err);
@@ -257,7 +271,7 @@
     async function submitWithdraw() {
       var pw = document.getElementById('withdraw-pw').value.trim();
       if (!pw) {
-        alert('비밀번호를 입력해야 탈퇴 처리가 완료됩니다.');
+        alert(t('alert_pw_required_withdraw'));
         return;
       }
       if (!confirm('정말로 가공독서회를 탈퇴하시겠습니까?\n탈퇴 시 모든 데이터는 영구 파기되며 절대 복구할 수 없습니다.')) {
@@ -277,7 +291,7 @@
 
         var data = await res.json();
         if (res.ok) {
-          alert(data.message || '회원 탈퇴가 안전하게 처리되었습니다. 이용해 주셔서 감사합니다.');
+          alert(data.message || t('alert_withdraw_done'));
           closeProfileEditModal();
 
           // 로그아웃 및 홈화면 강제 이동
@@ -296,7 +310,7 @@
           updateNavbar();
           if (typeof updateAuthUI === 'function') updateAuthUI();
         } else {
-          alert(data.detail || '비밀번호가 일치하지 않아 회원 탈퇴 처리에 실패했습니다.');
+          alert(data.detail || t('alert_withdraw_failed'));
         }
       } catch (err) {
         console.error(err);
@@ -306,11 +320,12 @@
 
     function updateAuthUI() {
       var navAuth = document.getElementById('nav-auth-area');
+      var lang = (typeof CURRENT_LANG !== 'undefined') ? CURRENT_LANG : 'ko';
       if (navAuth) {
         if (isLoggedIn) {
-          navAuth.innerHTML = '<button class="nav-btn-logout-red" id="nav-logout-btn" onclick="handleLogout()">로그아웃</button>';
+          navAuth.innerHTML = '<button class="nav-btn-logout-red" id="nav-logout-btn" onclick="handleLogout()">' + t('auth_logout_btn') + '</button>';
         } else {
-          navAuth.innerHTML = '<button class="nav-btn" id="nav-login-btn" onclick="goPage(\'auth-gate\')">로그인</button>';
+          navAuth.innerHTML = '<button class="nav-btn" id="nav-login-btn" onclick="goPage(\'auth-gate\')">' + t('auth_login_btn') + '</button>';
         }
       }
 
@@ -321,7 +336,7 @@
 
       var userNick = localStorage.getItem('user_nickname')
         || (typeof currentUser !== 'undefined' && currentUser && currentUser.name)
-        || '독자';
+        || (lang === 'ja' ? '読者' : '독자');
       var userEmail = localStorage.getItem('user_email')
         || (typeof currentUser !== 'undefined' && currentUser && currentUser.email)
         || '';
@@ -335,9 +350,9 @@
 
     // 글로벌 로그아웃 공통 처리
     function handleLogout() {
-      if (!confirm('로그아웃 하시겠습니까?')) return;
+      if (!confirm(t('confirm_logout'))) return;
       logout();
-      showToast('로그아웃 되었습니다. 다음에 또 만나요! 👋');
+      showToast(t('toast_logout_done'));
     }
 
     // 비밀번호 찾기 모달 제어 및 API 호출
@@ -356,20 +371,20 @@
       var submitBtn = document.getElementById('find-pw-submit-btn');
 
       if (!email) {
-        alert('이메일 주소를 입력해 주세요.');
+        alert(t('alert_email_required'));
         return;
       }
 
       // 간단한 이메일 정규식 검증
       var emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
       if (!emailRegex.test(email)) {
-        alert('올바른 이메일 형식을 입력해 주세요.');
+        alert(t('alert_email_invalid'));
         return;
       }
 
       // 더블 클릭 및 중복 전송 방지 로딩 피드백
       submitBtn.disabled = true;
-      submitBtn.textContent = '임시 비밀번호 전송 중...';
+      submitBtn.textContent = t('reset_sending');
 
       try {
         var res = await fetch('/api/auth/find-password', {
@@ -382,7 +397,7 @@
 
         var data = await res.json();
         if (res.ok) {
-          alert(data.message || '임시 비밀번호가 이메일로 발송되었습니다. 메일함을 확인해 주세요! ✉️');
+          alert(data.message || t('reset_sent'));
           closeFindPasswordModal();
         } else {
           alert(data.detail || '이메일 확인에 실패했습니다. 등록 정보를 재확인해 주세요.');
@@ -392,7 +407,7 @@
         alert('서버 통신 중 오류가 발생했습니다. 잠시 후 다시 시도해 주세요.');
       } finally {
         submitBtn.disabled = false;
-        submitBtn.textContent = '임시 비밀번호 전송';
+        submitBtn.textContent = t('reset_send_btn');
       }
     }
 
