@@ -1,10 +1,23 @@
 import os
+import io
+import sys
+
+# Windows 콘솔(cp949)은 이모지를 인코딩하지 못한다. 로그 한 줄 때문에 서버 초기화가
+# 통째로 중단되는 것을 막기 위해, 표현할 수 없는 문자는 대체 문자로 출력하도록 완화한다.
+# (실제로 '🎙️ AI 사회자' 닉네임을 출력하다 계정 정리 작업이 중단된 적이 있다)
+for _stream in (sys.stdout, sys.stderr):
+    try:
+        _stream.reconfigure(errors="replace")
+    except Exception:
+        pass
 import json
 import asyncio
 import random
 import secrets
 import string
 import base64
+import hashlib
+import time
 import urllib.parse
 import smtplib
 from email.mime.text import MIMEText
@@ -21,9 +34,11 @@ from pydantic import BaseModel, EmailStr, Field
 from sqlalchemy.orm import Session
 from sqlalchemy import func
 
+import config
 import database
 import models
 import auth
+import security
 
 # ── 공통 유틸 헬퍼 (중복 제거) ──
 
@@ -399,11 +414,233 @@ def _generate_abstract_cover_pil(title: str, genre: str, synopsis: str, base_col
     return True
 
 
-async def generate_book_cover_art(title: str, genre: str, synopsis: str, color: str = "#b54a6a", unique_id: str = None) -> Optional[str]:
+def _extract_central_motif(title: str, genre: str, synopsis: str) -> tuple:
     """
-    책 내용 기반 추상 기하학 표지를 우선 생성하고, Imagen 3 / Pollinations.ai도 시도합니다.
+    도서 제목과 줄거리를 분석하여 고유하고 상징적인 시각 키워드를 추출하고 일러스트 프롬프트를 생성합니다.
+    (motif_prompt, motif_key) 튜플을 반환하며, motif_key는 Pollinations AI 실패 시
+    Editorial PIL 폴백 렌더러가 같은 계열의 전용 벡터 드로잉을 매칭하는 데도 재사용됩니다.
+    """
+    t = (title + " " + (synopsis or "")).lower()
+
+    keywords = []
+    motif_keys = []
+
+    # 주요 상징 사물 및 주제 키워드 추출
+    if "안개꽃" in t:
+        keywords.append("glowing white gypsophila baby breath flowers in glass terrarium floating in space")
+        motif_keys.append("gypsophila")
+    if "식물" in t or "정원" in t or "뿌리" in t:
+        keywords.append("single green plant with exposed roots growing from cracked stone block")
+        motif_keys.append("plant")
+    if "오르골" in t or "태엽" in t:
+        keywords.append("vintage brass music box with exposed gear wheels and winding key")
+        motif_keys.append("music_box")
+    if "타자기" in t:
+        keywords.append("antique mechanical typewriter with floating manuscript paper")
+        motif_keys.append("typewriter")
+    if "카메라" in t or "셔터" in t:
+        keywords.append("vintage classic 35mm film camera with scattered polaroid photos")
+        motif_keys.append("camera")
+    if "미로" in t or "새들" in t:
+        keywords.append("glowing white bird taking flight above a midnight hedge maze")
+        motif_keys.append("maze")
+    if "안경" in t or "렌즈" in t or "단안경" in t:
+        if "항해" in t or "지도" in t:
+            keywords.append("cracked antique brass monocular telescope resting on nautical sea map")
+            motif_keys.append("monocle_map")
+        else:
+            keywords.append("round wire-rimmed spectacles resting on open antique book reflecting constellation stars")
+            motif_keys.append("glasses")
+    if "만년필" in t or "그림자" in t:
+        keywords.append("classic fountain pen dripping ink into clock gear shadow")
+        motif_keys.append("fountain_pen")
+    if "시계" in t or "시간" in t or "해부" in t:
+        keywords.append("vintage pocket watch spilling golden sand and clockwork gears")
+        motif_keys.append("clock")
+    if "섬" in t:
+        keywords.append("small green island floating on calm ocean with everyday items")
+        motif_keys.append("island")
+
+    # 키워드가 비어있는 경우 장르 기반 자동 추출
+    if not keywords:
+        if "SF" in genre or "우주" in t:
+            keywords.append("futuristic glowing holographic orb with sleek mechanical parts")
+            motif_keys.append("scifi_orb")
+        elif "판타지" in genre or "마법" in t:
+            keywords.append("mystical enchanted spellbook with floating crystals")
+            motif_keys.append("fantasy_spellbook")
+        elif "로맨스" in genre or "꽃" in t:
+            keywords.append("single blooming rose in clear glass vase with soft warm candlelight")
+            motif_keys.append("romance_rose")
+        elif "미스터리" in genre or "추리" in t:
+            keywords.append("antique brass magnifying glass over scattered secret documents")
+            motif_keys.append("mystery_magnifier")
+        else:
+            keywords.append("meaningful symbolic object casting dramatic shadow")
+            motif_keys.append("generic")
+
+    bg_style = "dark dramatic background, volumetric ethereal light" if any(k in t for k in ["우주", "밤", "자정", "어둠", "그림자", "sf"]) else "clean off-white minimalist background, soft shadows"
+
+    motif_prompt = f"{keywords[0]}, {bg_style}"
+    motif_key = motif_keys[0]
+    print(f"[Keyword Extractor] 추출 키워드: '{keywords[0]}' (모티프={motif_key}, 장르={genre})")
+    return motif_prompt, motif_key
+
+
+def _generate_editorial_cover_pil(title: str, genre: str, synopsis: str, color: str, filepath: str, unique_id: str = "", motif_key: str = "") -> bool:
+    """
+    AI API 사용 불가 시 clean 바탕에 도서 고유의 상징 사물 백터 드로잉을 100% 중복 없이 생성합니다.
+    motif_key(_extract_central_motif가 추출한 모티프)가 있으면 제목이 기존 시드 도서와 정확히
+    일치하지 않는 신규 AI 생성 도서에도 같은 계열의 전용 렌더러가 매칭되도록 함께 판별합니다.
     """
     try:
+        from PIL import Image, ImageDraw
+        W, H = 450, 600
+        rng = random.Random(title + str(unique_id) + color)
+
+        t = (title + " " + (synopsis or "")).lower()
+
+        if motif_key == "gypsophila" or "안개꽃" in title or ("안개꽃" in t and "유영" in t):
+            bg = '#0F121C'
+            img = Image.new('RGB', (W, H), bg)
+            draw = ImageDraw.Draw(img)
+            cx, cy = W // 2, H // 2 - 20
+            draw.ellipse([cx - 90, cy - 90, cx + 90, cy + 90], outline='#5E81AC', width=3, fill='#151A28')
+            draw.ellipse([cx - 75, cy - 75, cx + 75, cy + 75], fill='#1E2638')
+            for _ in range(22):
+                fx = cx + rng.randint(-55, 55)
+                fy = cy + rng.randint(-55, 55)
+                draw.ellipse([fx-4, fy-4, fx+4, fy+4], fill='#ECEFF4')
+                draw.line([(cx, cy + 60), (fx, fy)], fill='#88C0D0', width=1)
+                
+        elif motif_key == "music_box" or "오르골" in title:
+            bg = '#1C1612'
+            img = Image.new('RGB', (W, H), bg)
+            draw = ImageDraw.Draw(img)
+            cx, cy = W // 2, H // 2 - 20
+            draw.rounded_rectangle([cx - 80, cy - 50, cx + 80, cy + 50], radius=10, fill='#3B2D22', outline='#D08770', width=4)
+            draw.ellipse([cx - 40, cy - 40, cx + 40, cy + 40], outline='#EBCB8B', width=4)
+            draw.ellipse([cx + 50, cy - 70, cx + 70, cy - 50], outline='#EBCB8B', width=3)
+            
+        elif motif_key == "typewriter" or "타자기" in title:
+            bg = '#141A1D'
+            img = Image.new('RGB', (W, H), bg)
+            draw = ImageDraw.Draw(img)
+            cx, cy = W // 2, H // 2 - 20
+            draw.polygon([(cx - 80, cy + 50), (cx + 80, cy + 50), (cx + 60, cy - 10), (cx - 60, cy - 10)], fill='#2E3440', outline='#88C0D0', width=3)
+            draw.rectangle([cx - 45, cy - 90, cx + 45, cy - 10], fill='#ECEFF4', outline='#4C566A')
+            for row in range(3):
+                for col in range(7):
+                    kx = cx - 50 + col * 16
+                    ky = cy + 10 + row * 12
+                    draw.ellipse([kx-4, ky-4, kx+4, ky+4], fill='#81A1C1')
+                    
+        elif motif_key == "camera" or "셔터" in title or "카메라" in title:
+            bg = '#F5F0EB'
+            img = Image.new('RGB', (W, H), bg)
+            draw = ImageDraw.Draw(img)
+            cx, cy = W // 2, H // 2 - 20
+            draw.rounded_rectangle([cx - 85, cy - 40, cx + 85, cy + 50], radius=8, fill='#3B4252', outline='#2E3440', width=3)
+            draw.rectangle([cx - 30, cy - 60, cx + 10, cy - 40], fill='#4C566A')
+            draw.ellipse([cx - 45, cy - 35, cx + 45, cy + 45], fill='#D8DEE9', outline='#81A1C1', width=6)
+            draw.ellipse([cx - 25, cy - 15, cx + 25, cy + 25], fill='#2E3440')
+            draw.rectangle([cx - 100, cy + 50, cx - 40, cy + 110], fill='#FFFFFF', outline='#D8DEE9', width=2)
+            draw.rectangle([cx + 30, cy + 40, cx + 90, cy + 100], fill='#FFFFFF', outline='#D8DEE9', width=2)
+
+        elif motif_key == "maze" or "새들" in title or "미로" in title:
+            bg = '#111827'
+            img = Image.new('RGB', (W, H), bg)
+            draw = ImageDraw.Draw(img)
+            cx, cy = W // 2, H // 2 - 20
+            for s in range(5, 0, -1):
+                r = s * 22
+                draw.rectangle([cx - r, cy - r, cx + r, cy + r], outline='#10B981', width=3)
+            draw.polygon([(cx, cy - 50), (cx - 30, cy - 80), (cx - 10, cy - 50), (cx + 30, cy - 80)], fill='#F9FAFB')
+
+        elif motif_key == "glasses" or "안경 상점" in title:
+            bg = '#FBF7F0'
+            img = Image.new('RGB', (W, H), bg)
+            draw = ImageDraw.Draw(img)
+            cx, cy = W // 2, H // 2 - 20
+            draw.polygon([(cx - 90, cy - 30), (cx, cy - 20), (cx, cy + 70), (cx - 90, cy + 60)], fill='#FFFDFA', outline='#D1C7BD')
+            draw.polygon([(cx + 90, cy - 30), (cx, cy - 20), (cx, cy + 70), (cx + 90, cy + 60)], fill='#FFFDFA', outline='#D1C7BD')
+            gold = '#B45309'
+            draw.ellipse([cx - 65, cy - 20, cx - 15, cy + 30], outline=gold, width=4)
+            draw.ellipse([cx + 15, cy - 20, cx + 65, cy + 30], outline=gold, width=4)
+            draw.line([(cx - 15, cy), (cx + 15, cy)], fill=gold, width=3)
+
+        elif motif_key == "monocle_map" or "잃어버린 항해" in title or "단안경" in title:
+            bg = '#0F172A'
+            img = Image.new('RGB', (W, H), bg)
+            draw = ImageDraw.Draw(img)
+            cx, cy = W // 2, H // 2 - 20
+            draw.ellipse([cx - 80, cy - 80, cx + 80, cy + 80], outline='#334155', width=2)
+            draw.line([(cx - 90, cy), (cx + 90, cy)], fill='#334155', width=1)
+            draw.line([(cx, cy - 90), (cx, cy + 90)], fill='#334155', width=1)
+            draw.polygon([(cx - 70, cy + 40), (cx + 40, cy - 70), (cx + 60, cy - 50), (cx - 50, cy + 60)], fill='#F59E0B', outline='#B45309', width=2)
+
+        elif "닳아버린 시선" in title:
+            bg = '#181825'
+            img = Image.new('RGB', (W, H), bg)
+            draw = ImageDraw.Draw(img)
+            cx, cy = W // 2, H // 2 - 20
+            draw.ellipse([cx - 70, cy - 70, cx + 70, cy + 70], outline='#CBA6F7', width=5, fill='#1E1E2E')
+            draw.line([(cx + 50, cy + 50), (cx + 95, cy + 95)], fill='#CBA6F7', width=10)
+            for _ in range(14):
+                sx, sy = cx + rng.randint(-50, 50), cy + rng.randint(-50, 50)
+                draw.ellipse([sx-2, sy-2, sx+2, sy+2], fill='#F9E2AF')
+
+        elif motif_key == "fountain_pen" or "만년필" in title:
+            bg = '#11111B'
+            img = Image.new('RGB', (W, H), bg)
+            draw = ImageDraw.Draw(img)
+            cx, cy = W // 2, H // 2 - 20
+            draw.polygon([(cx, cy + 40), (cx - 25, cy - 40), (cx, cy - 90), (cx + 25, cy - 40)], fill='#FAB387', outline='#F38BA8', width=2)
+            draw.line([(cx, cy - 90), (cx, cy - 10)], fill='#11111B', width=2)
+            draw.ellipse([cx - 15, cy + 50, cx + 15, cy + 80], fill='#89B4FA')
+            draw.ellipse([cx - 50, cy + 60, cx + 50, cy + 120], outline='#45475A', width=3)
+
+        else:
+            bg_colors = ['#F8F6F0', '#181A24', '#0F172A', '#F4F1EA', '#1C1917']
+            bg = rng.choice(bg_colors)
+            img = Image.new('RGB', (W, H), bg)
+            draw = ImageDraw.Draw(img)
+            cx, cy = W // 2, H // 2 - 20
+            c1 = rng.choice(['#E11D48', '#2563EB', '#059669', '#D97706', '#9333EA', '#0891B2'])
+            c2 = rng.choice(['#F43F5E', '#3B82F6', '#10B981', '#F59E0B', '#A855F7', '#06B6D4'])
+            shape_type = rng.choice(['orb', 'crystal', 'hourglass', 'lantern', 'compass'])
+            
+            if shape_type == 'orb':
+                draw.ellipse([cx - 75, cy - 75, cx + 75, cy + 75], fill=c1, outline=c2, width=4)
+                draw.ellipse([cx - 40, cy - 40, cx + 40, cy + 40], outline='#FFFFFF', width=2)
+            elif shape_type == 'crystal':
+                draw.polygon([(cx, cy-90), (cx+60, cy-20), (cx+40, cy+70), (cx-40, cy+70), (cx-60, cy-20)], fill=c1, outline=c2, width=3)
+            elif shape_type == 'hourglass':
+                draw.polygon([(cx-60, cy-70), (cx+60, cy-70), (cx, cy), (cx+60, cy+70), (cx-60, cy+70)], fill=c1, outline=c2, width=3)
+            elif shape_type == 'lantern':
+                draw.rectangle([cx-45, cy-60, cx+45, cy+60], fill=c1, outline=c2, width=4)
+                draw.polygon([(cx-45, cy-60), (cx, cy-90), (cx+45, cy-60)], fill=c2)
+            else:
+                draw.ellipse([cx-70, cy-70, cx+70, cy+70], outline=c1, width=5)
+                draw.line([(cx-80, cy), (cx+80, cy)], fill=c2, width=3)
+                draw.line([(cx, cy-80), (cx, cy+80)], fill=c2, width=3)
+
+        img.save(filepath, "PNG", quality=95)
+        print(f"[Editorial PIL] 고유 사물 표지 생성 완료: {os.path.basename(filepath)}")
+        return True
+    except Exception as e:
+        print(f"[Editorial PIL] 생성 에러: {e}")
+        return False
+
+
+async def generate_book_cover_art(title: str, genre: str, synopsis: str, color: str = "#b54a6a", unique_id: str = None, author: str = "") -> Optional[str]:
+    """
+    도서의 상징 사물 중심 편집 일러스트 표지를 100% 고유하게 생성합니다.
+    1순위: Pollinations AI (고유 시드 적용)
+    2순위: Editorial Vector PIL (도서 고유 맞춤 드로잉)
+    """
+    try:
+        from PIL import Image
         os.makedirs("static/covers", exist_ok=True)
         if not unique_id:
             unique_id = secrets.token_hex(6)
@@ -411,104 +648,75 @@ async def generate_book_cover_art(title: str, genre: str, synopsis: str, color: 
         filepath = os.path.join("static", "covers", filename)
         web_url = f"/static/covers/{filename}"
 
-        # 이미 존재하는 경우 해당 경로 반환 (단, 5KB 미만은 단색 폴백으로 간주 → 재생성)
         if os.path.exists(filepath) and os.path.getsize(filepath) >= 5000:
             return web_url
         elif os.path.exists(filepath):
-            os.remove(filepath)  # 단색 파일 삭제 후 재생성
+            os.remove(filepath)
 
+        central_motif, motif_key = _extract_central_motif(title, genre, synopsis)
 
-        gemini_key = os.getenv("GEMINI_API_KEY")
+        # ── 1. Pollinations AI 생성 시도 ──
+        prompt_text = (
+            f"editorial concept art book cover illustration, "
+            f"{central_motif}, "
+            f"clean off-white background, centered composition, high quality Korean publication artwork, "
+            f"3:4 portrait format, no text"
+        )
+        encoded_prompt = urllib.parse.quote(prompt_text)
 
-        # ── 외부 AI API (Imagen 3) ──
-        if gemini_key and gemini_key != "YOUR_GEMINI_API_KEY_HERE":
-            mood = _analyze_book(genre, synopsis, title)
-            palette = _pick_palette(mood, _hex_to_rgb(color))
-            style_hint = (
-                "mystical glowing abstract artwork" if mood["mystic"] else
-                "cinematic dramatic artwork" if mood["dark"] else
-                "soft romantic illustration" if mood["warm"] else
-                "futuristic abstract concept art" if mood["scifi"] else
-                "geometric abstract book cover art"
-            )
-            prompt_text = (
-                f"{style_hint}, Korean literary novel, "
-                f"inspired by: {(synopsis or '')[:80]}, "
-                f"no text, no words, no letters, professional book jacket, "
-                f"highly detailed, award-winning composition, 3:4 portrait"
-            )
-            imagen_url = f"https://generativelanguage.googleapis.com/v1beta/models/imagen-3.0-generate-002:generateImages?key={gemini_key}"
+        ai_success = False
+        headers = {'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64)'}
+
+        for attempt in range(2):
+            # PYTHONHASHSEED에 따라 값이 매 프로세스마다 달라지는 내장 hash() 대신,
+            # 결정적(deterministic)인 md5 해시로 시드를 계산하여 동일 도서는 항상 동일 시드가 나오도록 함
+            seed_source = f"{title}{unique_id}{attempt}".encode("utf-8")
+            seed = int(hashlib.md5(seed_source).hexdigest(), 16) % 999999 + 1000
+            poll_url = f"https://image.pollinations.ai/prompt/{encoded_prompt}?nologo=true&seed={seed}"
             try:
                 async with httpx.AsyncClient() as client:
-                    res = await client.post(imagen_url, headers={"Content-Type": "application/json"},
-                                            json={"prompt": prompt_text, "numberOfImages": 1,
-                                                  "aspectRatio": "3:4", "outputMimeType": "image/png"},
-                                            timeout=8.0)
-                    if res.status_code == 200:
-                        data = res.json()
-                        images = data.get("generatedImages", [])
-                        if images and "image" in images[0]:
-                            img_data = base64.b64decode(images[0]["image"]["imageBytes"])
+                    res = await client.get(poll_url, headers=headers, timeout=25.0, follow_redirects=True)
+                    if res.status_code == 200 and len(res.content) > 5000:
+                        # 상태코드/용량만으로는 에러 페이지(HTML 등)를 그림으로 오인할 수 있으므로
+                        # 실제로 디코딩 가능한 이미지인지 검증한 뒤에만 저장
+                        try:
+                            Image.open(io.BytesIO(res.content)).verify()
+                        except Exception:
+                            print(f"[Cover AI] attempt={attempt+1} 응답이 유효한 이미지가 아님 (size={len(res.content)}bytes) - 건너뜀")
+                        else:
                             with open(filepath, "wb") as f:
-                                f.write(img_data)
-                            print(f"[Cover Generator] Imagen 3 표지 생성 완료: {web_url}")
-                            return web_url
+                                f.write(res.content)
+                            ai_success = True
+                            print(f"[Cover AI] Pollinations 생성 성공 (attempt={attempt+1}): {web_url}")
+                            break
+                    else:
+                        print(f"[Cover AI] attempt={attempt+1} 실패 응답 (status={res.status_code}, size={len(res.content)}bytes)")
             except Exception as e:
-                print(f"[Cover Generator] Imagen 3 실패: {e}")
+                print(f"[Cover AI] Attempt {attempt+1} 실패: {e}")
+            await asyncio.sleep(1.5)
 
-        # ── 2. Pollinations.ai — 실제 일러스트 이미지 생성 시도 ──
-        try:
-            mood = _analyze_book(genre, synopsis, title)
-            genre_style_map = {
-                "판타지": "epic fantasy illustration, mystical creatures, ethereal glow, magical atmosphere",
-                "로맨스": "romantic illustration, soft warm light, delicate flowers, dreamy pastel aesthetic",
-                "드라마": "cinematic dramatic illustration, emotional depth, chiaroscuro lighting",
-                "드라마/로맨스": "romantic drama illustration, emotional warmth, soft cinematic lighting",
-                "SF": "science fiction concept art, futuristic technology, neon accents, space motifs",
-                "미스터리": "dark mystery illustration, moody noir atmosphere, shadow and silhouette",
-                "스릴러": "thriller artwork, tense dark atmosphere, psychological tension",
-                "역사": "historical illustration, period detail, ink and watercolor, aged texture",
-                "공포": "horror artwork, eerie dark atmosphere, unsettling surreal elements",
-            }
-            style_hint = genre_style_map.get(genre, "literary fiction illustration, professional book jacket art")
-            synopsis_snippet = (synopsis or "")[:100].strip()
-            prompt_text = (
-                f"{style_hint}, "
-                f"inspired by: {synopsis_snippet}, "
-                f"Korean novel book cover illustration, "
-                f"no text, no letters, no words, no title, "
-                f"professional artwork, highly detailed, "
-                f"award-winning composition, 3:4 portrait format"
-            )
-            encoded_prompt = urllib.parse.quote(prompt_text)
-            seed = random.randint(10000, 999999)
-            poll_url = (
-                f"https://image.pollinations.ai/prompt/{encoded_prompt}"
-                f"?width=450&height=600&nologo=true&seed={seed}&model=flux"
-            )
-            async with httpx.AsyncClient() as client:
-                res = await client.get(poll_url, timeout=10.0)
-                if res.status_code == 200 and len(res.content) > 5000:
-                    with open(filepath, "wb") as f:
-                        f.write(res.content)
-                    print(f"[Cover Generator] Pollinations.ai 일러스트 표지 완료: {web_url}")
-                    return web_url
-        except Exception as poll_ex:
-            print(f"[Cover Generator] Pollinations.ai 실패: {poll_ex}")
+        # ── 2. AI 실패 시 Editorial PIL 백터 드로잉 생성 (100% 중복 없음) ──
+        if not ai_success:
+            print(f"[Cover Fallback] Editorial PIL 고유 사물 표지 생성: {title}")
+            _generate_editorial_cover_pil(title, genre, synopsis, color, filepath, unique_id=unique_id, motif_key=motif_key)
 
-        # ── 3. 최후 수단: PIL 추상 기하학 표지 ──
-        try:
-            ok = _generate_abstract_cover_pil(title, genre, synopsis, color, filepath)
-            if ok:
-                return web_url
-        except Exception as pil_ex:
-            print(f"[Cover Generator] PIL 추상 표지 생성 실패: {pil_ex}")
+        return web_url
 
     except Exception as ex:
-        print(f"[Cover Generator] 표지 생성 중 예외 발생: {ex}")
+        print(f"[Cover Generator] 표지 생성 실패 예외: {ex}")
+        return None
 
-    return None
 
+def _delete_cover_file_if_exists(cover_image_url: Optional[str]):
+    """도서/후보 삭제 시 더 이상 참조되지 않는 표지 파일을 디스크에서 함께 정리합니다."""
+    if not cover_image_url:
+        return
+    try:
+        cover_path = cover_image_url.lstrip("/").replace("/", os.sep)
+        if os.path.exists(cover_path):
+            os.remove(cover_path)
+    except Exception as e:
+        print(f"[Cover Cleanup] 표지 파일 삭제 실패: {e}")
 
 
 
@@ -542,8 +750,16 @@ def serialize_book(b: "models.Book", db: Session) -> dict:
     else:
         book_dict["deadline_days"] = b.deadline_days or 10
 
-    participant_count = db.query(func.count(func.distinct(models.ChatMessage.user_id))).filter(
-        models.ChatMessage.book_id == b.id
+    # AI 사회자 및 관리자 계정은 "참여 중인 독자" 수에 포함하지 않는다.
+    participant_count = db.query(func.count(func.distinct(models.ChatMessage.user_id))).join(
+        models.User, models.ChatMessage.user_id == models.User.id
+    ).filter(
+        models.ChatMessage.book_id == b.id,
+        models.User.is_admin == False,
+        # AI 사회자(봇)는 참여 독자로 세지 않는다.
+        # 역할 분리 이전에는 사회자가 is_admin=True라서 이 필터에 자연히 걸렸지만,
+        # 지금은 is_admin=False / is_bot=True 이므로 봇 조건을 명시해야 한다.
+        models.User.is_bot == False
     ).scalar()
     book_dict["participant_count"] = participant_count or 0
     return book_dict
@@ -589,76 +805,142 @@ def build_cover_prompt(book: dict, selected_tone: str) -> str:
         "Style: cinematic, vibrant colors, 2:3 aspect ratio, suitable for display on a digital library platform."
     )
 
-# Read .env manually (uvicorn reloader 환경에서도 안정적으로 동작)
-try:
-    with open('.env', 'r', encoding='utf-8') as f:
-        for line in f:
-            if '=' in line and not line.startswith('#'):
-                k, v = line.strip().split('=', 1)
-                os.environ[k] = v
-except Exception:
-    pass
+# 환경변수는 config 모듈이 .env에서 일괄 로드하고 필수 시크릿을 검증한다.
+# (예전에는 이 자리에서 .env를 직접 파싱했지만 따옴표/공백 처리가 없어 시크릿이
+#  조용히 잘못 로드될 수 있었다. 이제 진입점은 config.py 하나뿐이다.)
 
 # 1. 데이터베이스 테이블 자동 생성
 # 백엔드가 구동될 때 MySQL에 필요한 모든 테이블을 자동으로 생성합니다.
 models.Base.metadata.create_all(bind=database.engine)
 
-# DB 스키마 동적 패치 (기존 DB 테이블에 새로운 컬럼이 없으면 추가)
+# DB 스키마 동적 패치 (기존 DB 테이블에 없는 컬럼을 추가)
+#
+# 컬럼을 추가할 때는 아래 목록에 한 줄만 넣으면 된다.
+# (예전에는 컬럼마다 try/except 블록을 복사했다.)
+_SCHEMA_PATCHES = [
+    ("books", "immersion_data", "TEXT"),
+    ("books", "cover_image_url", "VARCHAR(500)"),
+    ("candidate_books", "immersion_data", "TEXT"),
+    ("candidate_books", "cover_image_url", "VARCHAR(500)"),
+    ("users", "last_generation_at", "DATETIME"),
+    ("users", "is_bot", "BOOLEAN NOT NULL DEFAULT 0"),
+    ("users", "password_changed_at", "DATETIME"),
+    ("users", "reset_token_hash", "VARCHAR(64)"),
+    ("users", "reset_token_expires_at", "DATETIME"),
+]
+
 try:
     from sqlalchemy import text
     with database.engine.connect() as conn:
-        # books 테이블
-        try:
-            conn.execute(text("ALTER TABLE books ADD COLUMN immersion_data TEXT;"))
-            conn.commit()
-            print("[DB Patch] Added 'immersion_data' column to 'books' table.")
-        except Exception:
-            pass
-
-        # candidate_books 테이블
-        try:
-            conn.execute(text("ALTER TABLE candidate_books ADD COLUMN immersion_data TEXT;"))
-            conn.commit()
-            print("[DB Patch] Added 'immersion_data' column to 'candidate_books' table.")
-        except Exception:
-            pass
-
-        # candidate_books 테이블에 cover_image_url 컬럼 추가
-        try:
-            conn.execute(text("ALTER TABLE candidate_books ADD COLUMN cover_image_url VARCHAR(500);"))
-            conn.commit()
-            print("[DB Patch] Added 'cover_image_url' column to 'candidate_books' table.")
-        except Exception:
-            pass
-
-        # books 테이블에 cover_image_url 컬럼 추가 (이미 있을 가능성 높음)
-        try:
-            conn.execute(text("ALTER TABLE books ADD COLUMN cover_image_url VARCHAR(500);"))
-            conn.commit()
-            print("[DB Patch] Added 'cover_image_url' column to 'books' table.")
-        except Exception:
-            pass
+        for _table, _column, _coltype in _SCHEMA_PATCHES:
+            try:
+                # 테이블/컬럼명은 위 상수 목록에서만 오므로 외부 입력이 섞이지 않는다.
+                conn.execute(text(f"ALTER TABLE {_table} ADD COLUMN {_column} {_coltype};"))
+                conn.commit()
+                print(f"[DB Patch] Added {_column!r} column to {_table!r} table.")
+            except Exception:
+                # 이미 컬럼이 존재하는 정상 케이스가 대부분이므로 조용히 넘어간다.
+                conn.rollback()
 except Exception as e:
     print(f"[DB Patch] Failed to alter DB: {e}")
 
+# AI 사회자(봇) 계정의 이메일. 여러 곳에서 참조하므로 상수로 고정한다.
+MODERATOR_EMAIL = config.ADMIN_SEED_EMAIL
+MODERATOR_NICKNAME = "🎙️ AI 사회자"
+
+
 def get_or_create_moderator(db: Session):
-    moderator = db.query(models.User).filter(models.User.email == "admin@admin.com").first()
+    """
+    AI 사회자 봇 계정을 반환한다(없으면 생성).
+
+    역할 분리 원칙:
+      - 사회자는 '채팅을 쓰는 봇'이지 '운영자'가 아니다 → is_bot=True, is_admin=False
+      - 운영 권한은 config.OWNER_ADMIN_EMAIL 계정만 갖는다(enforce_roles 참고)
+    """
+    moderator = db.query(models.User).filter(models.User.email == MODERATOR_EMAIL).first()
     if not moderator:
+        # 봇 계정은 로그인하지 않지만, password_hash 컬럼이 NOT NULL이라 임의의 난수를 넣어둔다.
         moderator = models.User(
-            email="admin@admin.com",
-            nickname="🎙️ AI 사회자",
-            password_hash=auth.get_password_hash("admin1234"),
-            is_admin=True
+            email=MODERATOR_EMAIL,
+            nickname=MODERATOR_NICKNAME,
+            password_hash=auth.get_password_hash(secrets.token_urlsafe(32)),
+            is_admin=False,
+            is_bot=True,
         )
         db.add(moderator)
         db.commit()
         db.refresh(moderator)
     else:
-        # 이미 존재하는 경우 admin 권한과 사회자 닉네임 설정 강제화
-        moderator.is_admin = True
-        moderator.nickname = "🎙️ AI 사회자"
+        changed = False
+        if moderator.nickname != MODERATOR_NICKNAME:
+            moderator.nickname = MODERATOR_NICKNAME
+            changed = True
+        if not moderator.is_bot:
+            moderator.is_bot = True
+            changed = True
+        if moderator.is_admin:
+            # 예전에는 사회자에게 관리자 권한을 강제로 부여했다. 이제는 회수한다.
+            moderator.is_admin = False
+            changed = True
+        if changed:
+            db.commit()
+            db.refresh(moderator)
+    return moderator
+
+
+def enforce_roles(db: Session):
+    """
+    기동 시 계정 역할을 정리한다. (수동으로 DB를 고칠 필요가 없도록 코드가 상태를 보장한다)
+      1. 운영자는 config.OWNER_ADMIN_EMAIL 한 명뿐 — 나머지 계정의 관리자 권한은 회수
+      2. AI 사회자 봇은 하나뿐 — 중복 봇 계정의 메시지를 정식 봇으로 옮기고 계정을 삭제
+    """
+    moderator = get_or_create_moderator(db)
+
+    # ── 1) 운영자 단일화 ──
+    # 운영자 이메일이 지정되지 않았으면 권한을 건드리지 않는다.
+    # (여기서 무조건 회수해 버리면 설정 하나 빠뜨렸을 때 아무도 관리자가 아니게 된다)
+    if not config.OWNER_ADMIN_EMAIL:
         db.commit()
-        db.refresh(moderator)
+        return moderator
+
+    owner = db.query(models.User).filter(models.User.email == config.OWNER_ADMIN_EMAIL).first()
+    if owner and not owner.is_admin:
+        owner.is_admin = True
+        print(f"[Roles] 운영자 권한 부여: {owner.email}")
+    if not owner:
+        print(f"[Roles] 경고: 운영자 계정({config.OWNER_ADMIN_EMAIL})이 아직 가입하지 않았습니다.")
+
+    revoked = db.query(models.User).filter(
+        models.User.is_admin == True,
+        models.User.email != config.OWNER_ADMIN_EMAIL,
+    ).all()
+    for u in revoked:
+        u.is_admin = False
+        print(f"[Roles] 관리자 권한 회수: {u.email} (닉네임: {u.nickname})")
+
+    # ── 2) 사회자 봇 단일화 ──
+    # 정식 봇이 아닌데 is_bot으로 표시된 계정만 봇 표시를 해제한다.
+    #
+    # 닉네임으로 판단하지 않는 이유:
+    #   닉네임에 '사회자'가 들어갔다는 이유로 계정을 지우면, 그 닉네임으로 가입한 사람의
+    #   글이 공식 사회자 발언으로 둔갑하고 계정·평점·서재가 영구 삭제된다.
+    #   판단 근거는 오직 봇 플래그(그리고 MODERATOR_EMAIL)여야 한다.
+    #
+    # 계정을 삭제하지 않는 이유:
+    #   기동 시 자동으로 도는 정리 작업이 사용자 데이터를 지우면 되돌릴 수 없다.
+    #   권한만 낮추고, 실제 삭제가 필요하면 사람이 판단해서 하도록 남겨둔다.
+    mislabeled = db.query(models.User).filter(
+        models.User.id != moderator.id,
+        models.User.is_bot == True,
+    ).all()
+    for dup in mislabeled:
+        dup.is_bot = False
+        msg_count = db.query(models.ChatMessage).filter(
+            models.ChatMessage.user_id == dup.id
+        ).count()
+        print(f"[Roles] 봇 표시 해제: {dup.email} (메시지 {msg_count}건은 그대로 둠)")
+
+    db.commit()
     return moderator
 
 def seed_glass_shop_book_if_needed(db: Session):
@@ -747,8 +1029,7 @@ def seed_glass_shop_book_if_needed(db: Session):
         db.add(m6)
         db.commit()
         db.refresh(m6)
-        
-        db.add(m7)
+
 
 def seed_lost_voyage_book_if_needed(db: Session):
     title = "깨진 렌즈가 비춘 잃어버린 항해"
@@ -777,6 +1058,12 @@ def seed_lost_voyage_book_if_needed(db: Session):
         db.add(book)
         db.commit()
         db.refresh(book)
+    elif book.deadline_days != 9999 or book.is_archived:
+        # deadline_days=9999/is_archived=False 상시 활성화 로직이 추가되기 전 생성된 레코드가
+        # 일반 10일 만료 규칙에 걸려 자동 아카이브된 경우, 영구 활성 샘플 독서방 상태로 복구
+        book.deadline_days = 9999
+        book.is_archived = False
+        db.commit()
 
     msg_count = db.query(models.ChatMessage).filter(models.ChatMessage.book_id == book.id).count()
     if msg_count <= 2:
@@ -861,7 +1148,7 @@ async def trigger_ai_moderator_response(book_id: int, user_message_id: int = Non
         if not book or book.is_archived:
             return
             
-        moderator = db.query(models.User).filter(models.User.email == "admin@admin.com").first()
+        moderator = db.query(models.User).filter(models.User.email == MODERATOR_EMAIL).first()
         if not moderator:
             return
             
@@ -1008,21 +1295,58 @@ async def lifespan(app: FastAPI):
     # 앱 시작 시: 실시간 아카이브 백그라운드 루프 가동
     asyncio.create_task(realtime_archive_loop())
     print("Realtime archive background loop started.")
-    
-    # AI 사회자 계정 및 『오래된 안경 상점과 갈망의 정원』 생동감 넘치는 시드 독서방 자동 생성
+
+    # 앱 시작 시: 활성 독서방 자동 보충 백그라운드 루프 가동
+    asyncio.create_task(auto_refill_loop())
+    print("Auto refill background loop started.")
+
+    # AI 사회자 계정 및 시드 독서방 자동 생성
     db = database.SessionLocal()
     try:
-        get_or_create_moderator(db)
+        enforce_roles(db)
         seed_glass_shop_book_if_needed(db)
         seed_lost_voyage_book_if_needed(db)
         seed_fountain_pen_book_if_needed(db)
         seed_faded_gaze_book_if_needed(db)
-        print("AI Moderator & Book Seeds (Glass Shop & Lost Voyage) initialized successfully.")
+        print("AI Moderator & Book Seeds initialized successfully.")
     except Exception as e:
         print(f"Error initializing AI Moderator or Seed data: {e}")
     finally:
         db.close()
-        
+
+    # ── 앱 시작 직후: 표지 없는 모든 Book에 AI 표지 백그라운드 자동 생성 ──
+    async def _generate_missing_book_covers():
+        await asyncio.sleep(2)  # DB 초기화 안정화 대기
+        bg_db = database.SessionLocal()
+        try:
+            books_no_cover = bg_db.query(models.Book).filter(
+                (models.Book.cover_image_url == None) | (models.Book.cover_image_url == "")
+            ).all()
+            if not books_no_cover:
+                print("[Cover Init] 모든 Book에 표지가 있습니다.")
+                return
+            print(f"[Cover Init] 표지 없는 Book {len(books_no_cover)}권 AI 표지 생성 시작...")
+            results = await asyncio.gather(*[
+                generate_book_cover_art(b.title, b.genre, b.synopsis, b.color, f"book_{b.id}", author=b.author or "")
+                for b in books_no_cover
+            ], return_exceptions=True)
+            updated = 0
+            for book, url in zip(books_no_cover, results):
+                if isinstance(url, Exception):
+                    print(f"[Cover Init] book_id={book.id} 표지 생성 실패: {url}")
+                    continue
+                if url:
+                    book.cover_image_url = url
+                    updated += 1
+            bg_db.commit()
+            print(f"[Cover Init] {updated}권 표지 생성 완료.")
+        except Exception as e:
+            print(f"[Cover Init] 백그라운드 표지 초기화 오류: {e}")
+        finally:
+            bg_db.close()
+
+    asyncio.create_task(_generate_missing_book_covers())
+
     yield  # 앱 실행 중
     # 앱 종료 시 필요한 정리 작업이 있다면 여기에 추가
 
@@ -1030,16 +1354,26 @@ app = FastAPI(
     title="가공독서회 (Gakong) API Server",
     description="FastAPI + MySQL + WebSockets + Gemini API 기반 백엔드 서비스",
     version="1.0.0",
-    lifespan=lifespan
+    lifespan=lifespan,
+    # 운영에서는 API 스키마 문서를 노출하지 않는다.
+    docs_url=None if config.IS_PRODUCTION else "/docs",
+    redoc_url=None if config.IS_PRODUCTION else "/redoc",
+    openapi_url=None if config.IS_PRODUCTION else "/openapi.json",
 )
 
-# CORS 설정 (프론트엔드-백엔드 교차 통신 허용)
+# 모든 응답에 CSP 등 공통 보안 헤더를 부착한다 (security.py에서 정책 일괄 관리).
+app.add_middleware(security.SecurityHeadersMiddleware, is_production=config.IS_PRODUCTION)
+
+# CORS: 허용 출처는 config.ALLOW_ORIGINS(.env의 ALLOW_ORIGINS)로만 지정한다.
+# 프론트엔드를 이 서버가 직접 서빙하므로 기본값은 로컬 개발 출처뿐이며 와일드카드는 금지된다.
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=os.getenv("ALLOW_ORIGINS", "*").split(","),  # .env의 ALLOW_ORIGINS로 제어 (예: https://yourdomain.com)
-    allow_credentials=True,
-    allow_methods=["*"],
-    allow_headers=["*"],
+    allow_origins=config.ALLOW_ORIGINS,
+    allow_origin_regex=config.ALLOW_ORIGIN_REGEX,
+    # 인증은 쿠키가 아닌 Authorization 헤더(Bearer 토큰)로만 이루어지므로 자격증명 허용은 불필요하다.
+    allow_credentials=False,
+    allow_methods=["GET", "POST", "PATCH", "DELETE", "OPTIONS"],
+    allow_headers=["Authorization", "Content-Type"],
 )
 
 
@@ -1064,7 +1398,15 @@ async def serve_index(request: Request):
 class UserSignup(BaseModel):
     email: EmailStr
     password: str = Field(..., min_length=8, description="비밀번호는 최소 8자 이상이어야 합니다.")
-    nickname: str
+    # 닉네임은 시스템이 배정하는 값이지만, API를 직접 호출하는 악의적 요청으로부터 보호하기 위해
+    # 한글/영문/숫자만 허용하고 길이를 제한한다 (HTML/script 삽입을 통한 저장형 XSS 방지).
+    nickname: str = Field(
+        ...,
+        min_length=1,
+        max_length=20,
+        pattern=r'^[가-힣a-zA-Z0-9]+$',
+        description="닉네임은 한글/영문/숫자만 사용하여 1~20자로 입력해야 합니다."
+    )
 
 class UserLogin(BaseModel):
     email: EmailStr
@@ -1245,7 +1587,10 @@ async def api_generate_unique_nickname(db: Session = Depends(database.get_db)):
     return {"nickname": chosen}
 
 @app.post("/api/auth/signup", status_code=status.HTTP_201_CREATED)
-def signup(user_data: UserSignup, db: Session = Depends(database.get_db)):
+def signup(user_data: UserSignup, request: Request, db: Session = Depends(database.get_db)):
+    # 0. 동일 IP에서의 대량 계정 생성 차단
+    SIGNUP_LIMITER.hit(security.client_ip(request))
+
     # 1. 이메일 중복 체크
     existing_user = db.query(models.User).filter(models.User.email == user_data.email).first()
     if existing_user:
@@ -1275,16 +1620,66 @@ def signup(user_data: UserSignup, db: Session = Depends(database.get_db)):
     return {"message": "회원가입이 완료되었습니다. 환영합니다!", "nickname": db_user.nickname}
 
 
+# ── 인증 관련 레이트리밋 정책 ──
+# 정책은 여기서 한눈에 보이도록 모아두고, 구현은 security.RateLimiter가 담당한다.
+#
+# 로그인 제한을 IP와 계정 두 축으로 나눈 이유:
+#   - IP 기준(엄격): 한 곳에서 비밀번호를 찍어보는 공격을 빠르게 막는다.
+#   - 계정 기준(느슨): 분산 공격도 막되, 공격자가 남의 이메일로 실패를 쌓아
+#     피해자를 손쉽게 로그인 불가 상태로 만드는 것(DoS)은 어렵게 한다.
+LOGIN_IP_LIMITER = security.RateLimiter(
+    max_attempts=10, window_seconds=15 * 60,
+    message="로그인 시도가 너무 많습니다. {minutes}분 후 다시 시도해주세요.",
+)
+LOGIN_ACCOUNT_LIMITER = security.RateLimiter(
+    max_attempts=20, window_seconds=15 * 60,
+    message="이 계정에 대한 로그인 시도가 너무 많습니다. {minutes}분 후 다시 시도해주세요.",
+)
+SIGNUP_LIMITER = security.RateLimiter(
+    max_attempts=5, window_seconds=60 * 60,
+    message="회원가입 요청이 너무 많습니다. {minutes}분 후 다시 시도해주세요.",
+)
+PASSWORD_RESET_LIMITER = security.RateLimiter(
+    max_attempts=3, window_seconds=60 * 60,
+    message="비밀번호 재설정 요청이 너무 많습니다. {minutes}분 후 다시 시도해주세요.",
+)
+# 링크 '발송 요청'과 링크를 받은 뒤의 '비밀번호 제출'은 제한기를 나눠야 한다.
+# 같은 제한기를 쓰면, 메일을 3번 요청한 사람이 정작 링크를 눌러 새 비밀번호를 넣을 때 막힌다.
+PASSWORD_SUBMIT_LIMITER = security.RateLimiter(
+    max_attempts=10, window_seconds=60 * 60,
+    message="비밀번호 재설정 시도가 너무 많습니다. {minutes}분 후 다시 시도해주세요.",
+)
+
+
 @app.post("/api/auth/login", response_model=TokenResponse)
-def login(login_data: UserLogin, db: Session = Depends(database.get_db)):
+def login(login_data: UserLogin, request: Request, db: Session = Depends(database.get_db)):
+    # 0. 최근 실패 횟수 기반 잠금 여부 확인 (IP · 계정 두 축)
+    ip = security.client_ip(request)
+    email_key = login_data.email.lower()
+    LOGIN_IP_LIMITER.check(ip)
+    LOGIN_ACCOUNT_LIMITER.check(email_key)
+
     # 1. 회원 정보 조회
     user = db.query(models.User).filter(models.User.email == login_data.email).first()
     if not user or not auth.verify_password(login_data.password, user.password_hash):
+        LOGIN_IP_LIMITER.record(ip)
+        LOGIN_ACCOUNT_LIMITER.record(email_key)
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
             detail="이메일 또는 비밀번호가 올바르지 않습니다."
         )
-    
+
+    # 봇 계정(AI 사회자)은 사람이 로그인할 수 없다 — 공식 계정 사칭 차단
+    if user.is_bot:
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="이 계정으로는 로그인할 수 없습니다."
+        )
+
+    # 로그인 성공 시 실패 기록 초기화
+    LOGIN_IP_LIMITER.reset(ip)
+    LOGIN_ACCOUNT_LIMITER.reset(email_key)
+
     # 2. JWT 토큰 발행
     access_token = auth.create_access_token(data={"user_id": user.id, "email": user.email})
     return {
@@ -1323,10 +1718,10 @@ def change_password(
     if not auth.verify_password(req.current_password, user.password_hash):
         raise HTTPException(status_code=400, detail="현재 비밀번호가 올바르지 않습니다.")
         
-    # 2. 새 비밀번호 해싱 및 교체
-    user.password_hash = auth.get_password_hash(req.new_password)
+    # 2. 새 비밀번호 적용 (기존에 발급된 토큰은 auth.set_password가 무효화 처리)
+    auth.set_password(user, req.new_password)
     db.commit()
-    return {"message": "비밀번호가 성공적으로 변경되었습니다. 🔒"}
+    return {"message": "비밀번호가 성공적으로 변경되었습니다. 다시 로그인해 주세요. 🔒"}
 
 
 @app.post("/api/auth/withdraw")
@@ -1352,103 +1747,122 @@ def withdraw_account(
     return {"message": "회원 탈퇴 및 계정 영구 삭제가 완료되었습니다. 그동안 이용해 주셔서 감사합니다. 🌲"}
 
 
-# ── 비밀번호 분실 복구 및 구글 SMTP 발송 유틸리티 ──
+BR = chr(10)  # 메일 본문 줄바꿈
 
-def generate_temp_password(length: int = 8) -> str:
-    """
-    secrets 모듈을 사용해 예측 불가능한 알파벳+숫자 8자리 임시 비밀번호를 생성합니다.
-    """
-    chars = string.ascii_letters + string.digits
-    return "".join(secrets.choice(chars) for _ in range(length))
+# ── 비밀번호 재설정 링크 발송 유틸리티 ──
+#
+# 예전에는 요청만 하면 즉시 임시 비밀번호로 교체했다. 이메일만 알면 아무나 남의 계정을
+# 잠글 수 있었기 때문에, "메일의 링크를 눌러야 실제로 바뀌는" 방식으로 변경했다.
+# SMTP 설정 유틸은 config에서 읽는다.
 
-
-def send_recovery_email(to_email: str, nickname: str, temp_pw: str):
-    """
-    구글 SMTP 서버를 통해 임시 비밀번호 메일을 발송합니다.
-    실제 발송 주소가 플레이스홀더 상태(your_gmail_username...)면 모의 메일 전송 완료 상태로 처리하여
-    에러가 터지지 않게 안전한 Fallback 처리를 내장합니다.
-    """
-    smtp_server = os.getenv("SMTP_SERVER", "smtp.gmail.com")
+def _send_email(to_email: str, subject: str, body: str) -> bool:
+    """메일 1통을 발송한다. 발송 성공 여부를 반환한다."""
+    if not config.SMTP_CONFIGURED:
+        print(f"[SMTP 미설정] {to_email} 에게 보낼 메일을 발송하지 못했습니다. .env의 SMTP_* 설정을 확인하세요.")
+        return False
     try:
-        smtp_port = int(os.getenv("SMTP_PORT", "587"))
-    except ValueError:
-        smtp_port = 587
-    smtp_username = os.getenv("SMTP_USERNAME", "")
-    smtp_password = os.getenv("SMTP_PASSWORD", "")
-    smtp_from_email = os.getenv("SMTP_FROM_EMAIL", smtp_username)
-
-    # 1. SMTP 비밀번호 미설정 시 안전 우회 (서버가 뻗는 오류 방지)
-    if (
-        not smtp_username 
-        or not smtp_password 
-        or smtp_username == "your_gmail_username@gmail.com"
-        or smtp_password == "your_gmail_app_password"
-    ):
-        print(f"[SMTP 모의 발송] 수신인: {to_email} ({nickname} 독자님) - 발송 설정이 플레이스홀더 상태이므로 메일 본문을 터미널에 출력합니다.")
-        print(f"===========================================================")
-        print(f"제목: [가공독서회] 임시 비밀번호가 발급되었습니다.")
-        print(f"내용: 안녕하세요, {nickname} 독자님.\n요청하신 가공독서회 임시 비밀번호는 [{temp_pw}] 입니다.\n로그인 후 비밀번호 변경을 권장합니다.")
-        print(f"===========================================================")
-        return
-
-    # 2. 실제 SMTP 발송 시도
-    try:
-        msg = MIMEText(
-            f"안녕하세요, {nickname} 독자님.\n\n"
-            f"가공독서회를 사랑해 주셔서 진심으로 감사드립니다.\n"
-            f"회원님의 계정 분실 방지를 위해 발급된 임시 비밀번호는 아래와 같습니다.\n\n"
-            f"▶ 임시 비밀번호: {temp_pw}\n\n"
-            f"로그인하신 후, '내 서재 > 프로필 편집 > 비밀번호 변경'을 통해 안전한 비밀번호로 변경하여 사용하시기 바랍니다.\n"
-            f"감사합니다.\n\n"
-            f"🌲 가공독서회 운영진 드림",
-            "plain",
-            "utf-8"
-        )
-        msg["Subject"] = "[가공독서회] 임시 비밀번호가 발급되었습니다."
-        msg["From"] = smtp_from_email
+        msg = MIMEText(body, "plain", "utf-8")
+        msg["Subject"] = subject
+        msg["From"] = config.SMTP_FROM_EMAIL
         msg["To"] = to_email
-
-        with smtplib.SMTP(smtp_server, smtp_port, timeout=15) as server:
+        with smtplib.SMTP(config.SMTP_SERVER, config.SMTP_PORT, timeout=15) as server:
             server.starttls()  # TLS 보안 활성화
-            server.login(smtp_username, smtp_password)
-            server.sendmail(smtp_from_email, [to_email], msg.as_string())
-        print(f"[SMTP 실제 발송 완료] 수신인: {to_email} ({nickname} 독자님) - 임시 비밀번호 메일 전송 성공")
+            server.login(config.SMTP_USERNAME, config.SMTP_PASSWORD)
+            server.sendmail(config.SMTP_FROM_EMAIL, [to_email], msg.as_string())
+        print(f"[SMTP 발송 완료] 수신인: {to_email}")
+        return True
     except Exception as e:
-        print(f"[SMTP 실제 발송 실패] 수신인: {to_email} - 오류 상세: {e}")
+        # 예외 메시지에 자격증명이 섞이지 않도록 예외 종류만 남긴다.
+        print(f"[SMTP 발송 실패] 수신인: {to_email} - 오류 유형: {type(e).__name__}")
+        return False
+
+
+def send_reset_link_email(to_email: str, nickname: str, reset_url: str):
+    """비밀번호 재설정 링크를 메일로 발송합니다."""
+    body = (
+        f"안녕하세요, {nickname} 독자님." + BR * 2 +
+        "비밀번호 재설정을 요청하셨습니다. 아래 링크에서 새 비밀번호를 설정해 주세요." + BR * 2 +
+        reset_url + BR * 2 +
+        f"이 링크는 {config.PASSWORD_RESET_TTL_MINUTES}분 후 만료되며 한 번만 사용할 수 있습니다." + BR +
+        "본인이 요청하지 않았다면 이 메일을 무시하셔도 됩니다. 기존 비밀번호는 그대로 유지됩니다." + BR * 2 +
+        "가공독서회 운영진 드림"
+    )
+    sent = _send_email(to_email, "[가공독서회] 비밀번호 재설정 링크입니다.", body)
+    if not sent and not config.IS_PRODUCTION:
+        # 개발 환경에서만 링크를 콘솔로 확인할 수 있게 한다 (운영에서는 절대 출력하지 않는다).
+        print(f"[개발용 재설정 링크] {to_email} -> {reset_url}")
 
 
 @app.post("/api/auth/find-password")
 def find_password(
     req: FindPasswordRequest,
+    request: Request,
     background_tasks: BackgroundTasks,
     db: Session = Depends(database.get_db)
 ):
     """
-    가입 이메일을 조회하고, 임시 비밀번호를 발급한 뒤 구글 SMTP 서버를 통해 비동기 이메일로 전송합니다.
+    비밀번호 재설정 링크를 가입 이메일로 발송합니다.
+
+    보안상 두 가지 원칙을 지킨다:
+      1. 가입 여부와 무관하게 항상 동일한 응답을 준다 (가입자 이메일 열거 방지).
+      2. 이 요청만으로는 비밀번호가 바뀌지 않는다. 메일의 링크를 눌러야 실제로 변경된다.
     """
+    # 대량 요청 차단 (IP · 이메일 두 축)
+    PASSWORD_RESET_LIMITER.hit(security.client_ip(request))
+    PASSWORD_RESET_LIMITER.hit(req.email.lower())
+
     user = db.query(models.User).filter(models.User.email == req.email).first()
-    if not user:
-        raise HTTPException(
-            status_code=status.HTTP_400_BAD_REQUEST,
-            detail="등록되지 않은 이메일 주소입니다. 가입 정보를 재확인해 주세요."
+    if user:
+        raw_token = auth.issue_reset_token(user)
+        db.commit()
+        reset_url = f"{config.APP_BASE_URL}/reset-password?token={raw_token}"
+        # 응답 지연 없이 백그라운드에서 발송
+        background_tasks.add_task(
+            send_reset_link_email,
+            to_email=user.email,
+            nickname=user.nickname,
+            reset_url=reset_url,
         )
 
-    # 1. 임시 비밀번호 난수 생성
-    temp_pw = generate_temp_password(8)
+    return {
+        "message": (
+            "가입된 이메일이라면 비밀번호 재설정 링크를 보냈습니다. 메일함을 확인해 주세요. ✉️"
+        )
+    }
 
-    # 2. DB 비밀번호 해시 교체 및 커밋
-    user.password_hash = auth.get_password_hash(temp_pw)
+
+class ResetPasswordRequest(BaseModel):
+    token: str = Field(..., min_length=10, description="메일로 받은 재설정 토큰")
+    new_password: str = Field(..., min_length=8, description="새 비밀번호는 최소 8자 이상이어야 합니다.")
+
+
+@app.post("/api/auth/reset-password")
+def reset_password(
+    req: ResetPasswordRequest,
+    request: Request,
+    db: Session = Depends(database.get_db)
+):
+    """메일로 받은 1회용 토큰을 검증하고 새 비밀번호를 적용합니다."""
+    ip = security.client_ip(request)
+    PASSWORD_SUBMIT_LIMITER.check(ip)
+
+    try:
+        user = auth.consume_reset_token(db, req.token)
+    except HTTPException:
+        # 토큰을 틀린 경우에만 시도 횟수를 센다(무작위 토큰 대입 방어).
+        PASSWORD_SUBMIT_LIMITER.record(ip)
+        raise
+    auth.set_password(user, req.new_password)  # 기존 발급 토큰도 함께 무효화
+    auth.clear_reset_token(user)               # 재설정 토큰은 1회용
     db.commit()
+    PASSWORD_SUBMIT_LIMITER.reset(ip)          # 정상 처리됐으면 시도 기록을 비운다
+    return {"message": "비밀번호가 변경되었습니다. 새 비밀번호로 로그인해 주세요. 🔒"}
 
-    # 3. 비동기 백그라운드 작업으로 이메일 발송 위임 (API 응답 지연 0초 실현)
-    background_tasks.add_task(
-        send_recovery_email, 
-        to_email=user.email, 
-        nickname=user.nickname, 
-        temp_pw=temp_pw
-    )
 
-    return {"message": "임시 비밀번호가 기입하신 이메일로 전송되었습니다. ✉️\n메일함을 확인해 주세요."}
+@app.get("/reset-password", response_class=HTMLResponse, include_in_schema=False)
+async def serve_reset_password_page(request: Request):
+    """메일 링크로 진입하는 비밀번호 재설정 페이지."""
+    return templates.TemplateResponse(request=request, name="reset_password.html")
 
 
 
@@ -1622,9 +2036,52 @@ GENRE_FALLBACKS = {
 
 
 @app.post("/api/books/candidates")
-async def generate_candidates(background_tasks: BackgroundTasks, db: Session = Depends(database.get_db)):
+async def generate_candidates(
+    background_tasks: BackgroundTasks,
+    db: Session = Depends(database.get_db),
+    current_user_id: int = Depends(auth.get_current_user_id)
+):
     """
     Google Gemini API를 호출하여 세상에 없는 독창적인 책을 실시간 생성하거나 Pool에서 가져와 3개의 후보를 반환합니다.
+    로그인한 사용자에 한해, 무분별한 생성을 막기 위해 1일 1회로 제한합니다.
+    """
+    user = db.query(models.User).filter(models.User.id == current_user_id).first()
+    if not user:
+        raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="로그인이 필요한 서비스입니다.")
+
+    # 아직 고르지 않은 후보가 있으면 새로 만들지 않고 그대로 돌려준다.
+    # (고르지 않은 채 화면을 벗어났다가 다시 들어온 경우 — 하루 제한도 소모하지 않는다)
+    existing = db.query(models.CandidateBook).filter(
+        models.CandidateBook.status == "pending",
+        models.CandidateBook.created_by == current_user_id,
+    ).order_by(models.CandidateBook.id).all()
+    if existing:
+        return [serialize_candidate(c) for c in existing]
+
+    now_kst = models.get_kst_now()
+    if user.last_generation_at and user.last_generation_at.date() == now_kst.date():
+        raise HTTPException(
+            status_code=status.HTTP_429_TOO_MANY_REQUESTS,
+            detail="새 책 생성은 하루에 한 번만 가능합니다. 내일 다시 시도해 주세요! 📖"
+        )
+
+    final_candidates = await _produce_candidate_books(db, background_tasks, owner_user_id=current_user_id)
+
+    # 커밋하면 ORM 객체가 만료되므로, 응답에 쓸 값은 커밋 전에 확보해 둔다.
+    payload = [serialize_candidate(c) for c in final_candidates]
+
+    # 생성 성공 시에만 1일 1회 제한 기록을 갱신
+    user.last_generation_at = now_kst
+    db.commit()
+    return payload
+
+
+async def _produce_candidate_books(db: Session, background_tasks: BackgroundTasks,
+                                   owner_user_id: Optional[int] = None) -> list:
+    """
+    Pool(보관함)에서 재사용 가능한 후보를 우선 꺼내오고, 부족한 만큼만 Gemini(실패 시 폴백 템플릿)로
+    새로 생성하여 3권의 CandidateBook 레코드를 만듭니다. 표지 생성은 백그라운드로 분리합니다.
+    사람이 누르는 "새 책 생성" 엔드포인트와 활성 독서방 자동 보충 백그라운드 잡이 공통으로 재사용합니다.
     """
     genres = [
         '로맨스 판타지', '청춘/로맨스', '힐링/일상소설', '코믹/유머 에세이', 
@@ -1662,8 +2119,12 @@ async def generate_candidates(background_tasks: BackgroundTasks, db: Session = D
     k1 = random.choice(kw_abstract)
     k2 = random.choice(kw_concrete)
     
-    # 0. 이전에 선택하지 않고 'pending'으로 남아있는 후보들을 먼저 'pool'로 정리
-    db.query(models.CandidateBook).filter(models.CandidateBook.status == 'pending').update({"status": "pool"})
+    # 0. 같은 사용자가 이전에 받아놓고 고르지 않은 후보는 pool로 되돌린다.
+    #    (다른 사람이 고르는 중인 후보까지 건드리지 않도록 소유자 기준으로만 정리한다)
+    stale = db.query(models.CandidateBook).filter(models.CandidateBook.status == 'pending')
+    if owner_user_id is not None:
+        stale = stale.filter(models.CandidateBook.created_by == owner_user_id)
+    stale.update({"status": "pool"}, synchronize_session=False)
     db.flush()
 
     # 1. Pool(보관된 남겨진 책들) 중에서 매번 무작위 랜덤으로 꺼내오기 (최대 3권)
@@ -1876,6 +2337,7 @@ async def generate_candidates(background_tasks: BackgroundTasks, db: Session = D
     # 재사용 후보를 pending으로 변경
     for rb in reused_candidates:
         rb.status = 'pending'
+        rb.created_by = owner_user_id
         # 예전 버전 코드가 남긴 깨진/저품질 표지(5KB 미만)는 무효화하여 재생성 유도
         if rb.cover_image_url:
             cover_path = os.path.join(rb.cover_image_url.lstrip("/").replace("/", os.sep))
@@ -1929,7 +2391,8 @@ async def generate_candidates(background_tasks: BackgroundTasks, db: Session = D
             additional_questions=additional_qs_str,
             characters=b_data.get('characters', ''),
             immersion_data=immersion_data_str,
-            status='pending'
+            status='pending',
+            created_by=owner_user_id
         )
         db.add(db_cand)
         final_candidates.append(db_cand)
@@ -1957,7 +2420,7 @@ async def generate_candidates(background_tasks: BackgroundTasks, db: Session = D
             if pending_records:
                 # 3권을 동시에 생성해 후보 1권당 순차 대기 시간(최대 수십 초)이 누적되지 않도록 병렬 처리
                 results = await asyncio.gather(*[
-                    generate_book_cover_art(c.title, c.genre, c.synopsis, c.color, f"cand_{c.id}")
+                    generate_book_cover_art(c.title, c.genre, c.synopsis, c.color, f"cand_{c.id}", author=c.author or "")
                     for c in pending_records
                 ], return_exceptions=True)
                 for cand_record, url in zip(pending_records, results):
@@ -1974,6 +2437,46 @@ async def generate_candidates(background_tasks: BackgroundTasks, db: Session = D
 
     background_tasks.add_task(_generate_covers_background)
     return final_candidates
+
+def serialize_candidate(c: models.CandidateBook) -> dict:
+    """
+    후보 도서를 응답용 dict로 변환한다.
+
+    ORM 객체를 그대로 반환하면 안 된다. SQLAlchemy는 커밋 시점에 인스턴스를 만료(expire)시키는데,
+    FastAPI가 응답을 직렬화하는 시점은 그 이후라서 속성이 모두 비어 버린다.
+    실제로 "새 책 생성" 응답이 [{}, {}, {}] 로 나가 후보 카드가 빈 채로 보이는 버그가 있었다.
+    """
+    return {
+        "id": c.id,
+        "title": c.title,
+        "author": c.author,
+        "genre": c.genre,
+        "synopsis": c.synopsis,
+        "tags": c.tags,
+        "price": c.price,
+        "color": c.color,
+        "cover_image_url": c.cover_image_url,
+        "page_count": c.page_count,
+    }
+
+
+@app.get("/api/books/candidates/pending")
+def get_pending_candidates(
+    current_user_id: int = Depends(auth.get_current_user_id),
+    db: Session = Depends(database.get_db)
+):
+    """
+    아직 고르지 않은 후보 도서를 반환합니다.
+
+    후보를 받아놓고 고르지 않은 채 화면을 벗어나면 다시 볼 방법이 없었고,
+    "하루 1회" 제한 때문에 재생성도 막혀 갇히는 문제가 있어 복원 경로를 만들었다.
+    """
+    pendings = db.query(models.CandidateBook).filter(
+        models.CandidateBook.status == "pending",
+        models.CandidateBook.created_by == current_user_id,
+    ).order_by(models.CandidateBook.id).all()
+    return [serialize_candidate(c) for c in pendings]
+
 
 @app.get("/api/books/candidates/{candidate_id}/cover")
 async def get_candidate_cover(candidate_id: int, db: Session = Depends(database.get_db)):
@@ -1992,7 +2495,7 @@ async def adopt_candidate(candidate_id: int, current_user_id: int = Depends(auth
 
     # 표지 없으면 채택 직전 생성
     if not candidate.cover_image_url:
-        candidate.cover_image_url = await generate_book_cover_art(candidate.title, candidate.genre, candidate.synopsis, candidate.color, f"cand_{candidate.id}")
+        candidate.cover_image_url = await generate_book_cover_art(candidate.title, candidate.genre, candidate.synopsis, candidate.color, f"cand_{candidate.id}", author=candidate.author or "")
         db.commit()
 
     # 정식 도서(Book)로 복사 생성
@@ -2024,7 +2527,11 @@ async def adopt_candidate(candidate_id: int, current_user_id: int = Depends(auth
     # flush를 먼저 하여 adopted 상태를 DB에 선반영한 뒤 bulk update로 pool 전환 (타이밍 버그 수정)
     candidate.status = 'adopted'
     db.flush()  # adopted 상태가 DB에 선반영되어야 bulk update에서 제외됨
-    db.query(models.CandidateBook).filter(models.CandidateBook.status == 'pending').update({"status": "pool"})
+    # 같은 사용자가 받았던 나머지 후보만 pool로 되돌린다 (다른 사용자의 선택을 빼앗지 않도록)
+    leftovers = db.query(models.CandidateBook).filter(models.CandidateBook.status == 'pending')
+    if candidate.created_by is not None:
+        leftovers = leftovers.filter(models.CandidateBook.created_by == candidate.created_by)
+    leftovers.update({"status": "pool"}, synchronize_session=False)
     
     db.commit()
     db.refresh(new_book)
@@ -2046,7 +2553,6 @@ def seed_fountain_pen_book_if_needed(db: Session):
             price="₩25,650",
             page_count=510,
             color="#a03030",
-            cover_image_url="/static/covers/cover_cand_11.png",
             endorsement_quote="예술과 파괴의 경계에 선 독특한 판타지를 직조해낸 Elara Voss의 섬세한 묘사에 매료될 것이다.",
             endorsement_attr="— 문화예술 (익명)",
             publisher_review="Elara Voss는 예술과 파괴의 경계에 선 독특한 판타지를 직조해냈다. 만년필이라는 매개를 통해 현실이 해체되는 과정은 시적인 비극미를 선사하며, 독자에게 존재의 의미를 다시 묻게 한다. 섬세한 묘사와 깊이 있는 철학적 사유가 돋보이는 수작이다.",
@@ -2056,7 +2562,7 @@ def seed_fountain_pen_book_if_needed(db: Session):
             additional_questions="Q. 그림자는 대상의 일부인가, 별개의 존재인가?|Q. 해체되지 않는 유일한 것은 무엇일까?",
             characters="셀레나 — 그림자로 세상을 해체하는 조각가|엘리시움 — 사라져가는 도시의 혼",
             deadline_days=9999,
-            is_archived=False
+            is_archived=True
         )
         db.add(book)
         db.commit()
@@ -2145,7 +2651,6 @@ def seed_faded_gaze_book_if_needed(db: Session):
             price="₩12,150",
             page_count=280,
             color="#5e4b8b",
-            cover_image_url="/static/covers/cover_cand_7.png",
             endorsement_quote="타인의 시선과 운명의 깊이를 깊이 있게 성찰한 한 편의 아름다운 철학 에세이.",
             endorsement_attr="— 서평가 (익명)",
             publisher_review="낡은 골목 안경점이라는 소박한 공간을 배경으로 인간 운명의 굴레와 사색을 따뜻하게 풀어낸 수작.",
@@ -2155,7 +2660,7 @@ def seed_faded_gaze_book_if_needed(db: Session):
             additional_questions="Q. 안경이 비춘 미래의 조각을 알게 되었을 때 당신은 그것을 바꿀 것인가?|Q. 닳아버린 시선이 의미하는 삶의 성숙은 무엇인가?",
             characters="한지우 — 골목 안경점 노인|민서 — 운명의 지도를 찾는 젊은 여인",
             deadline_days=9999,
-            is_archived=False
+            is_archived=True
         )
         db.add(book)
         db.commit()
@@ -2285,9 +2790,13 @@ def _auto_archive_expired_books(db: Session):
 
 
 @app.post("/api/books/auto-archive")
-def trigger_auto_archive(db: Session = Depends(database.get_db)):
+def trigger_auto_archive(
+    _admin: models.User = Depends(auth.require_admin),
+    db: Session = Depends(database.get_db)
+):
     """
-    만료된 독서방(생성 후 10일 경과)을 수동으로 아카이브 처리합니다.
+    만료된 독서방(생성 후 10일 경과)을 수동으로 아카이브 처리합니다. (관리자 전용)
+    평상시에는 realtime_archive_loop 백그라운드 루프가 자동으로 처리한다.
     """
     count = _auto_archive_expired_books(db)
     return {"archived_count": count, "message": f"{count}개의 독서방이 아카이브 처리되었습니다."}
@@ -2415,23 +2924,17 @@ def delete_rating(
 @app.delete("/api/books/{book_id}")
 def delete_book(
     book_id: int,
-    current_user_id: int = Depends(auth.get_current_user_id),
+    _admin: models.User = Depends(auth.require_admin),
     db: Session = Depends(database.get_db)
 ):
     """
-    도서 및 독서방을 영구 삭제합니다. (관리자 전용)
+    도서 및 독서방을 영구 삭제합니다. (관리자 전용 — 인가는 auth.require_admin이 담당)
     """
-    user = db.query(models.User).filter(models.User.id == current_user_id).first()
-    if not user or not user.is_admin:
-        raise HTTPException(
-            status_code=status.HTTP_403_FORBIDDEN,
-            detail="도서 삭제 권한이 없습니다. 관리자만 삭제할 수 있습니다."
-        )
-        
     book = db.query(models.Book).filter(models.Book.id == book_id).first()
     if not book:
         raise HTTPException(status_code=404, detail="해당 도서를 찾을 수 없습니다.")
-        
+
+    _delete_cover_file_if_exists(book.cover_image_url)
     db.delete(book)
     db.commit()
     return {"message": "도서가 성공적으로 삭제되었습니다."}
@@ -2601,6 +3104,7 @@ def get_chat_history(book_id: int, db: Session = Depends(database.get_db)):
             "id": m.id,
             "userId": m.user_id,
             "user": user_nick,
+            "isBot": bool(m.user.is_bot) if m.user else False,
             "text": m.content or "",
             "ts": format_kst_time(m.created_at),
             "date": m.created_at.isoformat() if m.created_at else models.get_kst_now().isoformat(),
@@ -2658,6 +3162,7 @@ def send_chat_message(
         "id": db_msg.id,
         "userId": current_user_id,
         "user": db_msg.user.nickname,
+        "isBot": bool(db_msg.user.is_bot),
         "text": db_msg.content,
         "ts": format_kst_time(db_msg.created_at),
         "date": db_msg.created_at.isoformat(),
@@ -2667,6 +3172,9 @@ def send_chat_message(
 
 
 
+VALID_REACTION_EMOJIS = {"❤️", "🤔", "😄", "✨"}
+
+
 @app.post("/api/chats/{chat_id}/react")
 def react_to_chat(
     chat_id: int,
@@ -2674,8 +3182,8 @@ def react_to_chat(
     current_user_id: int = Depends(auth.get_current_user_id),
     db: Session = Depends(database.get_db)
 ):
-    VALID_EMOJIS = {"❤️", "🤔", "😄", "✨"}
-    if req.emoji not in VALID_EMOJIS:
+    """채팅 메시지에 이모지 반응을 1개 추가합니다."""
+    if req.emoji not in VALID_REACTION_EMOJIS:
         raise HTTPException(status_code=400, detail="지원하지 않는 이모지입니다. ❤️ 🤔 😄 ✨ 중 하나를 사용하세요.")
 
     msg = db.query(models.ChatMessage).filter(models.ChatMessage.id == chat_id).first()
@@ -2686,6 +3194,32 @@ def react_to_chat(
     rx[req.emoji] = rx.get(req.emoji, 0) + 1
     msg.reactions = json.dumps(rx, ensure_ascii=False)
     db.commit()
+
+    return {"reactions": rx}
+
+
+@app.delete("/api/chats/{chat_id}/react")
+def unreact_to_chat(
+    chat_id: int,
+    emoji: str,
+    current_user_id: int = Depends(auth.get_current_user_id),
+    db: Session = Depends(database.get_db)
+):
+    """채팅 메시지에서 이모지 반응을 1개 취소(감소)합니다. (프론트엔드 반응 토글의 '끄기' 동작 대응)"""
+    if emoji not in VALID_REACTION_EMOJIS:
+        raise HTTPException(status_code=400, detail="지원하지 않는 이모지입니다. ❤️ 🤔 😄 ✨ 중 하나를 사용하세요.")
+
+    msg = db.query(models.ChatMessage).filter(models.ChatMessage.id == chat_id).first()
+    if not msg:
+        raise HTTPException(status_code=404, detail="존재하지 않는 메시지입니다.")
+
+    rx = parse_reactions(msg.reactions)
+    if rx.get(emoji, 0) > 0:
+        rx[emoji] -= 1
+        if rx[emoji] <= 0:
+            del rx[emoji]
+        msg.reactions = json.dumps(rx, ensure_ascii=False)
+        db.commit()
 
     return {"reactions": rx}
 
@@ -2714,6 +3248,8 @@ def get_chat_history_archive(book_id: int, db: Session = Depends(database.get_db
             history.append({
                 "id": m.id,
                 "user": m.user_nickname,
+                # 보관본에는 user_id가 아니라 닉네임만 남으므로 봇 닉네임과 비교한다
+                "isBot": m.user_nickname == MODERATOR_NICKNAME,
                 "text": m.content,
                 "ts": format_kst_time(m.original_created_at),
                 "date": m.original_created_at.isoformat(),
@@ -2783,9 +3319,79 @@ async def realtime_archive_loop():
             db.close()
         except Exception as e:
             print(f"Realtime archive loop error: {e}")
-        
+
         # 1분(60초)마다 백그라운드에서 실시간 만료 검사 수행
         await asyncio.sleep(60)
+# ----------------------------------------------
+
+
+async def _auto_refill_active_books_if_needed():
+    """
+    활성 독서방(Book, is_archived=False)이 0권이면, 사람이 고르는 과정 없이 시스템이
+    pool 우선 재사용 + 부족분 AI 생성으로 3권을 만들어 즉시 활성 독서방으로 채택합니다.
+    1권이라도 있으면 아무것도 하지 않아 무분별한 생성을 방지합니다.
+    """
+    db = database.SessionLocal()
+    try:
+        active_count = db.query(func.count(models.Book.id)).filter(models.Book.is_archived == False).scalar()
+        if active_count and active_count > 0:
+            return
+
+        print("[Auto Refill] 활성 독서방이 0권입니다. 자동 보충을 시작합니다.")
+        dummy_background_tasks = BackgroundTasks()
+        candidates = await _produce_candidate_books(db, dummy_background_tasks)
+
+        # 표지가 아직 없는 후보는 채택 전 동기적으로 생성 (adopt_candidate와 동일한 안전장치)
+        for cand in candidates:
+            if not cand.cover_image_url:
+                cand.cover_image_url = await generate_book_cover_art(
+                    cand.title, cand.genre, cand.synopsis, cand.color,
+                    f"cand_{cand.id}", author=cand.author or ""
+                )
+        db.commit()
+
+        for cand in candidates:
+            new_book = models.Book(
+                title=cand.title,
+                author=cand.author,
+                genre=cand.genre,
+                synopsis=cand.synopsis,
+                tags=cand.tags,
+                price=cand.price,
+                page_count=cand.page_count,
+                color=cand.color,
+                cover_image_url=cand.cover_image_url,
+                endorsement_quote=cand.endorsement_quote,
+                endorsement_attr=cand.endorsement_attr,
+                publisher_review=cand.publisher_review,
+                opening_line=cand.opening_line,
+                memorable_quote=cand.memorable_quote,
+                core_dilemma=cand.core_dilemma,
+                additional_questions=cand.additional_questions,
+                characters=cand.characters,
+                immersion_data=cand.immersion_data,
+                deadline_days=10,
+                is_archived=False
+            )
+            db.add(new_book)
+            cand.status = 'adopted'
+
+        db.commit()
+        print(f"[Auto Refill] {len(candidates)}권 자동 채택 완료.")
+    except Exception as e:
+        print(f"[Auto Refill] 오류: {e}")
+    finally:
+        db.close()
+
+
+# --- 활성 독서방 자동 보충 루프 ---
+async def auto_refill_loop():
+    while True:
+        await asyncio.sleep(3600)  # 1시간마다 확인 (0권 상태가 최대 1시간까지만 노출되도록)
+        try:
+            await _auto_refill_active_books_if_needed()
+        except Exception as e:
+            print(f"Auto refill loop error: {e}")
 # ----------------------------------------------
 
 

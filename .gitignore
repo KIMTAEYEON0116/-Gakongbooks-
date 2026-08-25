@@ -20,3 +20,10 @@ nicknames_pool.json
 목업/
 index_standalone.html.bak
 FUTURE_ROADMAP.md
+BOOK_I18N_PLAN.md
+
+# Claude Code 로컬 설정 (머신마다 다르므로 공유하지 않음. launch.json은 커밋 대상)
+.claude/settings.local.json
+
+# 표지 생성 실험용 임시 이미지
+static/covers/test_*.png

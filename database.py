@@ -25,7 +25,13 @@ if "mysql" in DATABASE_URL.lower() and "charset=" not in DATABASE_URL.lower():
 
 # '@'가 포함된 MySQL URL이면 비밀번호를 마스킹하고, SQLite는 그대로 출력
 if '@' in DATABASE_URL:
-    print(f"\n[DB] 연결 시도: {DATABASE_URL[:DATABASE_URL.index('@')+1]}***")
+    _log_parsed = urlparse(DATABASE_URL)
+    _log_netloc = _log_parsed.hostname or ''
+    if _log_parsed.port:
+        _log_netloc += f":{_log_parsed.port}"
+    if _log_parsed.username:
+        _log_netloc = f"{_log_parsed.username}:***@{_log_netloc}"
+    print(f"\n[DB] 연결 시도: {_log_parsed.scheme}://{_log_netloc}{_log_parsed.path}")
 else:
     print(f"\n[DB] 연결 시도: {DATABASE_URL}")
 
