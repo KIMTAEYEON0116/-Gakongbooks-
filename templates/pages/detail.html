@@ -3,51 +3,83 @@
     <div class="detail-header">
       <button class="detail-back" data-i18n="detail_back" onclick="goPage(&#39;home&#39;)">← 독서방 목록으로</button>
       <div class="detail-top">
-        <div class="detail-cover" id="dc-cover" style="background: rgb(123, 95, 184); cursor: pointer; position: relative;" onclick="openCoverZoom()" title="클릭하여 표지 크게 보기" data-i18n-title="detail_zoom_title">
+        <!-- 왼쪽: 표지 · 남은 기간 · 행동 버튼 (판단에 필요한 것과 행동을 한 곳에 모은다) -->
+        <div class="detail-side">
+          <div class="detail-cover" id="dc-cover" style="background: rgb(123, 95, 184); cursor: pointer; position: relative;" onclick="openCoverZoom()" title="클릭하여 표지 크게 보기" data-i18n-title="detail_zoom_title">
           <div class="detail-cover-spine"></div>
           <div class="cover-zoom-hint" data-i18n="detail_zoom_hint" style="position: absolute; bottom: 8px; right: 8px; font-size: 11px; background: rgba(0,0,0,0.65); color: #fff; padding: 3px 8px; border-radius: 4px; pointer-events: none; backdrop-filter: blur(4px);">🔍 확대</div>
           <span id="dc-title-txt">오후 세 시의 해부학</span>
         </div>
-        <div class="detail-info">
-          <div class="detail-genre-badge" id="dc-genre" style="vertical-align: middle;">심리소설</div>
-          <button id="dc-delete-btn" class="btn-delete"
-            style="display: none; vertical-align: middle; margin-left: 8px; margin-bottom: 10px;"
-            onclick="deleteBook()">삭제</button>
-          <div class="dday-row">
-            <div class="detail-title" id="dc-title" style="margin-bottom:0;">오후 세 시의 해부학</div>
-            <span class="dday-badge normal" id="dc-dday"><span class="dday-dot"></span>D-5</span>
-            <span id="dc-detail-count"
-              style="font-size:11px; font-weight:600; color:rgba(255,255,255,0.9); background:rgba(255,255,255,0.15); border:1px solid rgba(255,255,255,0.1); padding:3px 8px; border-radius:5px; margin-left:6px; display:inline-flex; align-items:center; gap:3px; letter-spacing:0.02em;">👥
-              0명</span>
+
+          <!-- 남은 기간: 표지 아래 · 참여 버튼 위. "들어갈까?"를 정하는 순간에 보이도록 배치 -->
+          <div class="dday-card" id="dc-dday-card">
+            <div class="dday-card-top">
+              <span class="dday-card-num" id="dc-dday">D-5</span>
+              <span class="dday-card-unit" id="dc-dday-unit">일 남음</span>
+              <span class="dday-card-end" id="dc-dday-end"></span>
+            </div>
+            <div class="dday-card-bar"><i id="dc-dday-bar"></i></div>
+            <div class="dday-card-cap" id="dc-dday-cap"></div>
           </div>
-          <div class="detail-author" id="dc-author">가상 작가 박연우 (가상)</div>
-          <div class="detail-synopsis" id="dc-synopsis">전직 외과의사 강민이 어느 날 자신이 해부한 시체가 자신의 과거 연인임을 발견한다. 기억 속에서만 살아있던 그녀의
-            내장 속에 담긴 편지들. 죽은 자가 보낸 마지막 고백이 외과의사의 삶을 재편한다.</div>
-          <div class="detail-tags" id="dc-tags"><span class="detail-tag">#기억</span><span
-              class="detail-tag">#상실</span><span class="detail-tag">#의학</span><span class="detail-tag">#미스터리</span>
-          </div>
-          <div style="display: flex; gap: 8px;">
-            <div class="detail-price" id="dc-page-count">350쪽</div>
-            <div class="detail-price" id="dc-price">₩14,800 (10% 할인가)</div>
-          </div>
-          <!-- 아카이브 배너 (아카이브된 책에만 표시) -->
-          <div id="dc-archive-banner"
-            style="display:none;margin-top:20px;margin-bottom:12px;padding:10px 14px;background:linear-gradient(135deg,#f5f0e6,#ebe2d3);border-left:3px solid #8b4f25;border-radius:6px;font-size:12px;color:#5c3a21;line-height:1.6;width:fit-content;">
-            <span style="font-weight:700;letter-spacing:0.05em;"><span style="color:#d9534f; margin-right:3px;">●</span>
-              종료</span> · 이 독서방은 종료되었습니다.<br>
-            <span id="dc-archive-date" style="color:#7a5a41;"></span>
-          </div>
+
           <div class="detail-action-row">
             <button class="btn-join" id="dc-main-btn" onclick="openChat()">독서방 참여하기</button>
             <button class="btn-chat-history" id="dc-chat-history-btn" style="display:none;">💬 채팅 열람하기</button>
             <button class="btn-wish" id="dc-wish-btn" onclick="addToLib()">+ 내 서재에 담기</button>
+          </div>
+
+          <!-- 장르 · 참여 인원: 상태 정보는 한 줄로 묶어 제목과 경쟁하지 않게 한다 -->
+          <div class="detail-meta-line">
+            <span class="detail-genre-badge" id="dc-genre">심리소설</span>
+            <span class="detail-meta-dot">·</span>
+            <span id="dc-detail-count">0명</span>
+            <button id="dc-delete-btn" class="btn-delete" style="display: none;" onclick="deleteBook()">삭제</button>
+          </div>
+        </div>
+
+        <!-- 오른쪽: 읽을거리 -->
+        <div class="detail-info">
+          <div class="detail-title" id="dc-title">오후 세 시의 해부학</div>
+          <div class="detail-author" id="dc-author">가상 작가 박연우 (가상)</div>
+          <div class="detail-synopsis" id="dc-synopsis">전직 외과의사 강민이 어느 날 자신이 해부한 시체가 자신의 과거 연인임을 발견한다.</div>
+
+          <!-- 추천사: 줄거리 다음으로 이어지는 읽을거리라 헤더 안에 둔다.
+               (별도 섹션으로 아래에 두면 오른쪽 열이 비고 스크롤해야 만난다) -->
+          <div class="detail-endorse">
+            <div class="endorse-label" data-i18n="detail_endorsements">추천사</div>
+            <div class="endorse-quote" id="endorse-quote"></div>
+            <div class="endorse-attr" id="endorse-attr"></div>
+          </div>
+
+          <div class="detail-endorse">
+            <div class="endorse-label" data-i18n="detail_publisher_review">출판사 서평</div>
+            <div class="publisher-txt" id="publisher-txt"></div>
+          </div>
+
+          <!-- 가상 판권면: 쪽수·정가·주제어는 세계관 장치다.
+               헤더 밖에 두면 갈색과 흰색 사이에 베이지 띠가 생기므로 헤더 안에서 마무리한다. -->
+          <div class="book-colophon" id="dc-colophon">
+            <button class="book-colophon-head" type="button" onclick="toggleColophon()">
+              <span data-i18n="detail_colophon_title">가상 판권면</span>
+              <span class="book-colophon-caret" id="dc-colophon-caret">▴</span>
+            </button>
+            <div class="book-colophon-body" id="dc-colophon-body">
+              <dl>
+                <dt data-i18n="detail_colophon_pages">분량</dt>
+                <dd class="detail-price" id="dc-page-count">350쪽</dd>
+                <dt data-i18n="detail_colophon_price">정가</dt>
+                <dd class="detail-price" id="dc-price">₩14,800 (10% 할인가)</dd>
+                <dt data-i18n="detail_colophon_tags">주제어</dt>
+                <dd class="detail-tags" id="dc-tags"></dd>
+              </dl>
+            </div>
           </div>
         </div>
       </div>
     </div>
 
     <!-- ── 👑 명예의 전당 (베스트 상상 독자 리뷰) ── -->
-    <div id="dc-best-imagination-section" style="display: none; margin: 24px 22px 0; padding: 22px 24px; background: linear-gradient(135deg, #fffcf5 0%, #f7f1e3 100%); border: 1.5px solid #e0c896; border-radius: 14px; box-shadow: 0 4px 16px rgba(180, 140, 60, 0.08);">
+    <div id="dc-best-imagination-section" class="hall-of-fame" style="display: none;">
       <div style="display: flex; align-items: center; justify-content: space-between; margin-bottom: 16px; border-bottom: 1px solid #ebd9b5; padding-bottom: 12px;">
         <div style="font-family: var(--serif); font-size: 17px; font-weight: 700; color: #7a5016; display: flex; align-items: center; gap: 8px;">
           <span style="font-size: 20px;">👑</span> 명예의 전당 · 베스트 상상 독자 리뷰
@@ -153,15 +185,6 @@
 
     <!-- 추천사 & 출판사 서평 -->
     <div class="endorse-section" id="endorse-section">
-      <div class="endorse-block">
-        <div class="endorse-label" data-i18n="detail_endorsements">추천사</div>
-        <div class="endorse-quote" id="endorse-quote"></div>
-        <div class="endorse-attr" id="endorse-attr"></div>
-      </div>
-      <div class="endorse-block">
-        <div class="endorse-label" data-i18n="detail_publisher_review">출판사 서평</div>
-        <div class="publisher-txt" id="publisher-txt"></div>
-      </div>
       <!-- 도서 상세 목차 -->
       <div class="immersion-board-wrapper" style="margin-top: 36px; padding-top: 24px; border-top: 1px dashed #e0dbce;">
         <div class="immersion-board-title" data-i18n="detail_toc_title" style="font-family: var(--serif); font-size: 18px; font-weight: 700; color: var(--text); margin-bottom: 16px; display: flex; align-items: center; gap: 6px;">

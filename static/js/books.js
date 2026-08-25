@@ -191,14 +191,6 @@
 
     var currentGenre = '전체';
 
-    function getAllGenres() {
-      var seen = {};
-      var genres = [];
-      BOOKS.forEach(function (b) {
-        if (!seen[b.genre]) { seen[b.genre] = true; genres.push(b.genre); }
-      });
-      return genres;
-    }
 
     function renderHome() {
       renderGenreSection();
@@ -415,6 +407,128 @@
     }
     window.renderArchiveByMonth = renderArchiveByMonth;
 
+    /* ── 도서 상세: 남은 기간 카드 ──────────────────────────────────────
+       숫자만 크게 보여주면 'D-4'가 급한 건지 아닌지 감이 오지 않는다.
+       전체 기간 중 얼마나 지났는지(진행 바)와 종료 예정일을 함께 보여준다.
+       색 규칙은 홈 카드와 동일하게 맞춘다(D-7 이상 초록 / D-6~3 주황 / D-2 이하 빨강). */
+    var DEFAULT_ROOM_DAYS = 10;
+
+    /* ── 진행 중 통계 표시 ────────────────────────────────────────────────
+       진행 중에는:
+         · 반응 집계 → 한 줄로 공개 (채팅에서 이미 메시지별로 보이던 값이라 가릴 이유가 없다)
+         · 평균 평점 → 접어서 봉인 (진행 중 평균이 보이면 서로의 점수에 끌려간다)
+       종료 후에는 기존 통계 패널을 그대로 펼친다. */
+    function renderLiveStats(book) {
+      var section = document.querySelector('#pg-detail .stats-section');
+      var inner = document.querySelector('#pg-detail .stats-inner');
+      if (!section || !inner) return;
+
+      // 이전 렌더에서 만든 진행 중 전용 요소를 정리
+      var oldLine = document.getElementById('dc-rx-inline');
+      if (oldLine) oldLine.remove();
+      var oldFold = document.getElementById('dc-stats-folded');
+      if (oldFold) oldFold.remove();
+
+      if (book.archived) {
+        inner.style.display = '';          // 종료 후에는 전체 통계를 그대로 보여준다
+        return;
+      }
+
+      inner.style.display = 'none';
+
+      // ① 반응 집계 한 줄
+      var totals = getRxTotals(book);
+      var sum = RX_ORDER.reduce(function (acc, r) { return acc + (totals[r.emoji] || 0); }, 0);
+      var line = document.createElement('div');
+      line.className = 'rx-inline' + (sum > 0 ? '' : ' empty');
+      line.id = 'dc-rx-inline';
+
+      var html = '<span class="rx-inline-lbl">' + t('detail_rx_live_label') + '</span>';
+      if (sum > 0) {
+        RX_ORDER.forEach(function (r) {
+          var n = totals[r.emoji] || 0;
+          if (n > 0) html += '<span class="rx-inline-item">' + r.emoji + ' ' + n + '</span>';
+        });
+        html += '<span class="rx-inline-live">' + t('detail_rx_live_badge') + '</span>';
+      } else {
+        // 반응이 없을 때도 줄을 남긴다 — 자물쇠로 막아두는 것보다 초대 문구가 낫다
+        html += '<span>' + t('detail_rx_empty') + '</span>' +
+                '<button class="rx-inline-cta" onclick="openChat()">' + t('detail_rx_empty_cta') + '</button>';
+      }
+      line.innerHTML = html;
+      section.appendChild(line);
+
+      // ② 평점은 접힌 한 줄로
+      var fold = document.createElement('div');
+      fold.className = 'stats-folded';
+      fold.id = 'dc-stats-folded';
+      fold.innerHTML = '<span>' + t('detail_rating_folded') + '</span>' +
+                       '<span class="stats-folded-caret">' + t('detail_rating_blind') + ' ▾</span>';
+      section.appendChild(fold);
+    }
+
+    function renderDdayCard(book) {
+      var card = document.getElementById('dc-dday-card');
+      if (!card) return;
+      var numEl = document.getElementById('dc-dday');
+      var unitEl = document.getElementById('dc-dday-unit');
+      var endEl = document.getElementById('dc-dday-end');
+      var barEl = document.getElementById('dc-dday-bar');
+      var capEl = document.getElementById('dc-dday-cap');
+
+      if (book.archived) {
+        card.className = 'dday-card ended';
+        numEl.textContent = t('detail_ended_label');
+        unitEl.textContent = '';
+        endEl.textContent = book.archivedDate || '';
+        barEl.style.width = '100%';
+        capEl.textContent = t('detail_ended_cap');
+        return;
+      }
+
+      var days = book.deadlineDays != null ? book.deadlineDays : DEFAULT_ROOM_DAYS;
+      var total = DEFAULT_ROOM_DAYS;
+      // 상시 활성 독서방(deadline_days=9999)은 진행률을 계산하지 않는다
+      var perpetual = days > 365;
+      var passed = perpetual ? 0 : Math.max(0, Math.min(total, total - days));
+
+      card.className = 'dday-card ' + (perpetual ? 'active' : days <= 2 ? 'urgent' : days <= 6 ? 'soon' : 'active');
+      numEl.textContent = perpetual ? t('detail_always_open') : (days === 0 ? 'D-DAY' : 'D-' + days);
+      unitEl.textContent = perpetual ? '' : t('detail_days_left');
+      endEl.textContent = perpetual ? '' : formatEndDate(days);
+      barEl.style.width = perpetual ? '0%' : Math.round(passed / total * 100) + '%';
+
+      // 남은 기간에 따라 안내 문구를 바꿔, 마감이 압박이 아니라 참여 이유가 되게 한다
+      if (perpetual) {
+        capEl.textContent = t('detail_cap_always');
+      } else if (days <= 1) {
+        capEl.textContent = t('detail_cap_last');
+      } else if (days <= 6) {
+        capEl.textContent = t('detail_cap_soon_a') + total + t('detail_cap_soon_b') + passed + t('detail_cap_soon_c');
+      } else {
+        capEl.textContent = t('detail_cap_early');
+      }
+    }
+
+    // 남은 일수로 종료 예정일을 만든다 (M월 D일)
+    function formatEndDate(days) {
+      var d = new Date();
+      d.setDate(d.getDate() + days);
+      return CURRENT_LANG === 'ja'
+        ? (d.getMonth() + 1) + '月' + d.getDate() + '日' + t('detail_end_suffix')
+        : (d.getMonth() + 1) + '월 ' + d.getDate() + '일' + t('detail_end_suffix');
+    }
+
+    /* 가상 판권면 접기/펼치기 */
+    function toggleColophon() {
+      var body = document.getElementById('dc-colophon-body');
+      var caret = document.getElementById('dc-colophon-caret');
+      if (!body) return;
+      body.hidden = !body.hidden;
+      if (caret) caret.textContent = body.hidden ? '▾' : '▴';
+    }
+    window.toggleColophon = toggleColophon;
+
     function ensureArchivedSampleData(book) {
       if (!book) return;
       if (book.archived) {
@@ -578,21 +692,6 @@ function renderGenreSection() {
       }
     }
 
-    function renderArcHomeSection(archivedBooks) {
-      var items = archivedBooks.map(function (b) {
-        var hasArchive = true;
-        return '<div class="arc-home-item" onclick="openArchive(\'' + b.id + '\')">' +
-          '<div class="arc-home-cover" style="background:' + safeCssColor(b.color) + '">' + escHtml(String(b.title || '').slice(0, 4)) + '</div>' +
-          '<div class="arc-home-info">' +
-          '<div class="arc-home-genre">' + escHtml(translateGenre(b.genre)) + '</div>' +
-          '<div class="arc-home-title">' + escHtml(b.title) + '</div>' +
-          '<div class="arc-home-meta">30명 참여 · ' + escHtml(b.archivedDate) + ' 종료</div>' +
-          '</div>' +
-          '<button class="arc-home-btn" onclick="event.stopPropagation();openArchive(\'' + b.id + '\')">아카이브 열람</button>' +
-          '</div>';
-      }).join('');
-      return '<div class="arc-home-label">ARCHIVE — 종료된 독서방</div>' + items;
-    }
 
     function renderDeadlineSection() {
       var activeBooks = BOOKS.filter(function (b) { return !b.archived; });
@@ -733,26 +832,20 @@ function renderGenreSection() {
       });
 
       var ddEl = document.getElementById('dc-dday');
-      var archiveBanner = document.getElementById('dc-archive-banner');
       var mainBtn = document.getElementById('dc-main-btn');
       var wishBtn = document.getElementById('dc-wish-btn');
       var chatHistoryBtn = document.getElementById('dc-chat-history-btn');
 
+      // 남은 기간 카드는 활성/아카이브 상태를 모두 처리한다
+      renderDdayCard(book);
+      // 진행 중에는 반응만 공개하고 평점은 접는다
+      renderLiveStats(book);
+
       if (book.archived) {
         /* ── 아카이브 모드 ── */
-        // D-day 배지 → ARCHIVED 배지
-        if (ddEl) {
-          ddEl.className = 'dday-badge';
-          ddEl.style.cssText = 'background:rgba(255,255,255,0.1);color:#d1c4b9;border-color:rgba(255,255,255,0.2);font-size:10px;padding:3px 8px;letter-spacing:0.08em;';
-          ddEl.innerHTML = '<span style="color:#d9534f; margin-right:3px;">●</span> 종료';
-        }
 
-        // 아카이브 배너 표시
-        if (archiveBanner) {
-          archiveBanner.style.display = 'block';
-          var archiveDateEl = document.getElementById('dc-archive-date');
-          if (archiveDateEl) archiveDateEl.textContent = (book.archivedDate || '') + ' 독서방 종료 · 아카이브 보관 중';
-        }
+        // 종료 안내는 남은 기간 카드(renderDdayCard)가 '종료됨 · 날짜 · 보관 중'으로 이미 표시한다.
+        // 별도 배너를 두면 같은 문장이 두 번 나오므로 두지 않는다.
 
         // 버튼 전환
         if (mainBtn) {
@@ -826,20 +919,6 @@ function renderGenreSection() {
 
       } else {
         /* ── 일반 활성 모드 ── */
-        // D-day 배지 복원
-        if (ddEl) {
-          ddEl.style.cssText = '';
-          var days = book.deadlineDays != null ? book.deadlineDays : 10;
-          // 신호등 기준: D-7 이상=active(초록), D-6~D-3=soon(주황/노랑), D-2 이하=urgent(빨강)
-          var cls = days <= 2 ? 'urgent' : days <= 6 ? 'soon' : 'active';
-          var label = days === 0 ? 'D-DAY' : 'D-' + days;
-          ddEl.className = 'dday-badge ' + cls;
-          ddEl.innerHTML = '<span class="dday-dot"></span>' + label;
-        }
-
-        // 아카이브 배너 숨기기
-        if (archiveBanner) archiveBanner.style.display = 'none';
-
         // 버튼 복원
         if (mainBtn) {
           mainBtn.textContent = t('join_chat_btn');
@@ -1765,7 +1844,6 @@ function renderGenreSection() {
       var h = d.getHours(), m = d.getMinutes();
       return (h < 12 ? '오전 ' : '오후 ') + (h % 12 || 12) + ':' + (m < 10 ? '0' + m : m);
     }
-    function tsNow() { return fmtTs(new Date()); }
 
     function makeMsg(opts) {
       // opts: {mine, user, av, avBg, avColor, text, date, replyTo}
@@ -2512,17 +2590,6 @@ function buildMsgEl(msg, bookId) {
     }
     var searchMatches = [];
     var searchCursor = -1;
-    function toggleChatSearch() {
-      var bar = document.getElementById('chat-search-bar');
-      var toggle = document.getElementById('chat-search-toggle');
-      if (bar.classList.contains('open')) {
-        closeChatSearch();
-      } else {
-        bar.classList.add('open');
-        toggle.classList.add('active');
-        setTimeout(function() { document.getElementById('chat-search-input').focus(); }, 250);
-      }
-    }
     function closeChatSearch() {
       clearSearchHighlights();
       var bar = document.getElementById('chat-search-bar');
@@ -2928,23 +2995,23 @@ function buildMsgEl(msg, bookId) {
       html += '<div class="arc-stats-bar">';
       html += '  <div class="arc-stat-item">';
       html += '    <div class="arc-stat-num" style="color:' + book.color + ';">' + totalUsers + '</div>';
-      html += '    <div class="arc-stat-label">참여 독자</div>';
+      html += '    <div class="arc-stat-label">' + t('arc_stat_readers') + '</div>';
       html += '  </div>';
       html += '  <div class="arc-stat-item">';
       html += '    <div class="arc-stat-num" style="color:' + book.color + ';">' + totalChats + '</div>';
-      html += '    <div class="arc-stat-label">채팅 메시지</div>';
+      html += '    <div class="arc-stat-label">' + t('arc_stat_chats') + '</div>';
       html += '  </div>';
       html += '  <div class="arc-stat-item">';
       html += '    <div class="arc-stat-num" style="color:' + book.color + ';">' + totalComments + '</div>';
-      html += '    <div class="arc-stat-label">댓글</div>';
+      html += '    <div class="arc-stat-label">' + t('arc_stat_comments') + '</div>';
       html += '  </div>';
       html += '  <div class="arc-stat-item">';
       html += '    <div class="arc-stat-num" style="color:' + book.color + ';">' + totalReactions + '</div>';
-      html += '    <div class="arc-stat-label">총 반응 수</div>';
+      html += '    <div class="arc-stat-label">' + t('arc_stat_rx') + '</div>';
       html += '  </div>';
       html += '  <div class="arc-stat-item">';
       html += '    <div class="arc-stat-num" style="color:' + book.color + ';">' + avgScore.toFixed(1) + '</div>';
-      html += '    <div class="arc-stat-label">평균 평점</div>';
+      html += '    <div class="arc-stat-label">' + t('arc_stat_rating') + '</div>';
       html += '  </div>';
       html += '</div>';
 
@@ -2953,7 +3020,7 @@ function buildMsgEl(msg, bookId) {
       // 4. 에디토리얼 레터 (Editor's Note)
       html += '<div class="arc-section arc-editorial">';
       html += '  <div class="arc-eyebrow">EDITOR\'S NOTE</div>';
-      html += '  <div class="arc-editorial-title">편집자의 말</div>';
+      html += '  <div class="arc-editorial-title">' + t('arc_editorial_title') + '</div>';
       html += '  <div class="arc-editorial-body">';
       html += '    <p>이 책은 존재하지 않습니다. 그러나 이 안에 담긴 감상들은 진짜입니다.</p>';
       html += '    <p>가공독서회의 ' + totalUsers + '명 독자들은 『' + book.title + '』의 시놉시스 한 줄을 마주하고 사흘간 무수히 아름다운 감상을 꽃피워냈습니다. 아무도 실제로 이 책을 읽지 않았지만, 모두가 각자의 마음속에서 이 책을 다 읽어낸 것처럼 고요하고도 깊은 이야기를 나누었습니다.</p>';
@@ -2975,7 +3042,7 @@ function buildMsgEl(msg, bookId) {
       // 5. 독서 참여자 리스트 (Participants)
       html += '<div class="arc-section" style="background:#fff;">';
       html += '  <div class="arc-eyebrow">PARTICIPANTS</div>';
-      html += '  <div class="arc-section-title">이번 독서회 참여자 ' + totalUsers + '인</div>';
+      html += '  <div class="arc-section-title">' + t('arc_participants_title') + totalUsers + t('arc_participants_unit') + '</div>';
       html += '  <div class="arc-section-sub">닉네임은 가공독서회 시스템이 고유하게 배정했습니다. 본명은 영구 비공개됩니다.</div>';
       html += '  <div class="arc-participants-grid">';
       distinctUsers.forEach(function(u) {
@@ -2993,7 +3060,7 @@ function buildMsgEl(msg, bookId) {
       // 6. 1장: 책의 이야기와 첫인상 (Chapter 1)
       html += '<div class="arc-chapter-divider"></div>';
       html += '<div class="arc-chapter-header">';
-      html += '  <div class="arc-chapter-num">1장</div>';
+      html += '  <div class="arc-chapter-num">' + t('arc_chapter1_num') + '</div>';
       html += '  <div class="arc-chapter-title">책의 첫인상과 사색의 순간들</div>';
       html += '  <div class="arc-chapter-desc">『' + book.title + '』의 세계를 처음 마주했을 때 독자들이 나눈 깊고 고요한 첫 감상들의 모음.</div>';
       html += '</div>';
@@ -3074,7 +3141,7 @@ function buildMsgEl(msg, bookId) {
       // 7. 2장: 가장 오래 남은 감상 최종 선별 TOP (Chapter 2)
       html += '<div class="arc-chapter-divider"></div>';
       html += '<div class="arc-chapter-header">';
-      html += '  <div class="arc-chapter-num">2장</div>';
+      html += '  <div class="arc-chapter-num">' + t('arc_chapter2_num') + '</div>';
       html += '  <div class="arc-chapter-title">가장 오래 남은 감상 문장들</div>';
       html += '  <div class="arc-chapter-desc">독서방 전반에서 반응 수 합계 기준, 독자들에게 가장 뜨거운 공명을 불러일으킨 감상들.</div>';
       html += '</div>';
@@ -3132,19 +3199,19 @@ function buildMsgEl(msg, bookId) {
       html += '<div class="arc-colophon">';
       html += '  <div class="arc-colophon-grid">';
       html += '    <div>';
-      html += '      <div class="arc-col-lbl">발행처</div>';
+      html += '      <div class="arc-col-lbl">' + t('arc_col_publisher') + '</div>';
       html += '      <div class="arc-col-val">가공독서회 보존기록팀</div>';
       html += '    </div>';
       html += '    <div>';
-      html += '      <div class="arc-col-lbl">기획 및 구성</div>';
+      html += '      <div class="arc-col-lbl">' + t('arc_col_editor') + '</div>';
       html += '      <div class="arc-col-val">가공 아카이브 에디터 일동</div>';
       html += '    </div>';
       html += '    <div>';
-      html += '      <div class="arc-col-lbl">서지 분류 번호</div>';
+      html += '      <div class="arc-col-lbl">' + t('arc_col_class') + '</div>';
       html += '      <div class="arc-col-val">GK-ARC-2026-N' + book.id + '</div>';
       html += '    </div>';
       html += '    <div>';
-      html += '      <div class="arc-col-lbl">보관 개시일</div>';
+      html += '      <div class="arc-col-lbl">' + t('arc_col_date') + '</div>';
       html += '      <div class="arc-col-val">' + book.archivedDate + '</div>';
       html += '    </div>';
       html += '  </div>';
@@ -3741,7 +3808,6 @@ function adaptDbBookToFrontend(dbBook) {
         arc_tab: "🗃 아카이브",
         genre_all: "전체",
         days_left: "일 남음",
-        people_count: "명",
         join_chat_btn: "독서방 참여하기",
         add_lib_btn: "+ 내 서재에 담기",
         remove_lib_btn: "✓ 내 서재에서 제거",
@@ -3815,7 +3881,6 @@ function adaptDbBookToFrontend(dbBook) {
         closing_soon: "⚠ 곧 마감 · ",
         archive_badge: "아카이브",
         archive_open_btn: "📖 아카이브 열람하기",
-        archive_closed_note: " 독서방 종료 · 아카이브 보관 중",
         page_unit: "쪽",
         discount_note: " (10% 할인가)",
         delete_btn: "삭제",
@@ -3836,7 +3901,6 @@ function adaptDbBookToFrontend(dbBook) {
         detail_ai_author_reply: "🤖 <strong>AI 작가 한줄평:</strong> ",
         detail_zoom_hint: "🔍 확대",
         detail_zoom_title: "클릭하여 표지 크게 보기",
-        detail_zoom_close: "클릭하면 닫힙니다",
         detail_virtual_book: " · AI 생성 가상 도서",
         detail_toc_empty: "상세 목차 데이터가 없습니다.",
         chat_room_suffix: " 독서방",
@@ -3905,15 +3969,8 @@ function adaptDbBookToFrontend(dbBook) {
         auth_no_account: "아직 계정이 없으신가요?",
         auth_has_account: "이미 계정이 있으신가요?",
         auth_nick_label: "✦ 부여된 독서 닉네임",
-        auth_nick_desc1: "가입과 동시에 랜덤으로 배정되는 닉네임입니다.",
-        auth_nick_desc2: "독서방에서 이 이름으로 활동하게 됩니다.",
         auth_nick_loading: "닉네임 불러오는 중...",
-        auth_terms_notice1: "가입 시 가공독서회의 이용약관 및",
-        auth_terms_notice2: "개인정보처리방침에 동의하게 됩니다.",
         auth_gate_title: "내 서재",
-        auth_gate_desc1: "내 서재를 확인하려면",
-        auth_gate_desc2: "로그인이 필요합니다.",
-        auth_gate_desc3: "가공독서회 계정으로 나만의 독서 기록을 시작해보세요.",
         auth_or: "또는",
         alert_login_failed: "로그인에 실패했습니다. 이메일과 비밀번호를 다시 확인하세요.",
         alert_signup_done: "회원가입이 완료되었습니다! 🎉 로그인해주세요.",
@@ -3985,6 +4042,28 @@ function adaptDbBookToFrontend(dbBook) {
         reset_modal_title: "✉️ 비밀번호 재설정",
         reset_modal_desc: "가입 시 사용하셨던 이메일 주소를 입력해 주세요.<br>비밀번호를 새로 설정할 수 있는 링크를 메일로 보내드립니다. (링크는 30분간 유효)",
         reset_modal_email_label: "가입 이메일 주소",
+        detail_days_left: "일 남음",
+        detail_end_suffix: " 종료",
+        detail_always_open: "상시 운영",
+        detail_ended_label: "종료됨",
+        detail_ended_cap: "이 독서방은 종료되어 아카이브로 보관 중입니다.",
+        detail_cap_always: "상시 운영되는 독서방입니다. 언제든 참여할 수 있어요.",
+        detail_cap_last: "마지막 하루 · 오늘 남긴 감상이 아카이브에 실립니다.",
+        detail_cap_soon_a: "",
+        detail_cap_soon_b: "일 중 ",
+        detail_cap_soon_c: "일 지남 · 종료되면 아카이브로 보관됩니다.",
+        detail_cap_early: "지금 들어가면 처음부터 함께 읽을 수 있어요.",
+        detail_colophon_title: "가상 판권면",
+        detail_colophon_pages: "분량",
+        detail_colophon_price: "정가",
+        detail_colophon_tags: "주제어",
+        detail_rx_live_label: "지금 이 방의 반응",
+        detail_rx_live_badge: "실시간",
+        detail_rx_empty: "아직 반응이 없어요.",
+        detail_rx_empty_cta: "첫 감상을 남겨보세요 →",
+        detail_rating_folded: "평균 평점 · 별점 분포",
+        arc_stat_readers: "참여 독자",
+        arc_participants_unit: "인",
       },
       ja: {
         logo_text: "<em>架空</em>読書会",
@@ -4010,7 +4089,6 @@ function adaptDbBookToFrontend(dbBook) {
         arc_tab: "🗃 アーカイブ",
         genre_all: "すべて",
         days_left: "日残り",
-        people_count: "人",
         join_chat_btn: "読書室に参加する",
         add_lib_btn: "+ 書斎に追加",
         remove_lib_btn: "✓ 書斎から削除",
@@ -4084,7 +4162,6 @@ function adaptDbBookToFrontend(dbBook) {
         closing_soon: "⚠ まもなく締切 · ",
         archive_badge: "アーカイブ",
         archive_open_btn: "📖 アーカイブを閲覧する",
-        archive_closed_note: " 読書室終了 · アーカイブ保管中",
         page_unit: "ページ",
         discount_note: "（10%割引価格）",
         delete_btn: "削除",
@@ -4105,7 +4182,6 @@ function adaptDbBookToFrontend(dbBook) {
         detail_ai_author_reply: "🤖 <strong>AI作家の一言:</strong> ",
         detail_zoom_hint: "🔍 拡大",
         detail_zoom_title: "クリックで表紙を拡大",
-        detail_zoom_close: "クリックで閉じます",
         detail_virtual_book: " · AI生成の架空書籍",
         detail_toc_empty: "詳細目次のデータがありません。",
         chat_room_suffix: " 読書室",
@@ -4174,15 +4250,8 @@ function adaptDbBookToFrontend(dbBook) {
         auth_no_account: "アカウントをお持ちではありませんか？",
         auth_has_account: "すでにアカウントをお持ちですか？",
         auth_nick_label: "✦ 付与された読書ニックネーム",
-        auth_nick_desc1: "登録と同時にランダムで割り当てられるニックネームです。",
-        auth_nick_desc2: "読書室ではこの名前で活動します。",
         auth_nick_loading: "ニックネームを読み込み中...",
-        auth_terms_notice1: "登録すると、架空読書会の利用規約および",
-        auth_terms_notice2: "プライバシーポリシーに同意したものとみなされます。",
         auth_gate_title: "私の書斎",
-        auth_gate_desc1: "書斎を確認するには",
-        auth_gate_desc2: "ログインが必要です。",
-        auth_gate_desc3: "架空読書会のアカウントで、あなただけの読書記録を始めましょう。",
         auth_or: "または",
         alert_login_failed: "ログインに失敗しました。メールアドレスとパスワードをご確認ください。",
         alert_signup_done: "新規登録が完了しました！ 🎉 ログインしてください。",
@@ -4254,6 +4323,28 @@ function adaptDbBookToFrontend(dbBook) {
         reset_modal_title: "✉️ パスワード再設定",
         reset_modal_desc: "ご登録のメールアドレスを入力してください。<br>パスワードを再設定できるリンクをメールでお送りします。（リンクの有効期限は30分）",
         reset_modal_email_label: "登録メールアドレス",
+        detail_days_left: "日残り",
+        detail_end_suffix: " 終了",
+        detail_always_open: "常時開室",
+        detail_ended_label: "終了",
+        detail_ended_cap: "この読書室は終了し、アーカイブに保管されています。",
+        detail_cap_always: "常時開いている読書室です。いつでも参加できます。",
+        detail_cap_last: "最終日 · 今日の感想がアーカイブに残ります。",
+        detail_cap_soon_a: "全",
+        detail_cap_soon_b: "日中 ",
+        detail_cap_soon_c: "日経過 · 終了するとアーカイブに保管されます。",
+        detail_cap_early: "今なら最初から一緒に読めます。",
+        detail_colophon_title: "架空の奥付",
+        detail_colophon_pages: "分量",
+        detail_colophon_price: "定価",
+        detail_colophon_tags: "キーワード",
+        detail_rx_live_label: "この読書室の反応",
+        detail_rx_live_badge: "リアルタイム",
+        detail_rx_empty: "まだ反応がありません。",
+        detail_rx_empty_cta: "最初の感想を残してみましょう →",
+        detail_rating_folded: "平均評価 · 星の分布",
+        arc_stat_readers: "参加読者",
+        arc_participants_unit: "人",
       }
     };
 

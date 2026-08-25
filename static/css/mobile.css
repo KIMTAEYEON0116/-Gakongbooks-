@@ -401,9 +401,6 @@
     padding: 18px 16px 0;
   }
 
-  .lib-empty-state {
-    padding: 20px 12px;
-  }
 
   /* ── 아카이브 매거진 ─────────────────────────────────────────────────── */
   .arc-section,
@@ -611,5 +608,63 @@
 @media (max-width: 340px) {
   .arc-month-grid {
     grid-template-columns: 1fr;
+  }
+}
+
+/* ==========================================================================
+   도서 상세 2단 구성 — 모바일 대응
+   좁은 화면에서는 좌우 2단이 성립하지 않으므로 다시 세로로 쌓는다.
+   ========================================================================== */
+@media (max-width: 900px) {
+
+  .detail-top {
+    grid-template-columns: 1fr;
+    gap: 20px;
+  }
+
+  /* 왼쪽 열이 위로 올라오면 표지가 지나치게 커지므로 조금 줄인다 */
+  .detail-side .detail-cover {
+    width: 168px;
+    height: 235px;
+  }
+
+  /* 좁은 화면에서는 본문 폭 제한이 필요 없다 (컨테이너가 이미 좁다) */
+  .detail-info .detail-synopsis {
+    max-width: none;
+  }
+}
+
+@media (max-width: 640px) {
+
+  .detail-side .detail-cover {
+    width: 150px;
+    height: 210px;
+    margin-bottom: 14px;
+  }
+
+  .dday-card {
+    padding: 12px 14px;
+  }
+
+  .dday-card-num {
+    font-size: 27px;
+  }
+
+  .rx-inline,
+  .stats-folded,
+  .book-colophon-head,
+  .book-colophon-body {
+    padding-left: 16px;
+    padding-right: 16px;
+  }
+
+  .rx-inline {
+    gap: 10px;
+    font-size: 12.5px;
+  }
+
+  /* 반응이 많아 한 줄을 넘치면 '실시간' 배지는 다음 줄 오른쪽으로 */
+  .rx-inline-live {
+    margin-left: auto;
   }
 }
