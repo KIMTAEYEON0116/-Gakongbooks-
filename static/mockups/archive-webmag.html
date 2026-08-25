@@ -1,0 +1,348 @@
+<!DOCTYPE html>
+<html lang="ko">
+
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>아카이브 열람 — 최소 변경 목업</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link
+    href="https://fonts.googleapis.com/css2?family=Noto+Sans+KR:wght@400;500;700&family=Noto+Serif+KR:wght@400;600;700&display=swap"
+    rel="stylesheet">
+  <style>
+    :root {
+      --bg: #faf7f2; --surface: #fff; --border: #e8e0d5; --border-light: #f0e8dc;
+      --text: #2c2418; --text-muted: #8a7a6a; --text-faint: #bbb;
+      --accent: #c17b3f; --accent-bg: #fdf0e4; --accent-border: #e8c89a;
+      --serif: 'Noto Serif KR', serif; --sans: 'Noto Sans KR', sans-serif;
+      --ink: #241d14; --good: #4a7a3a;
+    }
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    body { background: #e9e3d9; font-family: var(--sans); color: var(--text); padding: 26px 24px 90px; }
+    .wrap { max-width: 1460px; margin: 0 auto; }
+
+    h1 { font-family: var(--serif); font-size: 25px; margin-bottom: 6px; }
+    .lead { font-size: 13.5px; color: var(--text-muted); line-height: 1.8; }
+    .lead a { color: var(--accent); }
+    .keep {
+      display: inline-block; font-size: 11.5px; font-weight: 700; color: var(--good);
+      background: #e9f0e5; border: 1px solid #c8dcbc; border-radius: 11px; padding: 2px 9px; margin-right: 4px;
+    }
+    .newmark {
+      display: inline-block; font-size: 10.5px; font-weight: 700; color: var(--accent);
+      background: var(--accent-bg); border: 1px solid var(--accent-border);
+      border-radius: 9px; padding: 1px 7px; vertical-align: middle; margin-left: 6px;
+    }
+
+    .monitor { margin-top: 18px; }
+    .monitor-bar {
+      display: flex; align-items: center; gap: 7px; background: #ddd4c6;
+      border: 1px solid var(--border); border-bottom: 0; border-radius: 9px 9px 0 0;
+      padding: 7px 12px; font-size: 11px; color: #7a6a56;
+    }
+    .monitor-bar i { width: 9px; height: 9px; border-radius: 50%; background: #c9bda9; display: inline-block; }
+    .monitor-bar .url { margin-left: 8px; background: #f3ede3; border-radius: 4px; padding: 2px 10px; font-size: 10.5px; }
+    .monitor-bar .size { margin-left: auto; font-size: 10.5px; }
+    .screen { background: var(--bg); border: 1px solid var(--border); border-radius: 0 0 9px 9px; overflow: hidden; }
+
+    /* 변경점 표식 */
+    .flag {
+      position: absolute; right: 12px; top: 10px; z-index: 3;
+      font-size: 10.5px; font-weight: 700; color: #fff; background: var(--accent);
+      border-radius: 10px; padding: 2px 9px; letter-spacing: .02em;
+    }
+    .rel { position: relative; }
+
+    /* ── 헤더 (기존 그대로) ── */
+    .arc-head { background: var(--ink); color: #f3ece0; padding: 15px 26px; display: flex; align-items: center; gap: 12px; font-size: 12.5px; }
+    .arc-head .back { color: rgba(255,255,255,.6); }
+    .arc-head .toggle { margin-left: auto; font-size: 11.5px; color: rgba(255,255,255,.75);
+      border: 1px solid rgba(255,255,255,.25); border-radius: 14px; padding: 4px 11px; }
+
+    /* [변경 1] 읽기 진행 바 — 두께 3px, 기존 구조는 건드리지 않음 */
+    .progress { height: 3px; background: rgba(255,255,255,.12); }
+    .progress i { display: block; height: 100%; width: 32%; background: var(--accent); }
+
+    /* ── ① 표지: 전면 유지 (기존 그대로) ── */
+    .arc-cover {
+      background: var(--ink); color: #f3ece0; text-align: center; padding: 46px 26px 40px;
+    }
+    .arc-cover .label { font-size: 11px; letter-spacing: .28em; color: var(--accent); margin-bottom: 20px; }
+    .arc-cover .book {
+      width: 150px; height: 210px; margin: 0 auto 22px; border-radius: 4px;
+      background: linear-gradient(160deg, #8b5fb8, #46335e);
+      display: flex; align-items: center; justify-content: center;
+      font-family: var(--serif); font-size: 12px; padding: 12px; line-height: 1.5;
+    }
+    .arc-cover h3 { font-family: var(--serif); font-size: 27px; font-weight: 700; margin-bottom: 10px; }
+    .arc-cover .meta { font-size: 12.5px; color: rgba(243,236,224,.55); line-height: 1.9; }
+    .arc-cover .edition { font-size: 11.5px; color: rgba(243,236,224,.4); margin-top: 14px; letter-spacing: .05em; }
+
+    /* [변경 2] 평점 개봉 — 표지 아래 한 줄로만 추가 */
+    .reveal-line {
+      display: inline-flex; align-items: center; gap: 14px; margin-top: 22px;
+      background: rgba(255,255,255,.06); border: 1px solid rgba(232,200,154,.3);
+      border-radius: 12px; padding: 11px 20px;
+    }
+    .reveal-line .cap { font-size: 10.5px; letter-spacing: .12em; color: var(--accent); }
+    .reveal-line .n { font-family: var(--serif); font-size: 24px; font-weight: 700; color: #fff; }
+    .reveal-line .of { font-size: 11.5px; color: rgba(243,236,224,.5); }
+    .reveal-line .s { color: #e8c89a; font-size: 13px; letter-spacing: 2px; }
+    .reveal-line .note { font-size: 10.5px; color: rgba(243,236,224,.42); border-left: 1px solid rgba(255,255,255,.15); padding-left: 14px; line-height: 1.5; text-align: left; }
+
+    /* ── ② 책 띠지 (기존 그대로) ── */
+    .band { background: var(--surface); border-bottom: 1px solid var(--border); padding: 26px; display: flex; gap: 22px; align-items: center; }
+    .band .thumb { width: 88px; height: 123px; border-radius: 3px; background: linear-gradient(160deg,#8b5fb8,#46335e); flex-shrink: 0; }
+    .band .t { font-family: var(--serif); font-size: 17px; font-weight: 700; margin-bottom: 5px; }
+    .band .a { font-size: 12.5px; color: var(--text-muted); }
+    .chip { display: inline-block; font-size: 11.5px; padding: 2px 8px; border-radius: 4px; margin: 8px 4px 0 0;
+      background: #f2ede4; color: var(--text-muted); border: 1px solid var(--border); }
+
+    /* ── ③ 통계 바 (기존 그대로) ── */
+    .statbar { background: var(--surface); border-bottom: 1px solid var(--border); display: flex; padding: 18px 26px; }
+    .statbar > div { flex: 1; text-align: center; }
+    .statbar .n { font-family: var(--serif); font-size: 22px; font-weight: 700; color: #8b5fb8; }
+    .statbar .l { font-size: 11.5px; color: var(--text-muted); margin-top: 3px; }
+
+    /* ── ④~ 섹션 (기존 그대로 · 세로 흐름 유지) ── */
+    .sec { padding: 34px 26px; max-width: 860px; margin: 0 auto; }
+    .sec.white { background: var(--surface); }
+    .sec-title { font-family: var(--serif); font-size: 18px; font-weight: 700; margin-bottom: 14px; }
+
+    /* [변경 3] 섹션 제목에 러닝헤드 + 괘선 */
+    .sec-rule { display: flex; align-items: center; gap: 12px; margin-bottom: 14px; }
+    .sec-rule .no { font-size: 10.5px; letter-spacing: .18em; color: var(--accent); white-space: nowrap; }
+    .sec-rule h4 { font-family: var(--serif); font-size: 18px; font-weight: 700; white-space: nowrap; }
+    .sec-rule .line { flex: 1; height: 1px; background: var(--border); }
+
+    .body-txt { font-size: 14px; line-height: 1.95; color: #3d3428; }
+    .body-txt .sig { display: block; margin-top: 14px; font-size: 12.5px; color: var(--text-muted); text-align: right; }
+
+    /* [변경 4] 편집자의 말에만 드롭캡 */
+    .body-txt.drop::first-letter {
+      float: left; font-family: var(--serif); font-size: 44px; line-height: .92;
+      padding: 5px 9px 0 0; color: var(--accent); font-weight: 700;
+    }
+
+    .chapter-head { text-align: center; padding: 30px 26px 6px; }
+    .chapter-head .num { font-size: 11.5px; letter-spacing: .2em; color: var(--accent); }
+    .chapter-head .t { font-family: var(--serif); font-size: 19px; font-weight: 700; margin-top: 7px; }
+    .chapter-head .d { font-size: 12.5px; color: var(--text-muted); margin-top: 6px; }
+
+    /* 감상 — 기존의 세로 흐름 그대로 */
+    .msgs { max-width: 860px; margin: 0 auto; padding: 16px 26px 30px; }
+    .msg { display: flex; gap: 13px; margin-bottom: 16px; }
+    .avatar { width: 34px; height: 34px; border-radius: 50%; background: #efe5d5; color: #8b6b45;
+      font-size: 13px; font-weight: 700; display: flex; align-items: center; justify-content: center; flex-shrink: 0; }
+    .msg .who { font-size: 12px; color: var(--text-muted); margin-bottom: 5px; }
+    .msg .card { background: var(--surface); border: 1px solid var(--border-light); border-radius: 12px; padding: 13px 16px; }
+    .msg .txt { font-size: 13.5px; line-height: 1.85; color: #3d3428; }
+    .msg .rx { font-size: 11.5px; color: var(--text-muted); display: flex; gap: 9px; margin-top: 9px; }
+    .msg.mod .card { background: #fdf8f0; border-color: var(--accent-border); }
+
+    /* [변경 5] 최다 공감 감상에 리본 배지만 (크게 뽑아내지는 않음) */
+    .ribbon {
+      display: inline-flex; align-items: center; gap: 4px; font-size: 10.5px; font-weight: 700;
+      color: var(--accent); background: var(--accent-bg); border: 1px solid var(--accent-border);
+      border-radius: 10px; padding: 1px 8px; margin-left: 7px;
+    }
+
+    .closing { background: var(--ink); color: rgba(243,236,224,.85); padding: 36px 26px; text-align: center; }
+    .closing h4 { font-family: var(--serif); font-size: 19px; margin-bottom: 11px; color: #f3ece0; }
+    .closing p { font-size: 13.5px; line-height: 1.9; max-width: 620px; margin: 0 auto; color: rgba(243,236,224,.6); }
+    .colophon { background: #1c1710; color: rgba(243,236,224,.45); padding: 20px 26px; font-size: 11.5px;
+      display: grid; grid-template-columns: repeat(4, 1fr); gap: 12px; }
+    .colophon b { display: block; color: rgba(243,236,224,.75); font-weight: 600; margin-bottom: 3px; font-size: 11px; }
+
+    .notes { margin-top: 14px; display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
+    .note {
+      display: flex; gap: 9px; font-size: 12.5px; line-height: 1.65; background: var(--surface);
+      border: 1px solid var(--border); border-left: 3px solid var(--accent); border-radius: 6px; padding: 9px 12px;
+    }
+    .note.keepn { border-left-color: var(--good); }
+    .note .n { flex-shrink: 0; font-weight: 700; color: var(--accent); }
+    .note.keepn .n { color: var(--good); }
+
+    .map { width: 100%; border-collapse: collapse; margin-top: 14px; font-size: 12.5px;
+      background: var(--surface); border: 1px solid var(--border); border-radius: 8px; overflow: hidden; }
+    .map th, .map td { padding: 9px 13px; text-align: left; border-bottom: 1px solid var(--border-light); }
+    .map th { background: #f4efe6; font-size: 12px; }
+    .map tr:last-child td { border-bottom: 0; }
+    .map td:first-child { width: 220px; color: var(--text-muted); }
+    .map td.k { color: var(--good); font-weight: 600; }
+  </style>
+</head>
+
+<body>
+  <div class="wrap">
+    <h1>아카이브 열람 — 최소 변경 목업</h1>
+    <p class="lead">
+      <span class="keep">기존 컨셉 유지</span>
+      앞선 안에서 표지를 줄이고 사이드 목차·2단 조판을 넣은 것은 과했습니다. 되돌렸습니다.<br>
+      <b>구획·순서·세로 흐름·전면 표지를 그대로 두고</b>, 잡지 느낌을 더하는 <b>다섯 가지만</b> 얹은 안입니다.
+      아래 화면에서 <span class="newmark">변경</span> 표시가 붙은 곳이 전부입니다.
+    </p>
+
+    <div class="monitor">
+      <div class="monitor-bar"><i></i><i></i><i></i>
+        <span class="url">아카이브 · 오래된 안경 상점과 갈망의 정원</span><span class="size">1400 × 760</span></div>
+      <div class="screen">
+
+        <div class="rel">
+          <span class="flag">변경 1 · 읽기 진행 바</span>
+          <div class="progress"><i></i></div>
+        </div>
+        <div class="arc-head">
+          <span class="back">← 돌아가기</span>
+          <span class="toggle">⇄ 가로 보기</span>
+        </div>
+
+        <!-- ① 표지 — 전면 유지 -->
+        <div class="arc-cover rel">
+          <span class="flag">변경 2 · 평점 개봉 한 줄</span>
+          <div class="label">READING ROOM ARCHIVE</div>
+          <div class="book">오래된 안경 상점과<br>갈망의 정원</div>
+          <h3>오래된 안경 상점과 갈망의 정원</h3>
+          <div class="meta">12명 참여 · 2026-07-30 종료</div>
+          <div class="edition">가공독서회 · 아카이브 에디션 · 제36호</div>
+
+          <div class="reveal-line">
+            <span class="cap">🔓 이제 공개합니다</span>
+            <span><span class="n">4.3</span> <span class="of">/ 5 · 12명</span></span>
+            <span class="s">★★★★☆</span>
+            <span class="note">독서방이 열려 있는 동안에는<br>서로의 점수를 볼 수 없었습니다.</span>
+          </div>
+        </div>
+
+        <!-- ② 책 띠지 — 그대로 -->
+        <div class="band">
+          <div class="thumb"></div>
+          <div>
+            <div class="t">오래된 안경 상점과 갈망의 정원</div>
+            <div class="a">Elara Merritt · 소설 · 320쪽 · ₩17,550</div>
+            <div>
+              <span class="chip">#안경</span><span class="chip">#갈망</span>
+              <span class="chip">#정원</span><span class="chip">#AI가공</span>
+            </div>
+          </div>
+        </div>
+
+        <!-- ③ 통계 바 — 그대로 -->
+        <div class="statbar">
+          <div><div class="n">12</div><div class="l">참여 독자</div></div>
+          <div><div class="n">18</div><div class="l">채팅 메시지</div></div>
+          <div><div class="n">6</div><div class="l">댓글</div></div>
+          <div><div class="n">47</div><div class="l">총 반응 수</div></div>
+          <div><div class="n">4.3</div><div class="l">평균 평점</div></div>
+        </div>
+
+        <!-- ④ 편집자의 말 — 그대로 + 드롭캡 -->
+        <div class="sec white rel">
+          <span class="flag">변경 3 · 러닝헤드 괘선 &nbsp;/&nbsp; 변경 4 · 드롭캡</span>
+          <div class="sec-rule">
+            <span class="no">EDITOR'S NOTE</span>
+            <h4>편집자의 말</h4>
+            <span class="line"></span>
+          </div>
+          <p class="body-txt drop">
+            이 책은 존재하지 않습니다. 그러나 이 안에 담긴 감상들은 진짜입니다. 가공독서회의 12명 독자들은
+            『오래된 안경 상점과 갈망의 정원』이라는 존재하지 않는 책을 함께 읽었고, 사흘 동안 서로의 상상을 포개었습니다.
+            존재하지 않기에 무한히 뻗어나갈 수 있었던 상상의 조각들을 여기 모읍니다.
+            <span class="sig">가공독서회 아카이브 편집팀</span>
+          </p>
+        </div>
+
+        <!-- ⑤ 참여 독자 — 그대로 -->
+        <div class="sec">
+          <div class="sec-rule">
+            <span class="no">READERS</span>
+            <h4>이번 독서회 참여자 12인</h4>
+            <span class="line"></span>
+          </div>
+          <p style="font-size:12.5px;color:var(--text-muted);">닉네임은 가공독서회 시스템이 랜덤으로 배정합니다. 본명은 공개되지 않습니다.</p>
+        </div>
+
+        <!-- ⑥ 1장 + 감상 — 세로 흐름 그대로 -->
+        <div class="chapter-head">
+          <div class="num">1장</div>
+          <div class="t">책의 첫인상</div>
+          <div class="d">『오래된 안경 상점과 갈망의 정원』의 세계를 처음 마주했을 때 나눈 감상들</div>
+        </div>
+        <div class="msgs rel">
+          <span class="flag">변경 5 · 최다 공감 리본</span>
+          <div class="msg">
+            <div class="avatar">달</div>
+            <div style="flex:1;">
+              <div class="who">달빛독자 · 오후 8:05 <span class="ribbon">🏅 가장 많은 공감</span></div>
+              <div class="card">
+                <div class="txt">타인의 속마음을 비추는 안경을 닦을 때마다 나의 고독을 닦아내고 있었다는 문장이 가슴을 치네요… 👓</div>
+                <div class="rx"><span>❤️ 22</span><span>✨ 9</span></div>
+              </div>
+            </div>
+          </div>
+          <div class="msg">
+            <div class="avatar">새</div>
+            <div style="flex:1;">
+              <div class="who">새벽사서 · 오후 8:18</div>
+              <div class="card">
+                <div class="txt">아델이 렌즈를 투영하며 마주한 진실과 갈망의 정원 씬이 환상적이면서도 씁쓸한 여운을 전하더군요.</div>
+                <div class="rx"><span>❤️ 16</span><span>🤔 4</span></div>
+              </div>
+            </div>
+          </div>
+          <div class="msg mod">
+            <div class="avatar">🎙</div>
+            <div style="flex:1;">
+              <div class="who">AI 사회자 · 오후 8:30</div>
+              <div class="card">
+                <div class="txt">타인의 숨겨진 마음을 아는 안경이 있다면 독자님들은 쓰시겠습니까, 아니면 모르고 살아가시겠습니까? ✨</div>
+                <div class="rx"><span>✨ 26</span></div>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- ⑦ 맺음말 · ⑧ 콜로폰 — 그대로 -->
+        <div class="closing">
+          <h4>기록의 보관을 마치며</h4>
+          <p>『오래된 안경 상점과 갈망의 정원』의 독서방은 공식 종료되었습니다.
+            그러나 우리가 활자 너머로 나누었던 상상은 이 지면에 남습니다.</p>
+        </div>
+        <div class="colophon">
+          <div><b>발행처</b>가공독서회 보관실</div>
+          <div><b>기획 및 구성</b>가공 아카이브 편집팀</div>
+          <div><b>서지 분류 번호</b>GK-2026-036</div>
+          <div><b>보관 개시일</b>2026-07-30</div>
+        </div>
+      </div>
+    </div>
+
+    <h1 style="font-size:19px;margin-top:34px;">앞선 안에서 되돌린 것</h1>
+    <table class="map">
+      <tr><th>앞선 안</th><th>이번 안</th></tr>
+      <tr><td>표지를 가로 밴드로 축소</td><td class="k">전면 표지 그대로 유지</td></tr>
+      <tr><td>사이드 목차(CONTENTS) 신설</td><td class="k">넣지 않음 — 기존에 없던 요소</td></tr>
+      <tr><td>감상을 2단 조판</td><td class="k">기존 세로 흐름 그대로</td></tr>
+      <tr><td>최다 공감 감상을 풀아웃 인용으로 크게</td><td class="k">작은 리본 배지만 (모든 감상은 동등하게)</td></tr>
+      <tr><td>제호(masthead) 신설</td><td class="k">기존 헤더 그대로, 진행 바만 추가</td></tr>
+      <tr><td>콜로폰 4칸 그리드로 재편</td><td class="k">그대로 (정렬만 정돈)</td></tr>
+    </table>
+
+    <div class="notes">
+      <div class="note keepn"><span class="n">유지</span><span>구획 <b>10개 전부</b>와 순서, 전면 표지, 세로 흐름, 어두운 지면 마무리 — 그대로입니다.</span></div>
+      <div class="note"><span class="n">1</span><span><b>읽기 진행 바</b> — 3px 선 하나. 8.7화면에서 지금 어디쯤인지 알려줍니다.</span></div>
+      <div class="note"><span class="n">2</span><span><b>평점 개봉</b> — 표지 아래 한 줄. 진행 중 봉인했던 값이 여기서 열립니다.</span></div>
+      <div class="note"><span class="n">3</span><span><b>러닝헤드 + 괘선</b> — 섹션 제목 옆 영문 머리글과 가는 선. 잡지 리듬만 더합니다.</span></div>
+      <div class="note"><span class="n">4</span><span><b>드롭캡</b> — 편집자의 말 첫 글자만. 다른 본문은 건드리지 않습니다.</span></div>
+      <div class="note"><span class="n">5</span><span><b>최다 공감 리본</b> — 배지 하나. 감상을 크게 뽑아내지 않아 위계가 생기지 않습니다.</span></div>
+    </div>
+
+    <p class="lead" style="margin-top:26px;">
+      ※ 화면의 주황색 <b>변경 N</b> 표시는 목업 설명용이며 실제 화면에는 나타나지 않습니다.
+      평점 4.3 / 12명은 예시 수치입니다.
+    </p>
+  </div>
+</body>
+
+</html>

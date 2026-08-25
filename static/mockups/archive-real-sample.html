@@ -1,0 +1,358 @@
+<!DOCTYPE html>
+<html lang="ko">
+
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>아카이브 예시 — 그림자를 녹이는 만년필의 시간</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link
+    href="https://fonts.googleapis.com/css2?family=Noto+Sans+KR:wght@400;500;700&family=Noto+Serif+KR:wght@400;600;700&display=swap"
+    rel="stylesheet">
+  <style>
+    :root {
+      --bg: #faf7f2; --surface: #fff; --border: #e8e0d5; --border-light: #f0e8dc;
+      --text: #2c2418; --text-muted: #8a7a6a; --text-faint: #bbb;
+      --accent: #c17b3f; --accent-bg: #fdf0e4; --accent-border: #e8c89a;
+      --serif: 'Noto Serif KR', serif; --sans: 'Noto Sans KR', sans-serif;
+      --ink: #241d14; --good: #4a7a3a; --warn: #b54a6a;
+    }
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    body { background: #e9e3d9; font-family: var(--sans); color: var(--text); padding: 26px 24px 90px; }
+    .wrap { max-width: 1460px; margin: 0 auto; }
+
+    h1 { font-family: var(--serif); font-size: 25px; margin-bottom: 6px; }
+    .lead { font-size: 13.5px; color: var(--text-muted); line-height: 1.8; }
+    .lead a { color: var(--accent); }
+    .real {
+      display: inline-block; font-size: 11.5px; font-weight: 700; color: var(--good);
+      background: #e9f0e5; border: 1px solid #c8dcbc; border-radius: 11px; padding: 2px 9px; margin-right: 4px;
+    }
+
+    .monitor { margin-top: 18px; }
+    .monitor-bar {
+      display: flex; align-items: center; gap: 7px; background: #ddd4c6;
+      border: 1px solid var(--border); border-bottom: 0; border-radius: 9px 9px 0 0;
+      padding: 7px 12px; font-size: 11px; color: #7a6a56;
+    }
+    .monitor-bar i { width: 9px; height: 9px; border-radius: 50%; background: #c9bda9; display: inline-block; }
+    .monitor-bar .url { margin-left: 8px; background: #f3ede3; border-radius: 4px; padding: 2px 10px; font-size: 10.5px; }
+    .monitor-bar .size { margin-left: auto; font-size: 10.5px; }
+    .screen { background: var(--bg); border: 1px solid var(--border); border-radius: 0 0 9px 9px; overflow: hidden; }
+
+    .progress { height: 3px; background: rgba(255,255,255,.12); }
+    .progress i { display: block; height: 100%; width: 28%; background: var(--accent); }
+
+    .arc-head { background: var(--ink); color: #f3ece0; padding: 15px 26px; display: flex; align-items: center; gap: 12px; font-size: 12.5px; }
+    .arc-head .back { color: rgba(255,255,255,.6); }
+    .arc-head .toggle { margin-left: auto; font-size: 11.5px; color: rgba(255,255,255,.75);
+      border: 1px solid rgba(255,255,255,.25); border-radius: 14px; padding: 4px 11px; }
+
+    /* 표지 — 전면 유지 */
+    .arc-cover { background: var(--ink); color: #f3ece0; text-align: center; padding: 44px 26px 38px; }
+    .arc-cover .label { font-size: 11px; letter-spacing: .28em; color: var(--accent); margin-bottom: 20px; }
+    .arc-cover .book {
+      width: 150px; height: 210px; margin: 0 auto 22px; border-radius: 4px;
+      background: linear-gradient(160deg, #6a4a8a, #2f2140);
+      display: flex; align-items: center; justify-content: center;
+      font-family: var(--serif); font-size: 12.5px; padding: 14px; line-height: 1.55;
+    }
+    .arc-cover h3 { font-family: var(--serif); font-size: 27px; font-weight: 700; margin-bottom: 10px; }
+    .arc-cover .meta { font-size: 12.5px; color: rgba(243,236,224,.55); line-height: 1.9; }
+    .arc-cover .edition { font-size: 11.5px; color: rgba(243,236,224,.4); margin-top: 14px; letter-spacing: .05em; }
+
+    /* 평점 개봉 — 두 상태 */
+    .reveal-line {
+      display: inline-flex; align-items: center; gap: 14px; margin-top: 22px;
+      background: rgba(255,255,255,.06); border: 1px solid rgba(232,200,154,.3);
+      border-radius: 12px; padding: 11px 20px;
+    }
+    .reveal-line .cap { font-size: 10.5px; letter-spacing: .12em; color: var(--accent); }
+    .reveal-line .n { font-family: var(--serif); font-size: 24px; font-weight: 700; color: #fff; }
+    .reveal-line .of { font-size: 11.5px; color: rgba(243,236,224,.5); }
+    .reveal-line .s { color: #e8c89a; font-size: 13px; letter-spacing: 2px; }
+    .reveal-line .note { font-size: 10.5px; color: rgba(243,236,224,.42);
+      border-left: 1px solid rgba(255,255,255,.15); padding-left: 14px; line-height: 1.5; text-align: left; }
+    .reveal-line.empty { border-color: rgba(255,255,255,.14); }
+    .reveal-line.empty .txt { font-size: 12.5px; color: rgba(243,236,224,.62); }
+
+    .band { background: var(--surface); border-bottom: 1px solid var(--border); padding: 24px 26px; display: flex; gap: 22px; align-items: center; }
+    .band .thumb { width: 88px; height: 123px; border-radius: 3px; background: linear-gradient(160deg,#6a4a8a,#2f2140); flex-shrink: 0; }
+    .band .t { font-family: var(--serif); font-size: 17px; font-weight: 700; margin-bottom: 5px; }
+    .band .a { font-size: 12.5px; color: var(--text-muted); }
+    .chip { display: inline-block; font-size: 11.5px; padding: 2px 8px; border-radius: 4px; margin: 8px 4px 0 0;
+      background: #f2ede4; color: var(--text-muted); border: 1px solid var(--border); }
+
+    .statbar { background: var(--surface); border-bottom: 1px solid var(--border); display: flex; padding: 18px 26px; }
+    .statbar > div { flex: 1; text-align: center; }
+    .statbar .n { font-family: var(--serif); font-size: 22px; font-weight: 700; color: #6a4a8a; }
+    .statbar .n.zero { color: var(--text-faint); }
+    .statbar .l { font-size: 11.5px; color: var(--text-muted); margin-top: 3px; }
+
+    .sec { padding: 32px 26px; max-width: 880px; margin: 0 auto; }
+    .sec.white { background: var(--surface); }
+    .sec-rule { display: flex; align-items: center; gap: 12px; margin-bottom: 14px; }
+    .sec-rule .no { font-size: 10.5px; letter-spacing: .18em; color: var(--accent); white-space: nowrap; }
+    .sec-rule h4 { font-family: var(--serif); font-size: 18px; font-weight: 700; white-space: nowrap; }
+    .sec-rule .line { flex: 1; height: 1px; background: var(--border); }
+
+    .body-txt { font-size: 14px; line-height: 1.95; color: #3d3428; }
+    .body-txt .sig { display: block; margin-top: 14px; font-size: 12.5px; color: var(--text-muted); text-align: right; }
+    .body-txt.drop::first-letter {
+      float: left; font-family: var(--serif); font-size: 44px; line-height: .92;
+      padding: 5px 9px 0 0; color: var(--accent); font-weight: 700;
+    }
+
+    .readers { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 10px; }
+    .reader { display: flex; align-items: center; gap: 7px; background: var(--surface);
+      border: 1px solid var(--border); border-radius: 16px; padding: 4px 12px 4px 4px; font-size: 12px; }
+    .avatar { width: 24px; height: 24px; border-radius: 50%; background: #ece2f2; color: #6a4a8a;
+      font-size: 11px; font-weight: 700; display: flex; align-items: center; justify-content: center; }
+
+    .chapter-head { text-align: center; padding: 30px 26px 4px; }
+    .chapter-head .num { font-size: 11.5px; letter-spacing: .2em; color: var(--accent); }
+    .chapter-head .t { font-family: var(--serif); font-size: 19px; font-weight: 700; margin-top: 7px; }
+    .chapter-head .d { font-size: 12.5px; color: var(--text-muted); margin-top: 7px; }
+
+    .msgs { max-width: 880px; margin: 0 auto; padding: 16px 26px 28px; }
+    .msg { display: flex; gap: 13px; margin-bottom: 15px; }
+    .msg .av { width: 34px; height: 34px; border-radius: 50%; background: #ece2f2; color: #6a4a8a;
+      font-size: 13px; font-weight: 700; display: flex; align-items: center; justify-content: center; flex-shrink: 0; }
+    .msg .who { font-size: 12px; color: var(--text-muted); margin-bottom: 5px; }
+    .msg .card { background: var(--surface); border: 1px solid var(--border-light); border-radius: 12px; padding: 13px 16px; }
+    .msg .txt { font-size: 13.5px; line-height: 1.85; color: #3d3428; }
+    .msg.mod .card { background: #fdf8f0; border-color: var(--accent-border); }
+
+    .daysep { display: flex; align-items: center; gap: 12px; margin: 22px 0 16px; }
+    .daysep span { font-size: 11.5px; color: var(--text-muted); white-space: nowrap; }
+    .daysep .line { flex: 1; height: 1px; background: var(--border); }
+
+    .quote-band {
+      background: #f6f1e8; border-top: 1px solid var(--border); border-bottom: 1px solid var(--border);
+      padding: 26px; text-align: center;
+    }
+    .quote-band p { font-family: var(--serif); font-size: 18px; line-height: 1.7; color: #3e2723; font-weight: 600; }
+    .quote-band .by { margin-top: 9px; font-size: 12px; color: var(--text-muted); }
+
+    .closing { background: var(--ink); color: rgba(243,236,224,.85); padding: 36px 26px; text-align: center; }
+    .closing h4 { font-family: var(--serif); font-size: 19px; margin-bottom: 11px; color: #f3ece0; }
+    .closing p { font-size: 13.5px; line-height: 1.9; max-width: 640px; margin: 0 auto; color: rgba(243,236,224,.6); }
+    .colophon { background: #1c1710; color: rgba(243,236,224,.45); padding: 20px 26px; font-size: 11.5px;
+      display: grid; grid-template-columns: repeat(4, 1fr); gap: 12px; }
+    .colophon b { display: block; color: rgba(243,236,224,.75); font-weight: 600; margin-bottom: 3px; font-size: 11px; }
+
+    .notes { margin-top: 14px; display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
+    .note {
+      display: flex; gap: 9px; font-size: 12.5px; line-height: 1.65; background: var(--surface);
+      border: 1px solid var(--border); border-left: 3px solid var(--accent); border-radius: 6px; padding: 9px 12px;
+    }
+    .note.warn { border-left-color: var(--warn); }
+    .note .n { flex-shrink: 0; font-weight: 700; color: var(--accent); }
+    .note.warn .n { color: var(--warn); }
+    .alt { margin-top: 16px; background: var(--surface); border: 1px solid var(--border); border-radius: 9px; padding: 16px 18px; }
+    .alt h5 { font-size: 13px; margin-bottom: 10px; }
+    .alt .row { background: var(--ink); border-radius: 9px; padding: 16px; text-align: center; }
+  </style>
+</head>
+
+<body>
+  <div class="wrap">
+    <h1>아카이브 예시 — 『그림자를 녹이는 만년필의 시간』</h1>
+    <p class="lead">
+      <span class="real">실제 DB 데이터</span>
+      제목·작가·가격·태그·감상 10건·참여자 8명·날짜 모두 실제 저장된 값입니다. 지어낸 내용이 없습니다.<br>
+      <a href="/static/mockups/archive-webmag.html">← 최소 변경 목업(설명본)</a>
+    </p>
+
+    <div class="monitor">
+      <div class="monitor-bar"><i></i><i></i><i></i>
+        <span class="url">아카이브 · 그림자를 녹이는 만년필의 시간</span><span class="size">1400 × 760</span></div>
+      <div class="screen">
+        <div class="progress"><i></i></div>
+        <div class="arc-head">
+          <span class="back">← 돌아가기</span>
+          <span class="toggle">⇄ 가로 보기</span>
+        </div>
+
+        <!-- 표지 (전면 유지) -->
+        <div class="arc-cover">
+          <div class="label">READING ROOM ARCHIVE</div>
+          <div class="book">그림자를 녹이는<br>만년필의 시간</div>
+          <h3>그림자를 녹이는 만년필의 시간</h3>
+          <div class="meta">7명의 독자가 3일간 나눈 10개의 감상 · 2026년 7월 31일 종료</div>
+          <div class="edition">가공독서회 · 아카이브 에디션 · 제40호</div>
+
+          <!-- 평점이 0건인 실제 상태 -->
+          <div class="reveal-line empty">
+            <span class="cap">🔒 평점 기록</span>
+            <span class="txt">이 독서방에서는 평점이 남지 않았습니다.</span>
+            <span class="note">평점은 독서방이 열려 있는 동안<br>참여한 독자만 남길 수 있습니다.</span>
+          </div>
+        </div>
+
+        <!-- 책 띠지 -->
+        <div class="band">
+          <div class="thumb"></div>
+          <div>
+            <div class="t">그림자를 녹이는 만년필의 시간</div>
+            <div class="a">Elara Voss · 판타지 · 510쪽 · ₩25,650</div>
+            <div>
+              <span class="chip">#유럽판타지</span><span class="chip">#예술가의고뇌</span>
+              <span class="chip">#그림자마법</span><span class="chip">#존재의해체</span>
+            </div>
+          </div>
+        </div>
+
+        <!-- 통계 바 -->
+        <div class="statbar">
+          <div><div class="n">7</div><div class="l">참여 독자</div></div>
+          <div><div class="n">10</div><div class="l">감상</div></div>
+          <div><div class="n">3일</div><div class="l">독서 기간</div></div>
+          <div><div class="n zero">0</div><div class="l">총 반응 수</div></div>
+          <div><div class="n zero">—</div><div class="l">평균 평점</div></div>
+        </div>
+
+        <!-- 편집자의 말 -->
+        <div class="sec white">
+          <div class="sec-rule"><span class="no">EDITOR'S NOTE</span><h4>편집자의 말</h4><span class="line"></span></div>
+          <p class="body-txt drop">
+            이 책은 존재하지 않습니다. 그러나 이 안에 담긴 감상들은 진짜입니다.
+            7명의 독자가 『그림자를 녹이는 만년필의 시간』이라는 존재하지 않는 책을 사흘 동안 함께 읽었고,
+            펜촉 끝에서 갈라지는 창조와 파괴에 대해 서로의 상상을 포개었습니다.
+            <span class="sig">가공독서회 아카이브 편집팀</span>
+          </p>
+        </div>
+
+        <!-- 추천사 (실제 값) -->
+        <div class="quote-band">
+          <p>“예술과 파괴의 경계에 선 독특한 판타지를 직조해낸<br>Elara Voss의 섬세한 묘사에 매료될 것이다.”</p>
+          <div class="by">— 문화예술 (익명)</div>
+        </div>
+
+        <!-- 참여 독자 -->
+        <div class="sec">
+          <div class="sec-rule"><span class="no">READERS</span><h4>이번 독서회 참여자 7인</h4><span class="line"></span></div>
+          <div class="readers">
+            <span class="reader"><span class="avatar">그</span>그림자조각가</span>
+            <span class="reader"><span class="avatar">만</span>만년필의향기</span>
+            <span class="reader"><span class="avatar">빛</span>빛과어둠</span>
+            <span class="reader"><span class="avatar">도</span>도시의혼</span>
+            <span class="reader"><span class="avatar">은</span>은하수펜촉</span>
+            <span class="reader"><span class="avatar">파</span>파스텔문장</span>
+            <span class="reader"><span class="avatar">사</span>사색의시간</span>
+          </div>
+        </div>
+
+        <!-- 1장 + 감상 (실제 10건, 날짜 구분) -->
+        <div class="chapter-head">
+          <div class="num">1장</div>
+          <div class="t">책의 첫인상</div>
+          <div class="d">『그림자를 녹이는 만년필의 시간』의 세계를 처음 마주했을 때 나눈 감상들</div>
+        </div>
+        <div class="msgs">
+          <div class="daysep"><span class="line"></span><span>첫날 · 7월 29일</span><span class="line"></span></div>
+
+          <div class="msg">
+            <div class="av">그</div>
+            <div style="flex:1;">
+              <div class="who">그림자조각가 · 오전 11:20</div>
+              <div class="card"><div class="txt">셀레나가 만년필로 그린 그림자가 흑백 잉크처럼 흩어지며 현실의 벽을 서서히 해체시키는 1장 장면에서 손끝이 덜덜 떨렸어요! ✒️</div></div>
+            </div>
+          </div>
+          <div class="msg">
+            <div class="av">만</div>
+            <div style="flex:1;">
+              <div class="who">만년필의향기 · 오후 4:45</div>
+              <div class="card"><div class="txt">맞아요! 펜촉 끝에서 감도는 은은한 바이올렛 잉크 향과 서늘한 민트 향 묘사가 문장 너머로 느껴지는 듯해서 가슴이 덜컥 내려앉았습니다.</div></div>
+            </div>
+          </div>
+          <div class="msg">
+            <div class="av">빛</div>
+            <div style="flex:1;">
+              <div class="who">빛과어둠 · 오후 9:10</div>
+              <div class="card"><div class="txt">만년필의향기님 말씀에 100% 동감해요! 창조와 파괴가 펜 한 자루에서 갈라지는 미학이 정통 유럽 판타지 문학의 정수를 보여주네요 ✨</div></div>
+            </div>
+          </div>
+
+          <div class="daysep"><span class="line"></span><span>둘째 날 · 7월 30일</span><span class="line"></span></div>
+
+          <div class="msg">
+            <div class="av">도</div>
+            <div style="flex:1;">
+              <div class="who">도시의혼 · 오전 10:30</div>
+              <div class="card"><div class="txt">2장 자정의 시계탑 씬에서 셀레나가 도시 전체를 삼키려는 거대한 그림자를 목격하고 턱 막히는 목구멍을 누르는 장면이 잊히지 않네요 😭</div></div>
+            </div>
+          </div>
+          <div class="msg">
+            <div class="av">은</div>
+            <div style="flex:1;">
+              <div class="who">은하수펜촉 · 오후 3:15</div>
+              <div class="card"><div class="txt">저는 셀레나가 자신의 잉크로 새로운 구원의 궤적을 그리려 결심하는 손끝의 응시 씬이 너무 가슴 벅찼어요!</div></div>
+            </div>
+          </div>
+        </div>
+
+        <!-- 명대사를 지면 중간에 (실제 memorable_quote) -->
+        <div class="quote-band">
+          <p>“사라지는 것들의 아름다움은,<br>영원히 머무는 것들보다 더 깊은 여운을 남긴다.”</p>
+          <div class="by">본문에서 · 독서회에서 가장 많이 언급된 문장</div>
+        </div>
+
+        <div class="msgs" style="padding-top:22px;">
+          <div class="daysep"><span class="line"></span><span>마지막 날 · 7월 31일</span><span class="line"></span></div>
+          <div class="msg">
+            <div class="av">사</div>
+            <div style="flex:1;">
+              <div class="who">사색의시간 · 오전 10:05</div>
+              <div class="card"><div class="txt">'사라지는 것들의 아름다움은, 영원히 머무는 것들보다 더 깊은 여운을 남긴다' ... @사회자 님은 셀레나의 이 선택을 어떻게 보시나요?</div></div>
+            </div>
+          </div>
+          <div class="msg mod">
+            <div class="av">🎙</div>
+            <div style="flex:1;">
+              <div class="who">🎙️ AI 사회자 · 오전 11:40</div>
+              <div class="card"><div class="txt">사색의시간님, 깊은 울림을 전하는 명문장을 짚어주셨군요. ✨ 셀레나에게 만년필은 사물을 해체하는 차가운 도구가 아니라, 존재의 소중함을 다시 일깨우는 따스한 찰나의 매개였습니다.</div></div>
+            </div>
+          </div>
+          <div class="msg">
+            <div class="av">그</div>
+            <div style="flex:1;">
+              <div class="who">그림자조각가 · 오후 1:50</div>
+              <div class="card"><div class="txt">@사회자님! 셀레나가 구한 건 도시뿐만 아니라 자아의 죄책감에서 벗어난 자기 자신이었다고 생각해요 😭 최고의 감동이었습니다.</div></div>
+            </div>
+          </div>
+        </div>
+
+        <div class="closing">
+          <h4>기록의 보관을 마치며</h4>
+          <p>『그림자를 녹이는 만년필의 시간』의 독서방은 2026년 7월 31일 공식 종료되었습니다.
+            영원한 해체는 없으며, 파괴 속에서도 새로운 문장이 피어난다는 이야기를
+            7명의 독자가 함께 읽었습니다.</p>
+        </div>
+        <div class="colophon">
+          <div><b>발행처</b>가공독서회 보관실</div>
+          <div><b>기획 및 구성</b>가공 아카이브 편집팀</div>
+          <div><b>서지 분류 번호</b>GK-2026-040</div>
+          <div><b>보관 개시일</b>2026-07-31</div>
+        </div>
+      </div>
+    </div>
+
+    <div class="notes">
+      <div class="note warn"><span class="n">!</span><span>이 책은 <b>반응 0건 · 평점 0건</b>입니다. 앞선 목업의 <b>「최다 공감 리본」은 붙일 근거가 없습니다</b> — 실제 데이터로 그려보니 드러났습니다.</span></div>
+      <div class="note warn"><span class="n">!</span><span>평점 개봉 자리도 <b>빈 상태</b>가 됩니다. "🔒 이 독서방에서는 평점이 남지 않았습니다"로 바꿔 넣었습니다.</span></div>
+      <div class="note"><span class="n">1</span><span>리본 대신 <b>실제 명대사</b>(memorable_quote)를 지면 중간 인용으로 썼습니다. 특정 독자를 띄우지 않으면서 잡지 느낌이 납니다.</span></div>
+      <div class="note"><span class="n">2</span><span>3일에 걸친 대화라 <b>날짜 구분선</b>을 넣었습니다. 기존 채팅 화면에도 이미 있는 요소입니다.</span></div>
+      <div class="note"><span class="n">3</span><span>통계 바의 "댓글"을 <b>독서 기간(3일)</b>으로 바꿨습니다. 댓글은 항상 0이라 자리만 차지합니다.</span></div>
+      <div class="note"><span class="n">4</span><span>추천사도 지면 인용으로 올렸습니다. 지금은 도서 상세에만 있고 아카이브에는 없습니다.</span></div>
+    </div>
+
+    <p class="lead" style="margin-top:24px;">
+      ※ 실제 데이터 기준: 참여자 7명(사회자 제외) · 감상 10건 · 2026.07.29–07.31 · 반응 0 · 평점 0.
+      감상 10건 중 8건을 지면에 실었습니다(분량 관계로 2건 생략).
+    </p>
+  </div>
+</body>
+
+</html>

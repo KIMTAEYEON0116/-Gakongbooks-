@@ -1,0 +1,422 @@
+<!DOCTYPE html>
+<html lang="ko">
+
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>아카이브 열람 화면 — 방향 제안 3안</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link
+    href="https://fonts.googleapis.com/css2?family=Noto+Sans+KR:wght@400;500;700&family=Noto+Serif+KR:wght@400;600;700&display=swap"
+    rel="stylesheet">
+  <style>
+    :root {
+      --bg: #faf7f2; --surface: #fff; --border: #e8e0d5; --border-light: #f0e8dc;
+      --text: #2c2418; --text-muted: #8a7a6a; --text-faint: #bbb;
+      --accent: #c17b3f; --accent-bg: #fdf0e4; --accent-border: #e8c89a;
+      --serif: 'Noto Serif KR', serif; --sans: 'Noto Sans KR', sans-serif;
+      --ink: #241d14; --good: #4a7a3a; --bad: #b54a6a;
+    }
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    body { background: #e9e3d9; font-family: var(--sans); color: var(--text); padding: 26px 24px 90px; }
+    .wrap { max-width: 1460px; margin: 0 auto; }
+
+    h1 { font-family: var(--serif); font-size: 25px; margin-bottom: 6px; }
+    .lead { font-size: 13.5px; color: var(--text-muted); line-height: 1.8; }
+    .lead a { color: var(--accent); }
+
+    h2 {
+      font-family: var(--serif); font-size: 20px; margin: 44px 0 4px; padding-top: 24px;
+      border-top: 2px solid var(--border); display: flex; align-items: center; gap: 10px; flex-wrap: wrap;
+    }
+    h2 .badge {
+      font-family: var(--sans); font-size: 11px; font-weight: 700; padding: 3px 10px; border-radius: 12px;
+      background: var(--accent-bg); color: var(--accent); border: 1px solid var(--accent-border);
+    }
+    h2 .badge.pick { background: #e9f0e5; color: var(--good); border-color: #c8dcbc; }
+    h2 .sub { font-family: var(--sans); font-size: 12.5px; color: var(--text-muted); font-weight: 400; }
+
+    .monitor { margin-top: 14px; }
+    .monitor-bar {
+      display: flex; align-items: center; gap: 7px; background: #ddd4c6;
+      border: 1px solid var(--border); border-bottom: 0; border-radius: 9px 9px 0 0;
+      padding: 7px 12px; font-size: 11px; color: #7a6a56;
+    }
+    .monitor-bar i { width: 9px; height: 9px; border-radius: 50%; background: #c9bda9; display: inline-block; }
+    .monitor-bar .url { margin-left: 8px; background: #f3ede3; border-radius: 4px; padding: 2px 10px; font-size: 10.5px; }
+    .monitor-bar .size { margin-left: auto; font-size: 10.5px; }
+    .screen { background: var(--bg); border: 1px solid var(--border); border-radius: 0 0 9px 9px; overflow: hidden; }
+
+    .topbar { background: var(--ink); color: #f3ece0; padding: 13px 24px; display: flex; align-items: center; gap: 12px; font-size: 12.5px; }
+    .topbar .back { color: rgba(255,255,255,.6); }
+    .topbar .mode { margin-left: auto; display: flex; gap: 6px; }
+    .topbar .mode span { border: 1px solid rgba(255,255,255,.22); border-radius: 13px; padding: 3px 11px; font-size: 11px; color: rgba(255,255,255,.75); }
+    .topbar .mode span.on { background: var(--accent); border-color: var(--accent); color: #fff; }
+
+    /* 공통 조각 */
+    .book-mini { width: 74px; height: 104px; border-radius: 3px; background: linear-gradient(160deg, #8b5fb8, #46335e); flex-shrink: 0; }
+    .avatar { width: 30px; height: 30px; border-radius: 50%; background: #efe5d5; color: #8b6b45;
+      font-size: 12px; font-weight: 700; display: flex; align-items: center; justify-content: center; flex-shrink: 0; }
+    .rx { font-size: 11.5px; color: var(--text-muted); display: flex; gap: 8px; }
+    .quote-txt { font-size: 13.5px; line-height: 1.8; color: #3d3428; }
+
+    /* ── A안: 타임라인 ── */
+    .tl-wrap { display: grid; grid-template-columns: 210px 1fr; }
+    .tl-side {
+      background: #f4efe6; border-right: 1px solid var(--border); padding: 20px 18px;
+      display: flex; flex-direction: column; gap: 14px;
+    }
+    .tl-side .lbl { font-size: 10.5px; letter-spacing: .16em; color: var(--accent); }
+    .tl-side .t { font-family: var(--serif); font-size: 15px; font-weight: 700; line-height: 1.4; }
+    .tl-side .meta { font-size: 11.5px; color: var(--text-muted); line-height: 1.7; }
+    .tl-nav { display: flex; flex-direction: column; gap: 2px; margin-top: 6px; }
+    .tl-nav a { font-size: 12px; color: var(--text-muted); padding: 5px 8px; border-radius: 5px; text-decoration: none; }
+    .tl-nav a.on { background: var(--accent-bg); color: var(--accent); font-weight: 600; }
+    .tl-main { padding: 22px 26px; position: relative; }
+    .tl-day {
+      display: inline-block; font-size: 11.5px; font-weight: 700; color: var(--accent);
+      background: var(--accent-bg); border: 1px solid var(--accent-border);
+      border-radius: 12px; padding: 3px 12px; margin: 4px 0 12px;
+    }
+    .tl-item { display: flex; gap: 12px; padding-left: 6px; margin-bottom: 14px; position: relative; }
+    .tl-item::before {
+      content: ""; position: absolute; left: -14px; top: 12px; bottom: -16px; width: 1px; background: var(--border);
+    }
+    .tl-item:last-child::before { display: none; }
+    .tl-body { flex: 1; }
+    .tl-who { font-size: 12px; color: var(--text-muted); margin-bottom: 5px; }
+    .tl-bub { background: var(--surface); border: 1px solid var(--border-light); border-radius: 12px; padding: 11px 15px; }
+
+    /* ── B안: 스프레드 ── */
+    .sp-wrap { display: grid; grid-template-columns: 340px 1fr; }
+    .sp-left { background: var(--ink); color: #f3ece0; padding: 24px 22px; }
+    .sp-left .lbl { font-size: 10.5px; letter-spacing: .22em; color: var(--accent); margin-bottom: 10px; }
+    .sp-left h3 { font-family: var(--serif); font-size: 21px; line-height: 1.3; margin-bottom: 8px; }
+    .sp-left .meta { font-size: 11.5px; color: rgba(243,236,224,.5); line-height: 1.8; }
+    .sp-book { width: 116px; height: 162px; border-radius: 4px; background: linear-gradient(160deg,#8b5fb8,#46335e); margin-bottom: 16px; }
+    .sp-score { margin-top: 16px; padding-top: 14px; border-top: 1px solid rgba(255,255,255,.12); }
+    .sp-score .n { font-family: var(--serif); font-size: 28px; font-weight: 700; }
+    .sp-score .s { color: #e8c89a; font-size: 13px; letter-spacing: 2px; }
+    .sp-stats { margin-top: 14px; display: grid; grid-template-columns: 1fr 1fr; gap: 9px; font-size: 11.5px; color: rgba(243,236,224,.6); }
+    .sp-stats b { display: block; font-family: var(--serif); font-size: 17px; color: #fff; }
+    .sp-right { padding: 24px 28px; }
+    .sp-chapter { font-family: var(--serif); font-size: 16px; font-weight: 700; margin: 4px 0 14px; display: flex; align-items: baseline; gap: 9px; }
+    .sp-chapter span { font-size: 11px; letter-spacing: .16em; color: var(--accent); font-family: var(--sans); }
+    .sp-cols { column-count: 2; column-gap: 26px; }
+    .sp-card { break-inside: avoid; background: var(--surface); border: 1px solid var(--border-light); border-radius: 10px; padding: 13px 15px; margin-bottom: 14px; }
+    .sp-card .who { display: flex; align-items: center; gap: 8px; font-size: 12.5px; font-weight: 600; margin-bottom: 7px; }
+    .sp-card .who .avatar { width: 24px; height: 24px; font-size: 11px; }
+
+    /* ── C안: 갤러리 ── */
+    .gl-head { background: var(--ink); color: #f3ece0; padding: 20px 26px; display: flex; align-items: center; gap: 18px; }
+    .gl-head h3 { font-family: var(--serif); font-size: 20px; }
+    .gl-head .meta { font-size: 11.5px; color: rgba(243,236,224,.5); }
+    .gl-head .score { margin-left: auto; text-align: right; }
+    .gl-head .score .n { font-family: var(--serif); font-size: 26px; font-weight: 700; }
+    .gl-head .score .s { color: #e8c89a; font-size: 12px; letter-spacing: 2px; }
+    .gl-filter { display: flex; gap: 7px; padding: 14px 26px 0; flex-wrap: wrap; }
+    .gl-filter span { font-size: 11.5px; border: 1px solid var(--border); border-radius: 13px; padding: 4px 12px; color: var(--text-muted); background: var(--surface); }
+    .gl-filter span.on { background: var(--accent); border-color: var(--accent); color: #fff; font-weight: 600; }
+    .gl-grid { columns: 3; column-gap: 14px; padding: 16px 26px 24px; }
+    .gl-card { break-inside: avoid; background: var(--surface); border: 1px solid var(--border); border-radius: 11px; padding: 14px 16px; margin-bottom: 14px; }
+    .gl-card.hot { border-color: var(--accent-border); background: linear-gradient(180deg,#fffdf9,#fdf5ea); }
+    .gl-card .who { display: flex; align-items: center; gap: 8px; font-size: 12.5px; font-weight: 600; margin-bottom: 8px; }
+    .gl-card .who .avatar { width: 24px; height: 24px; font-size: 11px; }
+    .gl-card .rank { margin-left: auto; font-size: 10.5px; color: var(--accent); background: var(--accent-bg); border: 1px solid var(--accent-border); border-radius: 10px; padding: 1px 8px; font-weight: 700; }
+    .gl-card .txt { font-size: 13px; line-height: 1.75; color: #3d3428; margin-bottom: 9px; }
+
+    /* 비교표 · 주석 */
+    .cmp { width: 100%; border-collapse: collapse; margin-top: 16px; font-size: 13px; background: var(--surface); border: 1px solid var(--border); border-radius: 8px; overflow: hidden; }
+    .cmp th, .cmp td { padding: 11px 14px; text-align: left; border-bottom: 1px solid var(--border-light); vertical-align: top; }
+    .cmp th { background: #f4efe6; font-weight: 700; font-size: 12.5px; }
+    .cmp tr:last-child td { border-bottom: 0; }
+    .cmp td.good { color: var(--good); }
+    .cmp td.bad { color: var(--bad); }
+
+    .notes { margin-top: 12px; display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
+    .note {
+      display: flex; gap: 9px; font-size: 12.5px; line-height: 1.65; background: var(--surface);
+      border: 1px solid var(--border); border-left: 3px solid var(--good); border-radius: 6px; padding: 9px 12px;
+    }
+    .note.warn { border-left-color: var(--bad); }
+    .note .n { flex-shrink: 0; font-weight: 700; color: var(--good); }
+    .note.warn .n { color: var(--bad); }
+  </style>
+</head>
+
+<body>
+  <div class="wrap">
+    <h1>아카이브 열람 화면 — 방향 제안</h1>
+    <p class="lead">
+      앞서 만든 <a href="/static/mockups/archive-redesign.html">아카이브 재배치 목업</a>은 "지금 구성의 순서를 바꾸는" 안이었습니다.
+      여기서는 <b>열람 화면의 성격 자체를 바꾸는 세 방향</b>을 비교합니다. PC 1400×760 기준.<br>
+      공통 전제 — 잡지 컨셉과 종이 톤은 유지하고, 감상에 먼저 닿게 하며, 진행 중 봉인한 평점을 여기서 개봉합니다.
+    </p>
+
+    <!-- ═══════ A안 ═══════ -->
+    <h2><span class="badge">A안</span> 독서회 타임라인 <span class="sub">— "그날 무슨 대화가 오갔나"를 날짜순으로</span></h2>
+    <div class="monitor">
+      <div class="monitor-bar"><i></i><i></i><i></i>
+        <span class="url">아카이브 · 오래된 안경 상점과 갈망의 정원</span><span class="size">1400 × 760</span></div>
+      <div class="screen">
+        <div class="topbar"><span class="back">← 돌아가기</span>
+          <div class="mode"><span class="on">타임라인</span><span>매거진</span><span>⇄ 가로</span></div>
+        </div>
+        <div class="tl-wrap">
+          <div class="tl-side">
+            <div class="book-mini"></div>
+            <div>
+              <div class="lbl">ARCHIVE</div>
+              <div class="t">오래된 안경 상점과 갈망의 정원</div>
+              <div class="meta">Elara Merritt · 소설<br>12명 · 18개의 감상<br>2026.07.28 – 07.30</div>
+            </div>
+            <div class="tl-nav">
+              <a class="on" href="#">첫날 · 7월 28일 (6)</a>
+              <a href="#">둘째 날 · 7월 29일 (7)</a>
+              <a href="#">마지막 날 · 7월 30일 (5)</a>
+              <a href="#">평점 · 반응 통계</a>
+              <a href="#">편집자의 말</a>
+            </div>
+          </div>
+          <div class="tl-main">
+            <div class="tl-day">첫날 · 7월 28일</div>
+            <div class="tl-item">
+              <div class="avatar">달</div>
+              <div class="tl-body">
+                <div class="tl-who">달빛독자 · 오후 8:05</div>
+                <div class="tl-bub">
+                  <div class="quote-txt">타인의 속마음을 비추는 안경을 닦을 때마다 나의 고독을 닦아내고 있었다는 문장이 가슴을 치네요… 👓</div>
+                  <div class="rx" style="margin-top:8px;"><span>❤️ 22</span><span>✨ 9</span></div>
+                </div>
+              </div>
+            </div>
+            <div class="tl-item">
+              <div class="avatar">새</div>
+              <div class="tl-body">
+                <div class="tl-who">새벽사서 · 오후 8:18</div>
+                <div class="tl-bub">
+                  <div class="quote-txt">아델이 렌즈를 투영하며 마주한 진실과 갈망의 정원 씬이 환상적이면서도 씁쓸한 여운을 전하더군요.</div>
+                  <div class="rx" style="margin-top:8px;"><span>❤️ 16</span><span>🤔 4</span></div>
+                </div>
+              </div>
+            </div>
+            <div class="tl-item">
+              <div class="avatar">🎙</div>
+              <div class="tl-body">
+                <div class="tl-who">AI 사회자 · 오후 8:30</div>
+                <div class="tl-bub" style="background:#fdf8f0;border-color:var(--accent-border);">
+                  <div class="quote-txt">타인의 숨겨진 마음을 아는 안경이 있다면 독자님들은 쓰시겠습니까, 아니면 모르고 살아가시겠습니까? ✨</div>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+    <div class="notes">
+      <div class="note"><span class="n">+</span><span>독서회가 <b>며칠에 걸쳐 진행된 흐름</b>이 그대로 보입니다. 3일치 시드 대화 구조와 잘 맞습니다.</span></div>
+      <div class="note"><span class="n">+</span><span>왼쪽 고정 패널로 <b>어느 날로든 바로 점프</b>. 8.7화면 스크롤 문제가 사라집니다.</span></div>
+      <div class="note warn"><span class="n">−</span><span>잡지 느낌은 옅어집니다. "박제된 소장본"보다 <b>대화 기록</b>에 가까워집니다.</span></div>
+      <div class="note warn"><span class="n">−</span><span>감상이 적은 방(1~2건)에서는 타임라인이 <b>빈약해 보입니다</b>.</span></div>
+    </div>
+
+    <!-- ═══════ B안 ═══════ -->
+    <h2><span class="badge pick">B안</span> 에디토리얼 스프레드 <span class="sub">— 왼쪽은 고정된 판권, 오른쪽은 2단 조판</span> <span class="badge pick">추천</span></h2>
+    <div class="monitor">
+      <div class="monitor-bar"><i></i><i></i><i></i>
+        <span class="url">아카이브 · 오래된 안경 상점과 갈망의 정원</span><span class="size">1400 × 760</span></div>
+      <div class="screen">
+        <div class="topbar"><span class="back">← 돌아가기</span>
+          <div class="mode"><span>타임라인</span><span class="on">매거진</span><span>⇄ 가로</span></div>
+        </div>
+        <div class="sp-wrap">
+          <div class="sp-left">
+            <div class="sp-book"></div>
+            <div class="lbl">READING ROOM ARCHIVE</div>
+            <h3>오래된 안경 상점과<br>갈망의 정원</h3>
+            <div class="meta">Elara Merritt · 소설<br>제36호 · 2026년 7월 30일 종료</div>
+            <div class="sp-score">
+              <div style="font-size:10.5px;letter-spacing:.14em;color:var(--accent);margin-bottom:6px;">🔓 이제 공개합니다</div>
+              <div class="n">4.3 <span style="font-size:12px;color:rgba(243,236,224,.5);">/ 5</span></div>
+              <div class="s">★★★★☆</div>
+            </div>
+            <div class="sp-stats">
+              <div><b>12</b>참여 독자</div>
+              <div><b>18</b>감상</div>
+              <div><b>47</b>반응</div>
+              <div><b>3일</b>기간</div>
+            </div>
+          </div>
+          <div class="sp-right">
+            <div class="sp-chapter"><span>1장</span> 책의 첫인상</div>
+            <div class="sp-cols">
+              <div class="sp-card">
+                <div class="who"><span class="avatar">달</span>달빛독자</div>
+                <div class="quote-txt">타인의 속마음을 비추는 안경을 닦을 때마다 나의 고독을 닦아내고 있었다는 문장이 가슴을 치네요… 👓</div>
+                <div class="rx" style="margin-top:8px;"><span>❤️ 22</span><span>✨ 9</span></div>
+              </div>
+              <div class="sp-card">
+                <div class="who"><span class="avatar">새</span>새벽사서</div>
+                <div class="quote-txt">아델이 렌즈를 투영하며 마주한 진실과 갈망의 정원 씬이 환상적이면서도 씁쓸한 여운을 전하더군요.</div>
+                <div class="rx" style="margin-top:8px;"><span>❤️ 16</span><span>🤔 4</span></div>
+              </div>
+              <div class="sp-card">
+                <div class="who"><span class="avatar">글</span>글꽃소녀</div>
+                <div class="quote-txt">저는 쓰지 않고 진실을 모른 채 평온하게 살고 싶어요! 3장 결말의 선택이 그래서 더 와닿았어요.</div>
+                <div class="rx" style="margin-top:8px;"><span>❤️ 14</span></div>
+              </div>
+              <div class="sp-card">
+                <div class="who"><span class="avatar">밤</span>밤의활자</div>
+                <div class="quote-txt">안경 상점이라는 공간 자체가 인물의 내면을 비추는 거울처럼 쓰였다는 점이 좋았습니다.</div>
+                <div class="rx" style="margin-top:8px;"><span>❤️ 11</span><span>😄 2</span></div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+    <div class="notes">
+      <div class="note"><span class="n">+</span><span>왼쪽 패널이 <b>스크롤해도 고정</b>되어, 어느 감상을 읽든 어떤 책인지·평점이 몇 점인지 항상 보입니다.</span></div>
+      <div class="note"><span class="n">+</span><span>2단 조판이라 같은 화면에 <b>감상이 2배</b> 들어갑니다. 전체 길이가 절반으로 줄어듭니다.</span></div>
+      <div class="note"><span class="n">+</span><span><b>잡지 정체성을 가장 잘 유지</b>합니다. 판권·제N호·조판 개념이 그대로 살아 있습니다.</span></div>
+      <div class="note warn"><span class="n">−</span><span>모바일에서는 2단이 성립하지 않아 <b>1단으로 떨어집니다</b>(왼쪽 패널은 상단 요약으로 변환 필요).</span></div>
+    </div>
+
+    <!-- ═══════ C안 ═══════ -->
+    <h2><span class="badge">C안</span> 감상 갤러리 <span class="sub">— 반응 많은 감상이 더 크게, 골라 읽는 화면</span></h2>
+    <div class="monitor">
+      <div class="monitor-bar"><i></i><i></i><i></i>
+        <span class="url">아카이브 · 오래된 안경 상점과 갈망의 정원</span><span class="size">1400 × 760</span></div>
+      <div class="screen">
+        <div class="topbar"><span class="back">← 돌아가기</span>
+          <div class="mode"><span>타임라인</span><span>매거진</span><span class="on">갤러리</span></div>
+        </div>
+        <div class="gl-head">
+          <div class="book-mini" style="width:60px;height:84px;"></div>
+          <div>
+            <h3>오래된 안경 상점과 갈망의 정원</h3>
+            <div class="meta">Elara Merritt · 12명이 남긴 18개의 감상 · 2026.07.30 종료</div>
+          </div>
+          <div class="score">
+            <div style="font-size:10px;letter-spacing:.14em;color:var(--accent);">🔓 공개</div>
+            <div class="n">4.3</div><div class="s">★★★★☆</div>
+          </div>
+        </div>
+        <div class="gl-filter">
+          <span class="on">전체 18</span><span>❤️ 공감해요 12</span><span>🤔 생각이 달라요 4</span>
+          <span>😄 재밌어요 6</span><span>✨ 인상 깊어요 9</span><span>🎙 사회자 3</span>
+        </div>
+        <div class="gl-grid">
+          <div class="gl-card hot">
+            <div class="who"><span class="avatar">달</span>달빛독자<span class="rank">1위</span></div>
+            <div class="txt">타인의 속마음을 비추는 안경을 닦을 때마다 나의 고독을 닦아내고 있었다는 문장이 가슴을 치네요… 👓</div>
+            <div class="rx"><span>❤️ 22</span><span>✨ 9</span></div>
+          </div>
+          <div class="gl-card">
+            <div class="who"><span class="avatar">글</span>글꽃소녀</div>
+            <div class="txt">저는 쓰지 않고 진실을 모른 채 평온하게 살고 싶어요!</div>
+            <div class="rx"><span>❤️ 14</span></div>
+          </div>
+          <div class="gl-card hot">
+            <div class="who"><span class="avatar">새</span>새벽사서<span class="rank">2위</span></div>
+            <div class="txt">아델이 렌즈를 투영하며 마주한 진실과 갈망의 정원 씬이 환상적이면서도 씁쓸한 여운을 전하더군요.</div>
+            <div class="rx"><span>❤️ 16</span><span>🤔 4</span></div>
+          </div>
+          <div class="gl-card">
+            <div class="who"><span class="avatar">밤</span>밤의활자</div>
+            <div class="txt">안경 상점이라는 공간 자체가 인물의 내면을 비추는 거울처럼 쓰였습니다.</div>
+            <div class="rx"><span>❤️ 11</span><span>😄 2</span></div>
+          </div>
+          <div class="gl-card">
+            <div class="who"><span class="avatar">🎙</span>AI 사회자</div>
+            <div class="txt">타인의 숨겨진 마음을 아는 안경이 있다면 쓰시겠습니까? ✨</div>
+            <div class="rx"><span>✨ 26</span></div>
+          </div>
+          <div class="gl-card">
+            <div class="who"><span class="avatar">기</span>기억보관함</div>
+            <div class="txt">마지막 장에서 안경을 내려놓는 선택이 오래 남습니다.</div>
+            <div class="rx"><span>❤️ 8</span></div>
+          </div>
+        </div>
+      </div>
+    </div>
+    <div class="notes">
+      <div class="note"><span class="n">+</span><span>반응 종류로 <b>골라 읽을 수 있습니다</b>("생각이 달라요"만 모아 보기 등).</span></div>
+      <div class="note"><span class="n">+</span><span>한 화면에 감상이 가장 많이 들어갑니다. <b>훑어보기</b>에 최적.</span></div>
+      <div class="note warn"><span class="n">−</span><span>대화의 <b>맥락과 순서가 사라집니다</b>. 답글로 이어진 흐름을 읽을 수 없습니다.</span></div>
+      <div class="note warn"><span class="n">−</span><span>잡지 정체성이 가장 약합니다. 일반적인 <b>리뷰 사이트</b>처럼 보일 수 있습니다.</span></div>
+    </div>
+
+    <!-- ═══════ 비교 ═══════ -->
+    <h2>세 방향 비교</h2>
+    <table class="cmp">
+      <tr>
+        <th style="width:110px;">기준</th>
+        <th>A · 타임라인</th>
+        <th>B · 스프레드 <span style="color:var(--good);">(추천)</span></th>
+        <th>C · 갤러리</th>
+      </tr>
+      <tr>
+        <td>성격</td>
+        <td>대화 기록</td>
+        <td>소장용 지면</td>
+        <td>리뷰 모음</td>
+      </tr>
+      <tr>
+        <td>잡지 정체성</td>
+        <td class="bad">약함</td>
+        <td class="good">가장 강함</td>
+        <td class="bad">약함</td>
+      </tr>
+      <tr>
+        <td>전체 길이</td>
+        <td>중간</td>
+        <td class="good">가장 짧음 (2단)</td>
+        <td class="good">짧음</td>
+      </tr>
+      <tr>
+        <td>대화 맥락</td>
+        <td class="good">시간순 유지</td>
+        <td>장(章) 단위 유지</td>
+        <td class="bad">사라짐</td>
+      </tr>
+      <tr>
+        <td>감상 적을 때</td>
+        <td class="bad">빈약해 보임</td>
+        <td>왼쪽 패널이 채워줌</td>
+        <td class="bad">카드 몇 장만 덩그러니</td>
+      </tr>
+      <tr>
+        <td>구현 부담</td>
+        <td>중 (날짜 그룹핑 필요)</td>
+        <td class="good">낮음 (기존 구조 + 2단 조판)</td>
+        <td>중 (반응별 필터 필요)</td>
+      </tr>
+      <tr>
+        <td>모바일</td>
+        <td class="good">그대로 1단</td>
+        <td>패널 → 상단 요약 변환</td>
+        <td class="good">1열로 자연스럽게</td>
+      </tr>
+    </table>
+
+    <div class="notes" style="grid-template-columns:1fr;">
+      <div class="note"><span class="n">추천</span><span>
+        <b>B안(스프레드)</b>을 추천합니다. 이 서비스에서 아카이브의 가치는 "존재하지 않는 책의 감상이 <b>소장본처럼 박제되는 것</b>"인데,
+        B안이 그 성격을 가장 잘 지키면서 길이 문제(8.7화면)도 2단 조판으로 해결합니다.
+        왼쪽 고정 패널은 진행 중 봉인했던 <b>평점 개봉</b>을 항상 보이는 자리에 둘 수 있다는 장점도 있습니다.
+      </span></div>
+      <div class="note"><span class="n">대안</span><span>
+        A안(타임라인)은 <b>모드 전환</b>으로 함께 제공할 만합니다. 이미 "⇄ 가로 보기" 토글이 있으니
+        <b>매거진 / 타임라인</b> 두 모드를 두면, 소장용으로 볼 때와 대화를 되짚을 때를 나눌 수 있습니다.
+      </span></div>
+    </div>
+
+    <p class="lead" style="margin-top:30px;">
+      ※ 구조·성격 비교용 목업입니다. 실제 여백과 세부 스타일까지 1:1로 재현하지 않았고, 평점 4.3 / 12명은 예시 수치입니다.
+    </p>
+  </div>
+</body>
+
+</html>
