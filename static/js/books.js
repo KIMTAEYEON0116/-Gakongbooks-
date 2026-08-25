@@ -644,8 +644,6 @@ function renderGenreSection() {
       });
 
       var grid = document.getElementById('cards-grid');
-      var arcSection = document.getElementById('arc-home-section');
-      var deadlineSection = document.querySelector('.home-section:last-child');
 
       if (currentGenre === '아카이브') {
         // 종료된 독서방은 '월별 서가'로 묶어서 보여준다
@@ -660,7 +658,6 @@ function renderGenreSection() {
       } else {
         // 아카이브 탭에서 돌아오면 그리드 레이아웃을 원래대로 되돌린다
         grid.className = 'cards-grid';
-        if (arcSection) arcSection.style.display = 'none';
         var dlSection2 = document.querySelector('#pg-home .home-section:last-child');
         if (dlSection2) dlSection2.style.display = '';
 
