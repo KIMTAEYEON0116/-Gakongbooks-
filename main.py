@@ -11,6 +11,7 @@ for _stream in (sys.stdout, sys.stderr):
     except Exception:
         pass
 import json
+import re
 import asyncio
 import random
 import secrets
@@ -39,6 +40,42 @@ import database
 import models
 import auth
 import security
+
+# ── 채팅 본문 이모지 제거 ──
+# 이 서비스의 채팅은 본문에 이모지를 쓰지 않는다. 감정 표현은
+# 메시지에 다는 '반응'(❤️ 🤔 😄 ✨)이 담당하므로, 본문에까지 이모지가
+# 섞이면 톤이 흐트러진다. 프롬프트로 금지해도 모델이 어길 수 있어
+# 저장 직전에 한 번 더 걸러낸다.
+_EMOJI_RE = re.compile(
+    "["
+    "\U0001F300-\U0001FAFF"   # 그림문자·보충 기호
+    "\U0001F000-\U0001F2FF"   # 마작·카드·괄호문자
+    "\u2600-\u27BF"           # 기타 기호 및 딩뱃
+    "\u2B00-\u2BFF"           # 화살표 보충
+    "\uFE0F"                   # 변이 선택자
+    "\u200D"                   # ZWJ
+    "\u20E3"                   # 키캡 결합문자(1️⃣ 등)
+    "]+"
+)
+
+
+def strip_chat_emoji(text: str) -> str:
+    """채팅 본문의 이모지를 제거하고 그 자리에 생긴 여백을 정리합니다."""
+    if not text:
+        return text
+    out = _EMOJI_RE.sub("", text)
+    out = re.sub(r"[ \t]{2,}", " ", out)          # 이모지가 빠지며 생긴 겹공백
+    out = re.sub(r"[ \t]+\n", "\n", out)          # 줄 끝 공백
+    out = re.sub(r"[ \t]+([.,!?])", r"\1", out)    # 문장부호 앞 공백
+    return out.strip()
+
+
+# ── AI 사회자(봇) 계정 상수 ──
+# 여러 함수에서 참조하므로 모듈 상단에 고정해 둔다.
+# 사회자는 반드시 한 명만 존재해야 하며(get_or_create_moderator),
+# 이메일이 신원 판단 기준이다.
+MODERATOR_EMAIL = config.ADMIN_SEED_EMAIL
+MODERATOR_NICKNAME = "🎙️ AI 사회자"
 
 # ── 공통 유틸 헬퍼 (중복 제거) ──
 
@@ -379,7 +416,47 @@ def build_reply_to_info(reply_to_id: int, db: Session):
     return {"user": parent.user.nickname, "text": parent.content}
 
 
-def serialize_book(b: "models.Book", db: Session) -> dict:
+RX_EMOJIS = ("❤️", "🤔", "😄", "✨")
+
+
+def aggregate_reactions(db: Session, book_ids=None) -> dict:
+    """도서별 채팅 반응 총합을 계산합니다.
+
+    반응은 ChatMessage.reactions에 JSON 문자열(예: {"❤️": 3})로 저장되어
+    SQL로 집계할 수 없기 때문에 파이썬에서 합산한다.
+    예전에는 프론트에서 채팅 캐시(chatMsgs)를 훑어 집계했지만,
+    그러면 채팅방을 한 번도 열지 않은 상태의 도서 상세 페이지에서
+    항상 0으로 보이는 문제가 있어 서버 응답에 실어 보낸다.
+
+    reactions가 비어 있지 않은 행만 조회하고, 목록 응답에서는
+    book_ids를 모아 한 번에 질의해 N+1 쿼리를 피한다.
+    """
+    q = db.query(models.ChatMessage.book_id, models.ChatMessage.reactions).filter(
+        models.ChatMessage.reactions.isnot(None),
+        models.ChatMessage.reactions != "",
+    )
+    if book_ids is not None:
+        if not book_ids:
+            return {}
+        q = q.filter(models.ChatMessage.book_id.in_(book_ids))
+
+    totals = {}
+    for book_id, raw in q.all():
+        try:
+            data = json.loads(raw)
+        except (TypeError, ValueError):
+            continue  # 손상된 JSON은 집계에서 제외한다
+        if not isinstance(data, dict):
+            continue
+        bucket = totals.setdefault(book_id, {e: 0 for e in RX_EMOJIS})
+        for emoji, count in data.items():
+            # 서비스가 쓰는 4종 이모지만 집계한다.
+            if emoji in bucket and isinstance(count, int) and count > 0:
+                bucket[emoji] += count
+    return totals
+
+
+def serialize_book(b: "models.Book", db: Session, rx_totals: dict = None) -> dict:
     """Book 모델을 프론트엔드 응답용 dict로 직렬화합니다 (tags 파싱, 남은 기한, 참여자 수 계산 포함)."""
     book_dict = b.__dict__.copy()
     book_dict["tags"] = b.tags.split(",") if b.tags else []
@@ -403,6 +480,12 @@ def serialize_book(b: "models.Book", db: Session) -> dict:
         models.User.is_bot == False
     ).scalar()
     book_dict["participant_count"] = participant_count or 0
+
+    # 채팅 반응 총합 — 도서 상세의 "지금 이 방의 반응" 줄이 사용한다.
+    # 목록 응답은 미리 계산한 rx_totals를 넘겨받아 도서마다 질의하지 않는다.
+    if rx_totals is None:
+        rx_totals = aggregate_reactions(db, [b.id])
+    book_dict["rx_counts"] = rx_totals.get(b.id, {e: 0 for e in RX_EMOJIS})
     return book_dict
 
 
@@ -579,14 +662,14 @@ def seed_glass_shop_book_if_needed(db: Session):
         now_base = models.get_kst_now() - timedelta(minutes=60)
         
         # 1. AI 사회자 웰컴 카드
-        q1_text = f"독자님, 『{book.title}』 독서방에 오신 것을 환영합니다! 🎙️\n오늘 함께 나눌 추천 토론 질문입니다:\n\n1️⃣ 타인의 숨겨진 진짜 마음에 닿는 안경이 있다면, 쓰시겠습니까 아니면 모른 채 살아가시겠습니까?\n2️⃣ 여주인공 아델이 유리 렌즈를 닦을 때 느꼈던 서늘한 죄책감의 정체는 무엇일까요?\n3️⃣ 당신에게 잊고 싶지 않은 인생의 '가장 선명한 순간'은 언제인가요?\n\n자유롭게 의견을 남기시거나 @사회자에게 이야기를 건네보세요!"
+        q1_text = f"독자님, 『{book.title}』 독서방에 오신 것을 환영합니다!\n오늘 함께 나눌 추천 토론 질문입니다:\n\n1 타인의 숨겨진 진짜 마음에 닿는 안경이 있다면, 쓰시겠습니까 아니면 모른 채 살아가시겠습니까?\n2 여주인공 아델이 유리 렌즈를 닦을 때 느꼈던 서늘한 죄책감의 정체는 무엇일까요?\n3 당신에게 잊고 싶지 않은 인생의 '가장 선명한 순간'은 언제인가요?\n\n자유롭게 의견을 남기시거나 @사회자에게 이야기를 건네보세요!"
         m1 = models.ChatMessage(book_id=book.id, user_id=moderator.id, content=q1_text, created_at=now_base)
         db.add(m1)
         db.commit()
         db.refresh(m1)
         
         # 2. 달빛독자
-        m2 = models.ChatMessage(book_id=book.id, user_id=user_map["달빛독자"].id, content="저라면 그 안경 절대 안 쓸 것 같아요... 🙈 타인의 속마음을 전부 알게 되면 상처만 받을 것 같아서요. 아델이 3장에서 안경을 쓰자마자 후회했던 장면에서 온몸에 돋은 소름이 아직도 안 가시네요.", created_at=now_base + timedelta(minutes=5))
+        m2 = models.ChatMessage(book_id=book.id, user_id=user_map["달빛독자"].id, content="저라면 그 안경 절대 안 쓸 것 같아요... 타인의 속마음을 전부 알게 되면 상처만 받을 것 같아서요. 아델이 3장에서 안경을 쓰자마자 후회했던 장면에서 온몸에 돋은 소름이 아직도 안 가시네요.", created_at=now_base + timedelta(minutes=5))
         db.add(m2)
         db.commit()
         db.refresh(m2)
@@ -598,13 +681,13 @@ def seed_glass_shop_book_if_needed(db: Session):
         db.refresh(m3)
         
         # 4. 밤의활자 (m3 답장)
-        m4 = models.ChatMessage(book_id=book.id, user_id=user_map["밤의활자"].id, content="하지만 저는 조금 생각이 달라요! 억울한 오해를 풀거나 사랑하는 사람의 아픔을 읽을 수 있다면 불편함을 감수하고라도 쓸 것 같아요. 4장 정원 씬에서 주인공이 진실을 깨닫고 눈물 흘리는 장면이 저한텐 최고의 명장면이었거든요 😭", reply_to_id=m3.id, created_at=now_base + timedelta(minutes=15))
+        m4 = models.ChatMessage(book_id=book.id, user_id=user_map["밤의활자"].id, content="하지만 저는 조금 생각이 달라요! 억울한 오해를 풀거나 사랑하는 사람의 아픔을 읽을 수 있다면 불편함을 감수하고라도 쓸 것 같아요. 4장 정원 씬에서 주인공이 진실을 깨닫고 눈물 흘리는 장면이 저한텐 최고의 명장면이었거든요", reply_to_id=m3.id, created_at=now_base + timedelta(minutes=15))
         db.add(m4)
         db.commit()
         db.refresh(m4)
         
         # 5. AI 사회자 (m4 답장)
-        m5 = models.ChatMessage(book_id=book.id, user_id=moderator.id, content="밤의활자님, 진실을 감당하려는 그 용기 있는 관점이 참으로 눈부십니다. ✨ 타인의 아픔에 기꺼이 손을 뻗으려는 밤의활자님의 따스한 마음이 4장 정원의 햇살과 닮아있네요.\n\n글꽃소녀님과 구름산책님은 진실과 평온 중 어느 쪽에 더 마음이 기우시나요?", reply_to_id=m4.id, created_at=now_base + timedelta(minutes=20))
+        m5 = models.ChatMessage(book_id=book.id, user_id=moderator.id, content="밤의활자님, 진실을 감당하려는 그 용기 있는 관점이 참으로 눈부십니다. 타인의 아픔에 기꺼이 손을 뻗으려는 밤의활자님의 따스한 마음이 4장 정원의 햇살과 닮아있네요.\n\n글꽃소녀님과 구름산책님은 진실과 평온 중 어느 쪽에 더 마음이 기우시나요?", reply_to_id=m4.id, created_at=now_base + timedelta(minutes=20))
         db.add(m5)
         db.commit()
         db.refresh(m5)
@@ -690,36 +773,36 @@ def seed_lost_voyage_book_if_needed(db: Session):
         dt_july31_4 = datetime(2026, 7, 31, 14, 5, 0)
 
         # Day 1: 7월 29일 (수)
-        m1 = models.ChatMessage(book_id=book.id, user_id=user_map["바다의항해자"].id, content="지도 제작자 테오가 낡고 깨진 단안경을 닦을 때마다 렌즈 너머로 보이지 않는 운명의 해도가 그려지는 1장 도입부부터 몰입감이 진짜 대단하네요! 🌊", created_at=dt_july29_1)
+        m1 = models.ChatMessage(book_id=book.id, user_id=user_map["바다의항해자"].id, content="지도 제작자 테오가 낡고 깨진 단안경을 닦을 때마다 렌즈 너머로 보이지 않는 운명의 해도가 그려지는 1장 도입부부터 몰입감이 진짜 대단하네요!", created_at=dt_july29_1)
         db.add(m1); db.commit(); db.refresh(m1)
 
         m2 = models.ChatMessage(book_id=book.id, user_id=user_map["단안경사색가"].id, content="맞아요! 렌즈에 금이 간 이유가 과거 거대한 폭풍우를 경고하다 깨진 것이란 비하인드를 읽고 소름 돋았습니다. 흩어진 해도의 조각들이 주인공 테오의 잊혀진 기억 자체였군요.", created_at=dt_july29_2)
         db.add(m2); db.commit(); db.refresh(m2)
 
-        m3 = models.ChatMessage(book_id=book.id, user_id=user_map["해도의파수꾼"].id, content="단안경사색가님 관점에 완전 공감해요! 렌즈의 깨진 균열 선이 지도 상의 위험 해역 좌표와 딱 맞아떨어지는 연출이 참 고혹적이었어요 ⚓️", reply_to_id=m2.id, created_at=dt_july29_3)
+        m3 = models.ChatMessage(book_id=book.id, user_id=user_map["해도의파수꾼"].id, content="단안경사색가님 관점에 완전 공감해요! 렌즈의 깨진 균열 선이 지도 상의 위험 해역 좌표와 딱 맞아떨어지는 연출이 참 고혹적이었어요", reply_to_id=m2.id, created_at=dt_july29_3)
         db.add(m3); db.commit(); db.refresh(m3)
 
         # Day 2: 7월 30일 (목)
-        m4 = models.ChatMessage(book_id=book.id, user_id=user_map["문학유영가"].id, content="2장 안개 미궁 씬에서 동료들이 '이 이상 나아가면 파멸'이라고 외면할 때, 테오 혼자 단안경을 쥐고 선두에 서는 장면에서 눈물이 핑 돌았어요 😭 차라리 현실의 평온을 택할 순 없었을까요?", created_at=dt_july30_1)
+        m4 = models.ChatMessage(book_id=book.id, user_id=user_map["문학유영가"].id, content="2장 안개 미궁 씬에서 동료들이 '이 이상 나아가면 파멸'이라고 외면할 때, 테오 혼자 단안경을 쥐고 선두에 서는 장면에서 눈물이 핑 돌았어요 차라리 현실의 평온을 택할 순 없었을까요?", created_at=dt_july30_1)
         db.add(m4); db.commit(); db.refresh(m4)
 
         m5 = models.ChatMessage(book_id=book.id, user_id=user_map["꿈꾸는선장"].id, content="저는 테오의 선택을 지지해요! 진실을 외면한 평화는 언젠가 무너지는 모래성 같으니까요. 렌즈 너머로 비친 동료들의 진짜 갈망을 읽었기에 멈출 수 없었던 거죠.", reply_to_id=m4.id, created_at=dt_july30_2)
         db.add(m5); db.commit(); db.refresh(m5)
 
-        m6 = models.ChatMessage(book_id=book.id, user_id=user_map["유리렌즈의비밀"].id, content="꿈꾸는선장님 말씀대로 2장의 시련은 단순한 항해가 아니라 스스로의 본 모습을 찾아가는 사색의 시련이었던 것 같아요 🌿", reply_to_id=m5.id, created_at=dt_july30_3)
+        m6 = models.ChatMessage(book_id=book.id, user_id=user_map["유리렌즈의비밀"].id, content="꿈꾸는선장님 말씀대로 2장의 시련은 단순한 항해가 아니라 스스로의 본 모습을 찾아가는 사색의 시련이었던 것 같아요", reply_to_id=m5.id, created_at=dt_july30_3)
         db.add(m6); db.commit(); db.refresh(m6)
 
         # Day 3: 7월 31일 (금)
         m7 = models.ChatMessage(book_id=book.id, user_id=user_map["항해사김민준"].id, content="'바다는 모든 것을 씻어내어 기억하지 않아도, 나의 해도는 끝내 너의 궤적을 기억한다' ... 3장 피날레 문장에 가슴이 먹먹해집니다. @사회자 님은 테오의 이 잃어버린 항해를 어떤 의미로 보시나요?", created_at=dt_july31_1)
         db.add(m7); db.commit(); db.refresh(m7)
 
-        m8 = models.ChatMessage(book_id=book.id, user_id=moderator.id, content="항해사김민준님, 깊은 사색이 담긴 인상적인 문장을 짚어주셨네요. ✨ 테오에게 깨진 단안경은 과거의 상처를 들추는 아픔이 아니라, 잊혀진 사람들의 소망을 현실의 평화로 엮어내는 숭고한 창조의 계기였습니다.\n\n바다의항해자님과 단안경사색가님은 테오가 항해의 끝에서 되찾은 가장 소중한 궤적이 무엇이라고 생각하시나요?", reply_to_id=m7.id, created_at=dt_july31_2)
+        m8 = models.ChatMessage(book_id=book.id, user_id=moderator.id, content="항해사김민준님, 깊은 사색이 담긴 인상적인 문장을 짚어주셨네요. 테오에게 깨진 단안경은 과거의 상처를 들추는 아픔이 아니라, 잊혀진 사람들의 소망을 현실의 평화로 엮어내는 숭고한 창조의 계기였습니다.\n\n바다의항해자님과 단안경사색가님은 테오가 항해의 끝에서 되찾은 가장 소중한 궤적이 무엇이라고 생각하시나요?", reply_to_id=m7.id, created_at=dt_july31_2)
         db.add(m8); db.commit(); db.refresh(m8)
 
-        m9 = models.ChatMessage(book_id=book.id, user_id=user_map["바다의항해자"].id, content="@사회자님! 테오가 되찾은 건 단순한 지도가 아니라 '함께 항해했던 동료들에 대한 깊은 신뢰'였다고 생각해요 😭 3장 마지막 햇살 씬이 그래서 너무 따뜻했습니다.", reply_to_id=m8.id, created_at=dt_july31_3)
+        m9 = models.ChatMessage(book_id=book.id, user_id=user_map["바다의항해자"].id, content="@사회자님! 테오가 되찾은 건 단순한 지도가 아니라 '함께 항해했던 동료들에 대한 깊은 신뢰'였다고 생각해요 3장 마지막 햇살 씬이 그래서 너무 따뜻했습니다.", reply_to_id=m8.id, created_at=dt_july31_3)
         db.add(m9); db.commit(); db.refresh(m9)
 
-        m10 = models.ChatMessage(book_id=book.id, user_id=user_map["단안경사색가"].id, content="맞아요! 상처 입은 렌즈로 보았기에 비로소 타인의 아픔을 가장 온전하게 품을 수 있었던 테오의 눈빛이 오래도록 잔상으로 남네요. 역대 최고의 활성화 독서방이었습니다 👏", reply_to_id=m9.id, created_at=dt_july31_4)
+        m10 = models.ChatMessage(book_id=book.id, user_id=user_map["단안경사색가"].id, content="맞아요! 상처 입은 렌즈로 보았기에 비로소 타인의 아픔을 가장 온전하게 품을 수 있었던 테오의 눈빛이 오래도록 잔상으로 남네요. 역대 최고의 활성화 독서방이었습니다", reply_to_id=m9.id, created_at=dt_july31_4)
         db.add(m10); db.commit(); db.refresh(m10)
 
 async def trigger_ai_moderator_response(book_id: int, user_message_id: int = None):
@@ -797,6 +880,7 @@ async def trigger_ai_moderator_response(book_id: int, user_message_id: int = Non
                 3. ⚠️ [글자수 제한 없음] 글자수나 문장 수에 제한 없이, 독자의 감상과 질문에 대해 충분히 정성스럽고 풍성하게 대답을 작성하세요.
                 4. ⚠️ [필수] 모든 문장은 반드시 마침표(.), 느낌표(!), 또는 물음표(?)로 깔끔하고 완벽하게 마감해야 합니다.
                 5. 마크다운 기호나 부연설명 없이 오직 사회자 답변 텍스트만 출력하세요.
+                6. [필수] 이모지와 이모티콘을 절대 사용하지 마세요. 감정은 문장으로만 표현합니다.
                 """
             else:
                 prompt = f"""
@@ -821,6 +905,7 @@ async def trigger_ai_moderator_response(book_id: int, user_message_id: int = Non
                 2. 최근 대화의 흐름이나 핵심 소재(딜레마, 인물의 선택 등)에 어울리는 본질적인 질문을 던지세요.
                 3. ⚠️ [필수] 모든 문장은 반드시 마침표(.)나 물음표(?)로 정돈되게 끝내야 합니다.
                 4. 마크다운 기호나 부연설명 없이 오직 사회자의 담백한 질문 멘트 텍스트만 출력하세요.
+                5. [필수] 이모지와 이모티콘을 절대 사용하지 마세요. 감정은 문장으로만 표현합니다.
                 """
             
             url = f"https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key={gemini_key}"
@@ -857,8 +942,11 @@ async def trigger_ai_moderator_response(book_id: int, user_message_id: int = Non
         # DB 저장 (문장이 잘리지 않도록 안전 마감 처리)
         final_content = moderator_content.strip()
         
+        # 채팅 본문에는 이모지를 쓰지 않는다 (프롬프트로도 금지했지만 최종 방어선)
+        final_content = strip_chat_emoji(final_content)
+
         # 문장 끝에 문장부호가 누락된 경우 안전하게 마침표 추가 (절대 이전 문장으로 자르지 않음)
-        if final_content and not final_content[-1] in ['.', '?', '!', '"', "'", '⟩', '»', '✨', '🌿', '💬', '😭']:
+        if final_content and not final_content[-1] in ['.', '?', '!', '"', "'", '⟩', '»']:
             final_content = final_content + "."
 
         db_msg = models.ChatMessage(
@@ -2189,37 +2277,37 @@ def seed_fountain_pen_book_if_needed(db: Session):
         dt10 = datetime(2026, 7, 31, 14, 25, 0)
 
         # Day 1
-        m1 = models.ChatMessage(book_id=book.id, user_id=user_map["그림자조각가"].id, content="셀레나가 만년필로 그린 그림자가 흑백 잉크처럼 흩어지며 현실의 벽을 서서히 해체시키는 1장 장면에서 손끝이 덜덜 떨렸어요! ✒️", created_at=dt1)
+        m1 = models.ChatMessage(book_id=book.id, user_id=user_map["그림자조각가"].id, content="셀레나가 만년필로 그린 그림자가 흑백 잉크처럼 흩어지며 현실의 벽을 서서히 해체시키는 1장 장면에서 손끝이 덜덜 떨렸어요!", created_at=dt1)
         db.add(m1); db.commit(); db.refresh(m1)
 
         m2 = models.ChatMessage(book_id=book.id, user_id=user_map["만년필의향기"].id, content="맞아요! 펜촉 끝에서 감도는 은은한 바이올렛 잉크 향과 서늘한 민트 향 묘사가 문장 너머로 느껴지는 듯해서 가슴이 덜컥 내려앉았습니다.", created_at=dt2)
         db.add(m2); db.commit(); db.refresh(m2)
 
-        m3 = models.ChatMessage(book_id=book.id, user_id=user_map["빛과어둠"].id, content="만년필의향기님 말씀에 100% 동감해요! 창조와 파괴가 펜 한 자루에서 갈라지는 미학이 정통 유럽 판타지 문학의 정수를 보여주네요 ✨", reply_to_id=m2.id, created_at=dt3)
+        m3 = models.ChatMessage(book_id=book.id, user_id=user_map["빛과어둠"].id, content="만년필의향기님 말씀에 100% 동감해요! 창조와 파괴가 펜 한 자루에서 갈라지는 미학이 정통 유럽 판타지 문학의 정수를 보여주네요", reply_to_id=m2.id, created_at=dt3)
         db.add(m3); db.commit(); db.refresh(m3)
 
         # Day 2
-        m4 = models.ChatMessage(book_id=book.id, user_id=user_map["도시의혼"].id, content="2장 자정의 시계탑 씬에서 셀레나가 도시 전체를 삼키려는 거대한 그림자를 목격하고 턱 막히는 목구멍을 누르는 장면이 잊히지 않네요 😭", created_at=dt4)
+        m4 = models.ChatMessage(book_id=book.id, user_id=user_map["도시의혼"].id, content="2장 자정의 시계탑 씬에서 셀레나가 도시 전체를 삼키려는 거대한 그림자를 목격하고 턱 막히는 목구멍을 누르는 장면이 잊히지 않네요", created_at=dt4)
         db.add(m4); db.commit(); db.refresh(m4)
 
         m5 = models.ChatMessage(book_id=book.id, user_id=user_map["은하수펜촉"].id, content="저는 셀레나가 자신의 잉크로 새로운 구원의 궤적을 그리려 결심하는 손끝의 응시 씬이 너무 가슴 벅찼어요!", reply_to_id=m4.id, created_at=dt5)
         db.add(m5); db.commit(); db.refresh(m5)
 
-        m6 = models.ChatMessage(book_id=book.id, user_id=user_map["파스텔문장"].id, content="은하수펜촉님 의견처럼 예술가의 고뇌가 파괴를 넘어 새로운 생명의 섭리로 이어지는 연출이 참 아름다웠습니다 🌿", reply_to_id=m5.id, created_at=dt6)
+        m6 = models.ChatMessage(book_id=book.id, user_id=user_map["파스텔문장"].id, content="은하수펜촉님 의견처럼 예술가의 고뇌가 파괴를 넘어 새로운 생명의 섭리로 이어지는 연출이 참 아름다웠습니다", reply_to_id=m5.id, created_at=dt6)
         db.add(m6); db.commit(); db.refresh(m6)
 
         # Day 3
         m7 = models.ChatMessage(book_id=book.id, user_id=user_map["사색의시간"].id, content="'사라지는 것들의 아름다움은, 영원히 머무는 것들보다 더 깊은 여운을 남긴다' ... @사회자 님은 셀레나의 이 선택을 어떻게 보시나요?", created_at=dt7)
         db.add(m7); db.commit(); db.refresh(m7)
 
-        mod_txt1 = "사색의시간님, 깊은 울림을 전하는 명문장을 짚어주셨군요. ✨ 셀레나에게 만년필은 사물을 해체하는 차가운 도구가 아니라, 존재의 소중함을 다시 일깨우는 따스한 찰나의 매개였습니다.\n\n그림자조각가님과 빛과어둠님은 셀레나가 그린 마지막 펜촉의 궤적이 뜻하는 진짜 구원이 무엇이라 생각하시나요?"
+        mod_txt1 = "사색의시간님, 깊은 울림을 전하는 명문장을 짚어주셨군요. 셀레나에게 만년필은 사물을 해체하는 차가운 도구가 아니라, 존재의 소중함을 다시 일깨우는 따스한 찰나의 매개였습니다.\n\n그림자조각가님과 빛과어둠님은 셀레나가 그린 마지막 펜촉의 궤적이 뜻하는 진짜 구원이 무엇이라 생각하시나요?"
         m8 = models.ChatMessage(book_id=book.id, user_id=moderator.id, content=mod_txt1, reply_to_id=m7.id, created_at=dt8)
         db.add(m8); db.commit(); db.refresh(m8)
 
-        m9 = models.ChatMessage(book_id=book.id, user_id=user_map["그림자조각가"].id, content="@사회자님! 셀레나가 구한 건 도시뿐만 아니라 자아의 죄책감에서 벗어난 자기 자신이었다고 생각해요 😭 최고의 감동이었습니다.", reply_to_id=m8.id, created_at=dt9)
+        m9 = models.ChatMessage(book_id=book.id, user_id=user_map["그림자조각가"].id, content="@사회자님! 셀레나가 구한 건 도시뿐만 아니라 자아의 죄책감에서 벗어난 자기 자신이었다고 생각해요 최고의 감동이었습니다.", reply_to_id=m8.id, created_at=dt9)
         db.add(m9); db.commit(); db.refresh(m9)
 
-        m10 = models.ChatMessage(book_id=book.id, user_id=user_map["빛과어둠"].id, content="저도요! 영원한 해체는 없으며, 파괴 속에서도 새로운 문장이 피어난다는 메시지에 눈시울이 뜨거워졌습니다. 명작 독서방이네요! 👏", reply_to_id=m9.id, created_at=dt10)
+        m10 = models.ChatMessage(book_id=book.id, user_id=user_map["빛과어둠"].id, content="저도요! 영원한 해체는 없으며, 파괴 속에서도 새로운 문장이 피어난다는 메시지에 눈시울이 뜨거워졌습니다. 명작 독서방이네요!", reply_to_id=m9.id, created_at=dt10)
         db.add(m10); db.commit(); db.refresh(m10)
 
 
@@ -2287,37 +2375,37 @@ def seed_faded_gaze_book_if_needed(db: Session):
         dt10 = datetime(2026, 7, 31, 14, 10, 0)
 
         # Day 1
-        m1 = models.ChatMessage(book_id=book.id, user_id=user_map["운명연구원"].id, content="골목 안경점의 한지우 할아버지가 낡은 안경을 통해 손님들의 서늘한 운명의 파편을 마주하는 1장 도입부부터 문체가 참 고혹적이네요 👓", created_at=dt1)
+        m1 = models.ChatMessage(book_id=book.id, user_id=user_map["운명연구원"].id, content="골목 안경점의 한지우 할아버지가 낡은 안경을 통해 손님들의 서늘한 운명의 파편을 마주하는 1장 도입부부터 문체가 참 고혹적이네요", created_at=dt1)
         db.add(m1); db.commit(); db.refresh(m1)
 
         m2 = models.ChatMessage(book_id=book.id, user_id=user_map["단안경사서"].id, content="맞아요! 타인의 미래를 아는 것이 축복이 아니라 거대한 죄책감의 짐이 되는 장면에서 가슴이 덜컥 내려앉았습니다.", created_at=dt2)
         db.add(m2); db.commit(); db.refresh(m2)
 
-        m3 = models.ChatMessage(book_id=book.id, user_id=user_map["안경상점주인"].id, content="단안경사서님 의견에 너무 공감해요! 렌즈에 스민 씁쓸한 커피 향과 골목길 비 내리는 묘사가 너무 정갈해서 한참 동안 페이지에 멈춰 섰습니다 ☕️", reply_to_id=m2.id, created_at=dt3)
+        m3 = models.ChatMessage(book_id=book.id, user_id=user_map["안경상점주인"].id, content="단안경사서님 의견에 너무 공감해요! 렌즈에 스민 씁쓸한 커피 향과 골목길 비 내리는 묘사가 너무 정갈해서 한참 동안 페이지에 멈춰 섰습니다", reply_to_id=m2.id, created_at=dt3)
         db.add(m3); db.commit(); db.refresh(m3)
 
         # Day 2
-        m4 = models.ChatMessage(book_id=book.id, user_id=user_map["기억의조각"].id, content="2장에서 주인공 지우가 비극을 막으려 손을 내밀다 자신의 시력이 닳아버리는 장면에서 눈물이 와칵 쏟아졌어요 😭", created_at=dt4)
+        m4 = models.ChatMessage(book_id=book.id, user_id=user_map["기억의조각"].id, content="2장에서 주인공 지우가 비극을 막으려 손을 내밀다 자신의 시력이 닳아버리는 장면에서 눈물이 와칵 쏟아졌어요", created_at=dt4)
         db.add(m4); db.commit(); db.refresh(m4)
 
         m5 = models.ChatMessage(book_id=book.id, user_id=user_map["바람의문장"].id, content="자신의 삶을 기꺼이 던져 타인의 궤적을 밝히는 그 희생 정신이야말로 2장의 진정한 명장면이 아닐까 싶네요.", reply_to_id=m4.id, created_at=dt5)
         db.add(m5); db.commit(); db.refresh(m5)
 
-        m6 = models.ChatMessage(book_id=book.id, user_id=user_map["시선의시간"].id, content="바람의문장님 말씀처럼 타인을 응시하는 닳아버린 시선 속에 담긴 깊은 성숙에 온몸이 떨렸습니다 🌿", reply_to_id=m5.id, created_at=dt6)
+        m6 = models.ChatMessage(book_id=book.id, user_id=user_map["시선의시간"].id, content="바람의문장님 말씀처럼 타인을 응시하는 닳아버린 시선 속에 담긴 깊은 성숙에 온몸이 떨렸습니다", reply_to_id=m5.id, created_at=dt6)
         db.add(m6); db.commit(); db.refresh(m6)
 
         # Day 3
         m7 = models.ChatMessage(book_id=book.id, user_id=user_map["빛나는궤적"].id, content="'타인의 운명을 지우려 애쓸수록, 나의 시선은 더욱 닳아버리고 있었다' ... @사회자 님은 이 닳아버린 시선의 의미를 어떻게 받아들이시나요?", created_at=dt7)
         db.add(m7); db.commit(); db.refresh(m7)
 
-        mod_txt2 = "빛나는궤적님, 마음을 울리는 깊은 질의를 남겨주셨네요. ✨ 지우 할아버지에게 닳아버린 시선은 육신의 쇠퇴가 아니라, 타인의 상처와 죄책감을 온전히 안아낸 숭고한 사랑의 증표였습니다.\n\n운명연구원님과 단안경사서님은 이 에세이가 전하는 운명에 대한 가장 따스한 메시지가 무엇이라고 생각하시나요?"
+        mod_txt2 = "빛나는궤적님, 마음을 울리는 깊은 질의를 남겨주셨네요. 지우 할아버지에게 닳아버린 시선은 육신의 쇠퇴가 아니라, 타인의 상처와 죄책감을 온전히 안아낸 숭고한 사랑의 증표였습니다.\n\n운명연구원님과 단안경사서님은 이 에세이가 전하는 운명에 대한 가장 따스한 메시지가 무엇이라고 생각하시나요?"
         m8 = models.ChatMessage(book_id=book.id, user_id=moderator.id, content=mod_txt2, reply_to_id=m7.id, created_at=dt8)
         db.add(m8); db.commit(); db.refresh(m8)
 
-        m9 = models.ChatMessage(book_id=book.id, user_id=user_map["운명연구원"].id, content="@사회자님! 비록 운명을 바꿀 순 없어도 서로의 손을 꼭 잡아주는 온기만으로 충분하다는 깨달음이었습니다 😭", reply_to_id=m8.id, created_at=dt9)
+        m9 = models.ChatMessage(book_id=book.id, user_id=user_map["운명연구원"].id, content="@사회자님! 비록 운명을 바꿀 순 없어도 서로의 손을 꼭 잡아주는 온기만으로 충분하다는 깨달음이었습니다", reply_to_id=m8.id, created_at=dt9)
         db.add(m9); db.commit(); db.refresh(m9)
 
-        m10 = models.ChatMessage(book_id=book.id, user_id=user_map["단안경사서"].id, content="맞아요! 진정한 사색의 길잡이가 되어준 훌륭한 독서방이었습니다. 매일 밤 다시 읽고 싶어지는 책이네요 👏", reply_to_id=m9.id, created_at=dt10)
+        m10 = models.ChatMessage(book_id=book.id, user_id=user_map["단안경사서"].id, content="맞아요! 진정한 사색의 길잡이가 되어준 훌륭한 독서방이었습니다. 매일 밤 다시 읽고 싶어지는 책이네요", reply_to_id=m9.id, created_at=dt10)
         db.add(m10); db.commit(); db.refresh(m10)
 
 
@@ -2401,7 +2489,8 @@ def list_books(genre: Optional[str] = None, db: Session = Depends(database.get_d
     books = query.order_by(models.Book.id.desc()).all()
 
     # 태그 쉼표 문자열을 배열로 파싱하여 응답
-    return [serialize_book(b, db) for b in books]
+    rx_totals = aggregate_reactions(db, [b.id for b in books])
+    return [serialize_book(b, db, rx_totals) for b in books]
 
 
 @app.get("/api/books/archived")
@@ -2410,7 +2499,8 @@ def list_archived_books(db: Session = Depends(database.get_db)):
     종료되어 아카이브된 책들의 리스트를 반환합니다.
     """
     books = db.query(models.Book).filter(models.Book.is_archived == True).order_by(models.Book.id.desc()).all()
-    return [serialize_book(b, db) for b in books]
+    rx_totals = aggregate_reactions(db, [b.id for b in books])
+    return [serialize_book(b, db, rx_totals) for b in books]
 
 
 @app.get("/api/books/{book_id}")
@@ -2650,17 +2740,17 @@ def get_chat_history(book_id: int, db: Session = Depends(database.get_db)):
         if book and moderator:
             q_list = []
             if book.core_dilemma:
-                q_list.append(f"1️⃣ {book.core_dilemma.replace('Q. ', '')}")
+                q_list.append(f"1. {book.core_dilemma.replace('Q. ', '')}")
             if book.additional_questions:
                 add_qs = [q.strip().replace('Q. ', '') for q in book.additional_questions.split('|') if q.strip()]
                 for idx, q in enumerate(add_qs[:2], start=len(q_list)+1):
-                    q_list.append(f"{idx}️⃣ {q}")
+                    q_list.append(f"{idx}. {q}")
             
             if not q_list:
-                q_list = ["1️⃣ 이 책의 주인공의 선택에 대해 어떻게 생각하시나요?"]
+                q_list = ["1. 이 책의 주인공의 선택에 대해 어떻게 생각하시나요?"]
                 
             q_text = "\n".join(q_list)
-            welcome_text = f"독자님, 『{book.title}』 독서방에 오신 것을 환영합니다! 🎙️\n오늘 함께 나눌 추천 토론 질문입니다:\n\n{q_text}\n\n자유롭게 의견을 남기시거나 @사회자에게 이야기를 건네보세요!"
+            welcome_text = f"독자님, 『{book.title}』 독서방에 오신 것을 환영합니다!\n오늘 함께 나눌 추천 토론 질문입니다:\n\n{q_text}\n\n자유롭게 의견을 남기시거나 @사회자에게 이야기를 건네보세요!"
             
             # 독서방 최상단에 물리적으로 가장 먼저 위치하도록 시간 조정
             first_base_time = (book.created_at if book and book.created_at else models.get_kst_now())

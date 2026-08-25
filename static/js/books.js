@@ -563,46 +563,46 @@
 
       if (title.indexOf('안개 낀 등대') !== -1) {
         return [
-          { user: "등대지기", text: "안개 낀 등대의 학술 사기극에 관한 사립대 교수들의 우스꽝스러운 기면증 풍자가 너무 신선했어요! 💡", ts: "오후 07:15", date: dateStr + 'T19:15:00', reactions: { "❤️": 14, "✨": 8 } },
-          { user: "풍자소설덕후", text: "맞아요! 2장에서 보좌관이 등대 불빛을 켰다 껐다 하면서 교수들의 가식을 야유하는 씬에서 빵 터졌습니다 🤣", ts: "오후 07:22", date: dateStr + 'T19:22:00', replyTo: { user: "등대지기", text: "안개 낀 등대의 학술 사기극..." }, reactions: { "😄": 18, "❤️": 10 } },
-          { user: "🎙️ AI 사회자", text: "독자님들의 유쾌한 사색에 감명받았습니다. ✨ 서채원 작가가 안개 낀 등대를 통해 풍자하려 했던 상아탑의 위선과 현대 사회의 진실에 대해 어떻게 보시나요?", ts: "오후 07:30", date: dateStr + 'T19:30:00', reactions: { "✨": 22 } },
-          { user: "상아탑사색가", text: "가식 뒤에 숨겨진 기면증이라는 비유가 날카롭게 박혔어요. 3장 결말에서 등대 불빛이 안개를 찢을 때 울컥했습니다.", ts: "오후 07:42", date: dateStr + 'T19:42:00', replyTo: { user: "🎙️ AI 사회자", text: "독자님들의 유쾌한 사색에..." }, reactions: { "❤️": 16, "🤔": 7 } },
-          { user: "밤의독서가", text: "풍자소설이면서도 해학이 느껴지는 명작이었어요. 아카이브로 남아서 소중하게 곱씹겠습니다.", ts: "오후 08:05", date: dateStr + 'T20:05:00', reactions: { "❤️": 20, "✨": 15 } }
+          { user: "등대지기", text: "안개 낀 등대의 학술 사기극에 관한 사립대 교수들의 우스꽝스러운 기면증 풍자가 너무 신선했어요!", ts:"오후 07:15", date: dateStr + 'T19:15:00', reactions: {"": 14,"": 8 } },
+          { user: "풍자소설덕후", text: "맞아요! 2장에서 보좌관이 등대 불빛을 켰다 껐다 하면서 교수들의 가식을 야유하는 씬에서 빵 터졌습니다", ts:"오후 07:22", date: dateStr + 'T19:22:00', replyTo: { user:"등대지기", text: "안개 낀 등대의 학술 사기극..." }, reactions: {"": 18,"": 10 } },
+          { user: "🎙️ AI 사회자", text: "독자님들의 유쾌한 사색에 감명받았습니다. 서채원 작가가 안개 낀 등대를 통해 풍자하려 했던 상아탑의 위선과 현대 사회의 진실에 대해 어떻게 보시나요?", ts:"오후 07:30", date: dateStr + 'T19:30:00', reactions: {"": 22 } },
+          { user: "상아탑사색가", text: "가식 뒤에 숨겨진 기면증이라는 비유가 날카롭게 박혔어요. 3장 결말에서 등대 불빛이 안개를 찢을 때 울컥했습니다.", ts:"오후 07:42", date: dateStr + 'T19:42:00', replyTo: { user:" AI 사회자", text: "독자님들의 유쾌한 사색에..." }, reactions: {"": 16,"": 7 } },
+          { user: "밤의독서가", text: "풍자소설이면서도 해학이 느껴지는 명작이었어요. 아카이브로 남아서 소중하게 곱씹겠습니다.", ts:"오후 08:05", date: dateStr + 'T20:05:00', reactions: {"": 20,"": 15 } }
         ];
       } else if (title.indexOf('그림자를 녹이는') !== -1) {
         return [
-          { user: "그림자조각가", text: "셀레나가 만년필로 그린 그림자가 흑백 잉크처럼 흩어지며 현실의 벽을 서서히 해체시키는 1장 장면에서 손끝이 덜덜 떨렸어요! ✒️", ts: "오전 11:20", date: dateStr + 'T11:20:00', reactions: { "✨": 18, "❤️": 12 } },
-          { user: "만년필의향기", text: "펜촉 끝에서 감도는 바이올렛 잉크 향과 서늘한 민트 향 묘사가 문장 너머로 느껴지는 듯해서 가슴이 덜컥 내려앉았습니다.", ts: "오후 04:45", date: dateStr + 'T16:45:00', reactions: { "❤️": 21 } },
-          { user: "🎙️ AI 사회자", text: "깊은 사색이 담긴 인상적인 문장을 짚어주셨군요. ✨ 셀레나에게 만년필은 존재의 소중함을 다시 일깨우는 따스한 찰나의 매개였습니다.", ts: "오후 05:10", date: dateStr + 'T17:10:00', reactions: { "✨": 25 } },
-          { user: "사색의시간", text: "'사라지는 것들의 아름다움은, 영원히 머무는 것들보다 더 깊은 여운을 남긴다' ... 이 구절이 오랫동안 마음에 남을 것 같아요.", ts: "오후 08:50", date: dateStr + 'T20:50:00', reactions: { "❤️": 30, "✨": 20 } }
+          { user: "그림자조각가", text: "셀레나가 만년필로 그린 그림자가 흑백 잉크처럼 흩어지며 현실의 벽을 서서히 해체시키는 1장 장면에서 손끝이 덜덜 떨렸어요!", ts:"오전 11:20", date: dateStr + 'T11:20:00', reactions: {"": 18,"": 12 } },
+          { user: "만년필의향기", text: "펜촉 끝에서 감도는 바이올렛 잉크 향과 서늘한 민트 향 묘사가 문장 너머로 느껴지는 듯해서 가슴이 덜컥 내려앉았습니다.", ts:"오후 04:45", date: dateStr + 'T16:45:00', reactions: {"": 21 } },
+          { user: "🎙️ AI 사회자", text: "깊은 사색이 담긴 인상적인 문장을 짚어주셨군요. 셀레나에게 만년필은 존재의 소중함을 다시 일깨우는 따스한 찰나의 매개였습니다.", ts:"오후 05:10", date: dateStr + 'T17:10:00', reactions: {"": 25 } },
+          { user: "사색의시간", text: "'사라지는 것들의 아름다움은, 영원히 머무는 것들보다 더 깊은 여운을 남긴다' ... 이 구절이 오랫동안 마음에 남을 것 같아요.", ts:"오후 08:50", date: dateStr + 'T20:50:00', reactions: {"": 30,"": 20 } }
         ];
       } else if (title.indexOf('닳아버린 시선') !== -1) {
         return [
-          { user: "운명연구원", text: "골목 안경점의 한지우 할아버지가 낡은 안경을 통해 손님들의 서늘한 운명의 파편을 마주하는 1장 도입부부터 문체가 참 고혹적이네요 👓", ts: "오전 09:30", date: dateStr + 'T09:30:00', reactions: { "❤️": 15, "✨": 10 } },
-          { user: "단안경사서", text: "타인의 미래를 아는 것이 축복이 아니라 거대한 죄책감의 짐이 되는 장면에서 가슴이 덜컥 내려앉았습니다.", ts: "오후 01:10", date: dateStr + 'T13:10:00', reactions: { "🤔": 12, "❤️": 14 } },
-          { user: "🎙️ AI 사회자", text: "지우 할아버지에게 닳아버린 시선은 육신의 쇠퇴가 아니라, 타인의 상처와 죄책감을 온전히 안아낸 숭고한 사랑의 증표였습니다. ✨", ts: "오후 02:45", date: dateStr + 'T14:45:00', reactions: { "✨": 28 } },
-          { user: "빛나는궤적", text: "타인의 운명을 지우려 애쓸수록 나의 시선은 닳아버렸다는 절절한 마지막 문장에 눈시울이 적셔졌네요 😭", ts: "오후 04:10", date: dateStr + 'T16:10:00', reactions: { "❤️": 25, "✨": 18 } }
+          { user: "운명연구원", text: "골목 안경점의 한지우 할아버지가 낡은 안경을 통해 손님들의 서늘한 운명의 파편을 마주하는 1장 도입부부터 문체가 참 고혹적이네요", ts:"오전 09:30", date: dateStr + 'T09:30:00', reactions: {"": 15,"": 10 } },
+          { user: "단안경사서", text: "타인의 미래를 아는 것이 축복이 아니라 거대한 죄책감의 짐이 되는 장면에서 가슴이 덜컥 내려앉았습니다.", ts:"오후 01:10", date: dateStr + 'T13:10:00', reactions: {"": 12,"": 14 } },
+          { user: "🎙️ AI 사회자", text: "지우 할아버지에게 닳아버린 시선은 육신의 쇠퇴가 아니라, 타인의 상처와 죄책감을 온전히 안아낸 숭고한 사랑의 증표였습니다.", ts:"오후 02:45", date: dateStr + 'T14:45:00', reactions: {"": 28 } },
+          { user: "빛나는궤적", text: "타인의 운명을 지우려 애쓸수록 나의 시선은 닳아버렸다는 절절한 마지막 문장에 눈시울이 적셔졌네요", ts:"오후 04:10", date: dateStr + 'T16:10:00', reactions: {"": 25,"": 18 } }
         ];
       } else if (title.indexOf('깨진 렌즈') !== -1) {
         return [
-          { user: "바다의항해자", text: "지도 제작자 테오가 낡고 깨진 단안경을 닦을 때마다 렌즈 너머로 보이지 않는 운명의 해도가 그려지는 1장 도입부부터 몰입감이 대단하네요! 🌊", ts: "오전 10:15", date: dateStr + 'T10:15:00', reactions: { "❤️": 16, "✨": 11 } },
-          { user: "단안경사색가", text: "렌즈에 금이 간 이유가 과거 거대한 폭풍우를 경고하다 깨진 것이란 비하인드를 읽고 소름 돋았습니다.", ts: "오후 02:20", date: dateStr + 'T14:20:00', reactions: { "🤔": 9, "❤️": 15 } },
-          { user: "🎙️ AI 사회자", text: "테오에게 깨진 단안경은 과거의 상처를 들추는 아픔이 아니라, 잊혀진 사람들의 소망을 현실의 평화로 엮어내는 숭고한 창조의 계기였습니다. ⚓️", ts: "오후 03:00", date: dateStr + 'T15:00:00', reactions: { "✨": 24 } },
-          { user: "항해사김민준", text: "'바다는 모든 것을 씻어내어 기억하지 않아도, 나의 해도는 끝내 너의 궤적을 기억한다' ... 최고의 3장이었습니다.", ts: "오후 04:05", date: dateStr + 'T16:05:00', reactions: { "❤️": 28, "✨": 22 } }
+          { user: "바다의항해자", text: "지도 제작자 테오가 낡고 깨진 단안경을 닦을 때마다 렌즈 너머로 보이지 않는 운명의 해도가 그려지는 1장 도입부부터 몰입감이 대단하네요!", ts:"오전 10:15", date: dateStr + 'T10:15:00', reactions: {"": 16,"": 11 } },
+          { user: "단안경사색가", text: "렌즈에 금이 간 이유가 과거 거대한 폭풍우를 경고하다 깨진 것이란 비하인드를 읽고 소름 돋았습니다.", ts:"오후 02:20", date: dateStr + 'T14:20:00', reactions: {"": 9,"": 15 } },
+          { user: "🎙️ AI 사회자", text: "테오에게 깨진 단안경은 과거의 상처를 들추는 아픔이 아니라, 잊혀진 사람들의 소망을 현실의 평화로 엮어내는 숭고한 창조의 계기였습니다.", ts:"오후 03:00", date: dateStr + 'T15:00:00', reactions: {"": 24 } },
+          { user: "항해사김민준", text: "'바다는 모든 것을 씻어내어 기억하지 않아도, 나의 해도는 끝내 너의 궤적을 기억한다' ... 최고의 3장이었습니다.", ts:"오후 04:05", date: dateStr + 'T16:05:00', reactions: {"": 28,"": 22 } }
         ];
       } else if (title.indexOf('오래된 안경 상점') !== -1) {
         return [
-          { user: "달빛독자", text: "타인의 속마음을 비추는 안경을 닦을 때마다 나의 고독을 닦아내고 있었다는 문장이 가슴을 치네요... 👓", ts: "오후 08:05", date: dateStr + 'T20:05:00', reactions: { "❤️": 19, "✨": 14 } },
-          { user: "새벽사서", text: "아델이 렌즈를 투영하며 마주한 진실과 갈망의 정원 씬이 환상적이면서도 씁쓸한 여운을 전하더군요.", ts: "오후 08:18", date: dateStr + 'T20:18:00', reactions: { "❤️": 15, "🤔": 8 } },
-          { user: "🎙️ AI 사회자", text: "타인의 숨겨진 마음을 아는 안경이 있다면 독자님들은 쓰시겠습니까, 아니면 모르고 살아가시겠습니까? ✨", ts: "오후 08:30", date: dateStr + 'T20:30:00', reactions: { "✨": 26 } },
-          { user: "글꽃소녀", text: "저는 쓰지 않고 진실을 모른 채 평온하게 살고 싶어요! 3장 결말의 선택이 그래서 더 와닿았어요.", ts: "오후 08:45", date: dateStr + 'T20:45:00', replyTo: { user: "🎙️ AI 사회자", text: "타인의 숨겨진 마음을..." }, reactions: { "❤️": 22 } }
+          { user: "달빛독자", text: "타인의 속마음을 비추는 안경을 닦을 때마다 나의 고독을 닦아내고 있었다는 문장이 가슴을 치네요...", ts:"오후 08:05", date: dateStr + 'T20:05:00', reactions: {"": 19,"": 14 } },
+          { user: "새벽사서", text: "아델이 렌즈를 투영하며 마주한 진실과 갈망의 정원 씬이 환상적이면서도 씁쓸한 여운을 전하더군요.", ts:"오후 08:18", date: dateStr + 'T20:18:00', reactions: {"": 15,"": 8 } },
+          { user: "🎙️ AI 사회자", text: "타인의 숨겨진 마음을 아는 안경이 있다면 독자님들은 쓰시겠습니까, 아니면 모르고 살아가시겠습니까?", ts:"오후 08:30", date: dateStr + 'T20:30:00', reactions: {"": 26 } },
+          { user: "글꽃소녀", text: "저는 쓰지 않고 진실을 모른 채 평온하게 살고 싶어요! 3장 결말의 선택이 그래서 더 와닿았어요.", ts:"오후 08:45", date: dateStr + 'T20:45:00', replyTo: { user:" AI 사회자", text: "타인의 숨겨진 마음을..." }, reactions: {"": 22 } }
         ];
       } else {
         return [
-          { user: "독서가", text: "『" + title + "』을 읽으며 " + author + " 작가가 그려낸 가상의 활자 속에 깊이 빠져들었습니다. 📖", ts: "오후 02:15", date: dateStr + 'T14:15:00', reactions: { "❤️": 12, "✨": 8 } },
-          { user: "사색자", text: "중반부 시놉시스의 딜레마가 마음에 큰 울림을 주더군요. 소장 가치가 높은 훌륭한 작품입니다.", ts: "오후 02:30", date: dateStr + 'T14:30:00', reactions: { "❤️": 14, "😄": 9 } },
-          { user: "🎙️ AI 사회자", text: "독자님들의 깊은 감상에 감사드립니다. ✨ 『" + title + "』이 남긴 사유의 궤적을 자유롭게 나눠보세요.", ts: "오후 02:45", date: dateStr + 'T14:45:00', reactions: { "✨": 18 } },
-          { user: "여백의문장", text: "가공독서회에서 나누었던 3일간의 사색과 이야기를 오래도록 소중히 기억하겠습니다.", ts: "오후 03:20", date: dateStr + 'T15:20:00', reactions: { "❤️": 20, "✨": 16 } }
+          { user: "독서가", text: "『" + title +"』을 읽으며" + author +" 작가가 그려낸 가상의 활자 속에 깊이 빠져들었습니다.", ts:"오후 02:15", date: dateStr + 'T14:15:00', reactions: {"": 12,"": 8 } },
+          { user: "사색자", text: "중반부 시놉시스의 딜레마가 마음에 큰 울림을 주더군요. 소장 가치가 높은 훌륭한 작품입니다.", ts:"오후 02:30", date: dateStr + 'T14:30:00', reactions: {"": 14,"": 9 } },
+          { user: "🎙️ AI 사회자", text: "독자님들의 깊은 감상에 감사드립니다. 『" + title +"』이 남긴 사유의 궤적을 자유롭게 나눠보세요.", ts:"오후 02:45", date: dateStr + 'T14:45:00', reactions: {"": 18 } },
+          { user: "여백의문장", text: "가공독서회에서 나누었던 3일간의 사색과 이야기를 오래도록 소중히 기억하겠습니다.", ts:"오후 03:20", date: dateStr + 'T15:20:00', reactions: {"": 20,"": 16 } }
         ];
       }
     }
@@ -893,16 +893,8 @@ function renderGenreSection() {
         book.ratings = { 5: dist[5]||0, 4: dist[4]||0, 3: dist[3]||0, 2: dist[2]||0, 1: dist[1]||0 };
         book.myRating = 0; // 아카이브는 내 평점 수정 불가
 
-        // 채팅 반응 집계 (DB 채팅 데이터 기반)
-        var rxAgg = { '❤️': 0, '🤔': 0, '😄': 0, '✨': 0 };
-        var msgs = chatMsgs[book.id] || [];
-        msgs.forEach(function(m) {
-          Object.keys(m.reactions || {}).forEach(function(e) {
-            // reactions 값은 정수 카운트 — .count 접근 제거
-            if (rxAgg[e] !== undefined) rxAgg[e] += (m.reactions[e] || 0);
-          });
-        });
-        book.rxCounts = rxAgg;
+        // 반응 총합은 서버(rx_counts)가 이미 계산해 준 값을 그대로 쓴다.
+        // getRxTotals()가 채팅 캐시와 비교해 더 큰 쪽을 취하므로 여기서 재집계할 필요가 없다.
 
         renderStats(book);
 
@@ -1257,15 +1249,22 @@ function renderGenreSection() {
     ];
 
     function getRxTotals(book) {
-      // seed + 실제 채팅 반응 합산
+      // book.rxCounts는 서버가 DB 전체를 집계해 내려준 값이므로 그것을 기준으로 쓴다.
+      // 채팅방을 열어 둔 동안의 즉시 반응(서버 집계 이후 생긴 변화)만
+      // 채팅 캐시가 더 큰 경우에 한해 반영해 이중 계산을 피한다.
       var totals = {};
-      RX_ORDER.forEach(function (r) { totals[r.emoji] = book.rxCounts[r.emoji] || 0; });
+      RX_ORDER.forEach(function (r) { totals[r.emoji] = (book.rxCounts || {})[r.emoji] || 0; });
+
+      var live = {};
       var msgs = chatMsgs[book.id] || [];
       msgs.forEach(function (m) {
-        Object.keys(m.reactions).forEach(function (emoji) {
+        Object.keys(m.reactions || {}).forEach(function (emoji) {
           // reactions 값은 정수 카운트 (예: {"❤️": 3}) — .count 접근 제거
-          if (totals[emoji] !== undefined) totals[emoji] += (m.reactions[emoji] || 0);
+          if (totals[emoji] !== undefined) live[emoji] = (live[emoji] || 0) + (m.reactions[emoji] || 0);
         });
+      });
+      Object.keys(live).forEach(function (emoji) {
+        if (live[emoji] > totals[emoji]) totals[emoji] = live[emoji];
       });
       return totals;
     }
@@ -1826,7 +1825,7 @@ function renderGenreSection() {
     var replyTarget = null; // {msgId, bookId, user, text}
 
     var CHAT_SEED = [
-      { user: '달빛독자', av: '달', avBg: '#e8daf8', avColor: '#7b5fb8', text: '저 이거 읽으면서 지하철에서 울 뻔 했어요 😭 참느라 혼났잖아요' },
+      { user: '달빛독자', av: '달', avBg: '#e8daf8', avColor: '#7b5fb8', text: '저 이거 읽으면서 지하철에서 울 뻔 했어요 참느라 혼났잖아요' },
       { user: '책상물림', av: '책', avBg: '#f0e8dc', avColor: '#8b4f25', text: '첫 장 넘기자마자 완전히 빠져들었어요. 며칠째 손에서 못 놓고 있음' },
       { user: '밤의활자', av: '밤', avBg: '#e8f0f8', avColor: '#2c5f8a', text: '결말 어떻게 해석하셨어요? 저는 열린 결말이라고 읽었는데 주변 반응이 다 달라서요' },
       { user: '녹색독자', av: '녹', avBg: '#e8f0dc', avColor: '#2d7a50', text: '작가가 이 책에서 하려는 말이 뭔지 읽고 나서도 계속 생각하게 돼요' },
@@ -3617,7 +3616,10 @@ function adaptDbBookToFrontend(dbBook) {
         })(),
         ratings: { 5: 0, 4: 0, 3: 0, 2: 0, 1: 0 },
         myRating: 0,
-        rxCounts: { '❤️': 0, '🤔': 0, '😄': 0, '✨': 0 },
+        // 반응 총합은 서버가 집계해 내려준다(rx_counts).
+        // 예전에는 채팅 캐시를 훑어 계산했지만, 채팅방을 열기 전에는
+        // 캐시가 비어 있어 상세 페이지의 반응 줄이 항상 0으로 보였다.
+        rxCounts: dbBook.rx_counts || { '❤️': 0, '🤔': 0, '😄': 0, '✨': 0 },
         comments: []
       };
     }
