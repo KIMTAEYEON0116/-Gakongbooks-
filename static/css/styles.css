@@ -15,8 +15,16 @@
   --accent: #c17b3f;
   --accent-bg: #fdf0e4;
   --accent-border: #e8c89a;
-  --serif: 'Noto Serif KR', serif;
-  --sans: 'Noto Sans KR', sans-serif;
+  /* 본문 폰트 — 한국어 기본. 일본어일 때는 아래 html[lang="ja"] 규칙이 JP 폰트를 우선한다.
+     (한중일 한자는 나라별로 자형이 달라서, 언어에 맞는 폰트를 먼저 두어야 자연스럽게 보인다) */
+  --serif: 'Noto Serif KR', 'Noto Serif JP', 'Apple SD Gothic Neo', 'Malgun Gothic', serif;
+  --sans: 'Noto Sans KR', 'Noto Sans JP', 'Apple SD Gothic Neo', 'Malgun Gothic', sans-serif;
+}
+
+/* 일본어 표시 중일 때의 폰트 우선순위 (setLanguage()가 <html lang>을 바꾼다) */
+html[lang="ja"] {
+  --serif: 'Noto Serif JP', 'Hiragino Mincho ProN', 'Yu Mincho', serif;
+  --sans: 'Noto Sans JP', 'Hiragino Kaku Gothic ProN', 'Yu Gothic', 'Meiryo', sans-serif;
 }
 
 body {
@@ -249,52 +257,68 @@ nav {
   color: var(--text-faint);
 }
 
-/* /  GENERATE SECTION  / */
+/* ── GENERATE SECTION (Clean, Simple & Eye-Catching) ── */
 .gen-section {
-  margin: 24px 28px 0;
-  background: #fff;
-  border: 1px solid var(--border);
-  border-radius: 10px;
-  padding: 20px 22px;
+  margin: 26px 28px 0;
+  background: #fcf8f2;
+  border: 1.5px solid #ebd8c3;
+  border-left: 4px solid var(--accent);
+  border-radius: 12px;
+  padding: 22px 26px;
   display: flex;
   align-items: center;
   justify-content: space-between;
-  gap: 16px;
+  gap: 20px;
+  box-shadow: 0 3px 12px rgba(193, 123, 63, 0.06);
 }
 
 .gen-text h3 {
   font-family: var(--serif);
-  font-size: 15px;
-  color: var(--text);
-  margin-bottom: 4px;
+  font-size: 17.5px;
+  font-weight: 700;
+  color: #2c2418;
+  margin-bottom: 5px;
+  display: flex;
+  align-items: center;
+  gap: 6px;
 }
 
 .gen-text p {
-  font-size: 12px;
-  color: var(--text-muted);
+  font-size: 13.5px;
+  color: #6c5c4c;
+  line-height: 1.5;
 }
 
 .gen-btn {
   flex-shrink: 0;
-  padding: 10px 20px;
+  padding: 12px 22px;
   background: var(--accent);
-  color: #fff;
+  color: #ffffff;
   border: none;
-  border-radius: 7px;
-  font-size: 13px;
+  border-radius: 8px;
+  font-size: 14px;
   font-family: var(--sans);
-  font-weight: 500;
+  font-weight: 700;
   cursor: pointer;
   white-space: nowrap;
-  transition: background .15s;
+  letter-spacing: 0.02em;
+  box-shadow: 0 3px 10px rgba(193, 123, 63, 0.25);
+  transition: all 0.2s ease;
 }
 
 .gen-btn:hover {
-  background: #a8692f;
+  background: #a8662e;
+  transform: translateY(-1.5px);
+  box-shadow: 0 6px 16px rgba(193, 123, 63, 0.35);
+}
+
+.gen-btn:active {
+  transform: translateY(0);
 }
 
 .gen-btn:disabled {
   background: #ccc;
+  box-shadow: none;
   cursor: not-allowed;
 }
 
@@ -782,7 +806,7 @@ nav {
   display: flex;
   justify-content: space-between;
   align-items: center;
-  padding: 24px 12px 16px 12px;
+  padding: 32px 28px 24px 28px;
   border-bottom: 1px solid #eaddd3;
   margin-bottom: 20px;
 }
@@ -915,7 +939,7 @@ nav {
   display: flex;
   border-bottom: 2px solid #eaddd3;
   gap: 32px;
-  margin: 16px 0 24px;
+  margin: 16px 28px 24px;
 }
 
 .lib-tab-btn {
@@ -1639,14 +1663,19 @@ nav {
   margin: 10px 0 18px;
 }
 
+/* 공지 라벨 — 크림색 배경 위에서 회색 pill은 탁하게 묻혀 보였다.
+   본문을 방해하지 않으면서도 눈에 들어오도록 종이 톤 앰버 라벨로 바꾼다. */
 .chat-notice span {
   display: inline-block;
-  background: rgba(0, 0, 0, 0.18);
-  color: #fff;
-  font-size: 13px;
-  padding: 6px 16px;
+  background: var(--accent-bg);
+  color: #8b5a2b;
+  border: 1px solid var(--accent-border);
+  font-size: 12.5px;
+  padding: 5px 15px;
   border-radius: 14px;
-  font-weight: 500;
+  font-weight: 600;
+  letter-spacing: 0.01em;
+  box-shadow: 0 1px 2px rgba(139, 90, 43, 0.06);
 }
 
 /* / date divider / */
@@ -1655,13 +1684,30 @@ nav {
   margin: 14px 0 10px;
 }
 
+/* 날짜 구분선 — 양옆으로 가는 선이 지나가는 형태.
+   공지 라벨(앰버)과 역할이 다르므로 색이 아니라 '선'으로 구분한다. */
+.chat-date-divider {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.chat-date-divider::before,
+.chat-date-divider::after {
+  content: "";
+  flex: 1;
+  height: 1px;
+  background: var(--border);
+}
+
 .chat-date-divider span {
   display: inline-block;
-  background: rgba(0, 0, 0, 0.15);
-  color: #fff;
-  font-size: 12.5px;
-  padding: 3px 12px;
-  border-radius: 10px;
+  background: transparent;
+  color: var(--text-faint);
+  font-size: 12px;
+  padding: 0;
+  letter-spacing: 0.06em;
+  white-space: nowrap;
 }
 
 /* / CHAT ROW - 충돌 제거 후 flex 형태로 단일화 / */
@@ -2131,90 +2177,114 @@ nav {
   text-shadow: 0 1px 2px rgba(0, 0, 0, 0.3);
 }
 
-/* /  CHAT SEARCH  / */
-.chat-search-bar {
-  position: absolute;
-  top: 50%;
-  right: 85px;
-  transform: translateY(-50%);
-  width: auto;
-  height: auto;
-  z-index: 10;
-  background: transparent;
-  padding: 0;
+/* ── CHAT SEARCH BAR (Long Oval Pill, Eye-Catching) ── */
+.chat-header-search-bar {
   display: flex;
   align-items: center;
-  gap: 6px;
-  opacity: 0;
-  pointer-events: none;
-  transition: opacity 0.2s ease, transform 0.2s ease;
+  background: rgba(255, 255, 255, 0.14);
+  border: 1.5px solid rgba(255, 255, 255, 0.28);
+  border-radius: 24px;
+  padding: 0 16px;
+  height: 40px;
+  width: 280px;
+  transition: all 0.25s cubic-bezier(0.16, 1, 0.3, 1);
+  box-shadow: inset 0 1px 3px rgba(0, 0, 0, 0.15);
+  margin-left: auto;
 }
 
-.chat-search-bar.open {
-  opacity: 1;
-  pointer-events: auto;
-  transform: translateY(-50%) translateX(-8px);
-}
-
-.chat-search-pill {
-  position: relative;
-  display: flex;
-  align-items: center;
+.chat-header-search-bar:focus-within,
+.chat-header-search-bar:hover {
   background: #ffffff;
-  border-radius: 16px;
-  padding: 0 10px;
-  border: none;
-  height: 32px;
-  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.15);
-  width: 180px;
+  border-color: var(--accent);
+  width: 330px;
+  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.2);
 }
 
-.chat-search-pill-icon {
+.chat-search-icon-inside {
   font-size: 15px;
-  color: #999;
-  margin-right: 6px;
+  color: rgba(255, 255, 255, 0.75);
+  margin-right: 8px;
+  flex-shrink: 0;
+  transition: color 0.2s;
+}
+
+.chat-header-search-bar:focus-within .chat-search-icon-inside,
+.chat-header-search-bar:hover .chat-search-icon-inside {
+  color: var(--accent);
 }
 
 .chat-search-input {
   flex: 1;
   border: none;
-  background: none;
+  background: transparent;
   outline: none;
-  font-size: 13px;
-  color: #333;
+  font-size: 13.5px;
+  font-family: var(--sans);
+  color: #ffffff;
   min-width: 0;
 }
 
+.chat-header-search-bar:focus-within .chat-search-input,
+.chat-header-search-bar:hover .chat-search-input {
+  color: #2c2418;
+}
+
 .chat-search-input::placeholder {
-  color: #aaa;
+  color: rgba(255, 255, 255, 0.65);
 }
 
-.chat-search-pill-divider {
-  color: #ddd;
-  font-size: 13px;
-  margin: 0 4px;
+.chat-header-search-bar:focus-within .chat-search-input::placeholder,
+.chat-header-search-bar:hover .chat-search-input::placeholder {
+  color: #9a8a7a;
 }
 
-.chat-search-pill-text {
-  color: #000;
-  font-size: 13px;
-  font-family: var(--sans);
+.chat-search-count {
+  font-size: 12px;
+  font-weight: 700;
+  color: var(--accent);
+  margin: 0 6px;
   white-space: nowrap;
 }
 
 .chat-search-nav {
   display: flex;
   align-items: center;
-  gap: 4px;
+  gap: 3px;
   flex-shrink: 0;
 }
 
-.chat-search-count {
-  font-size: 13px;
-  color: #999;
-  min-width: 48px;
-  text-align: center;
+.chat-search-arrow {
+  width: 24px;
+  height: 24px;
+  border-radius: 50%;
+  background: rgba(255, 255, 255, 0.15);
+  border: none;
+  color: #fff;
+  font-size: 11px;
+  cursor: pointer;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  transition: all 0.15s;
 }
+
+.chat-header-search-bar:focus-within .chat-search-arrow,
+.chat-header-search-bar:hover .chat-search-arrow {
+  background: rgba(0, 0, 0, 0.08);
+  color: #2c2418;
+}
+
+.chat-search-arrow:hover:not(:disabled) {
+  background: var(--accent) !important;
+  color: #fff !important;
+}
+
+.chat-search-arrow:disabled {
+  opacity: 0.3;
+  cursor: not-allowed;
+}
+
+
 
 .chat-search-arrow {
   width: 28px;
@@ -2502,7 +2572,7 @@ nav {
 .rx-stat-name {
   font-size: 13px;
   color: var(--text-muted);
-  width: 62px;
+  width: 95px;
   flex-shrink: 0;
   white-space: nowrap;
 }
@@ -3423,34 +3493,6 @@ nav {
   gap: 14px;
 }
 
-.arc-page-mini-cover {
-  width: 44px;
-  height: 60px;
-  border-radius: 3px;
-  flex-shrink: 0;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  font-family: var(--serif);
-  font-size: 12px;
-  color: #fff;
-  text-align: center;
-  padding: 4px;
-  line-height: 1.3;
-  position: relative;
-}
-
-.arc-page-mini-cover::before {
-  content: '';
-  position: absolute;
-  left: 0;
-  top: 0;
-  bottom: 0;
-  width: 4px;
-  background: rgba(0, 0, 0, 0.25);
-  border-radius: 3px 0 0 3px;
-}
-
 .arc-page-badge {
   font-size: 12px;
   letter-spacing: 0.14em;
@@ -3475,6 +3517,128 @@ nav {
 .arc-content {
   max-width: 760px;
   margin: 0 auto;
+}
+
+/* ── 가로 보기(페이지 넘기기) 토글 버튼 ── */
+.arc-view-toggle-btn {
+  position: absolute;
+  top: 24px;
+  right: 28px;
+  font-size: 12px;
+  font-weight: 600;
+  font-family: var(--sans);
+  color: rgba(255, 255, 255, 0.7);
+  background: rgba(255, 255, 255, 0.08);
+  border: 1px solid rgba(255, 255, 255, 0.18);
+  border-radius: 8px;
+  padding: 7px 14px;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  z-index: 55;
+}
+
+.arc-view-toggle-btn:hover {
+  background: rgba(255, 255, 255, 0.16);
+  color: #fff;
+}
+
+.arc-view-toggle-btn.active {
+  background: var(--arc-accent, #4a7a3a);
+  color: #fff;
+  border-color: var(--arc-accent, #4a7a3a);
+}
+
+/* ── 가로 보기 모드: 세로 스크롤 대신 섹션 단위로 페이지를 넘기는 e북 스타일 뷰 ── */
+.arc-page-nav {
+  display: none;
+}
+
+.arc-content.arc-horizontal-mode {
+  display: flex;
+  flex-direction: column;
+  /* JS가 인라인 style.height로 헤더 높이를 뺀 실제 가용 높이를 지정한다 */
+}
+
+.arc-content.arc-horizontal-mode .arc-pages-viewport {
+  position: relative;
+  overflow: hidden;
+  flex: 1;
+  min-height: 0;
+}
+
+.arc-content.arc-horizontal-mode .arc-pages-track {
+  display: flex;
+  height: 100%;
+  transition: transform 0.45s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+.arc-content.arc-horizontal-mode .arc-page {
+  flex: 0 0 100%;
+  max-width: 100%;
+  height: 100%;
+  overflow-y: auto;
+  box-sizing: border-box;
+}
+
+.arc-content.arc-horizontal-mode .arc-cover {
+  min-height: 100%;
+}
+
+.arc-content.arc-horizontal-mode .arc-page-nav {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 20px;
+  padding: 14px;
+  background: var(--arc-bg, #1a2e14);
+  border-top: 1px solid rgba(255, 255, 255, 0.08);
+  flex-shrink: 0;
+}
+
+.arc-page-nav-btn {
+  width: 36px;
+  height: 36px;
+  border-radius: 50%;
+  border: 1px solid rgba(255, 255, 255, 0.25);
+  background: rgba(255, 255, 255, 0.08);
+  color: #fff;
+  font-size: 16px;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.arc-page-nav-btn:hover:not(:disabled) {
+  background: var(--arc-accent, #4a7a3a);
+  border-color: var(--arc-accent, #4a7a3a);
+}
+
+.arc-page-nav-btn:disabled {
+  opacity: 0.3;
+  cursor: default;
+}
+
+.arc-page-dots {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.arc-page-dot {
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+  background: rgba(255, 255, 255, 0.25);
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+
+.arc-page-dot.active {
+  background: var(--arc-accent, #4a7a3a);
+  width: 18px;
+  border-radius: 4px;
 }
 
 /* /  ARCHIVE INNER  / */
@@ -3505,48 +3669,6 @@ nav {
   font-weight: 400;
   margin-bottom: 40px;
   position: relative;
-}
-
-.arc-cover-book-icon {
-  width: 86px;
-  height: 120px;
-  background: var(--arc-book-gradient, linear-gradient(135deg, #4a7a3a 0%, #2d5022 100%));
-  border-radius: 3px 8px 8px 3px;
-  margin: 0 auto 36px;
-  position: relative;
-  overflow: hidden;
-  box-shadow: inset -5px 0 10px rgba(0, 0, 0, 0.25), 4px 4px 20px rgba(0, 0, 0, 0.4);
-  display: flex;
-  align-items: center;
-  justify-content: center;
-}
-
-.arc-cover-book-icon::before {
-  content: '';
-  position: absolute;
-  left: 0;
-  top: 0;
-  bottom: 0;
-  width: 7px;
-  background: rgba(0, 0, 0, 0.3);
-  border-radius: 3px 0 0 3px;
-  z-index: 2;
-}
-
-.arc-cover-book-inner {
-  font-family: var(--serif);
-  font-size: 12px;
-  color: rgba(255, 255, 255, 0.75);
-  text-align: center;
-  line-height: 1.4;
-  position: absolute;
-  inset: 0;
-  margin-left: 7px;
-  padding: 10px;
-  box-sizing: border-box;
-  display: flex;
-  align-items: center;
-  justify-content: center;
 }
 
 .arc-cover-title {
@@ -3605,21 +3727,12 @@ nav {
 }
 
 .arc-book-band-cover {
-  width: 90px;
-  height: 126px;
+  width: 150px;
+  height: 210px;
   background: #4a7a3a;
-  border-radius: 2px 6px 6px 2px;
+  border-radius: 3px 8px 8px 3px;
   flex-shrink: 0;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  font-family: var(--serif);
-  font-size: 12px;
-  color: rgba(255, 255, 255, 0.8);
-  text-align: center;
-  line-height: 1.4;
-  padding: 10px;
-  box-shadow: inset -4px 0 8px rgba(0, 0, 0, 0.3), 3px 3px 16px rgba(0, 0, 0, 0.4);
+  box-shadow: inset -5px 0 10px rgba(0, 0, 0, 0.3), 5px 5px 22px rgba(0, 0, 0, 0.4);
   position: relative;
 }
 
@@ -3629,9 +3742,9 @@ nav {
   left: 0;
   top: 0;
   bottom: 0;
-  width: 6px;
+  width: 8px;
   background: rgba(0, 0, 0, 0.28);
-  border-radius: 2px 0 0 2px;
+  border-radius: 3px 0 0 3px;
 }
 
 .arc-book-band-genre {
@@ -4460,6 +4573,53 @@ nav {
   padding-bottom: 28px;
 }
 
+/* 말풍선 아래 보조 액션(답장·반응).
+   이 세 클래스에는 원래 스타일 정의가 없어서, 브라우저 기본 버튼 모양이 그대로 노출되며
+   말풍선 왼쪽 라인과 어긋나 보였다. 말풍선과 같은 들여쓰기에 맞춰 정렬한다. */
+.chat-action-toolbar {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-top: 5px;
+  padding: 0 2px;
+  opacity: 0.75;
+  transition: opacity .15s ease;
+}
+
+.chat-row:hover .chat-action-toolbar {
+  opacity: 1;
+}
+
+/* 내 메시지는 오른쪽 정렬(말풍선이 오른쪽에 붙으므로) */
+.chat-action-toolbar.mine {
+  justify-content: flex-end;
+}
+
+.chat-action-btn {
+  background: none;
+  border: 0;
+  padding: 2px 2px;
+  font-family: var(--sans);
+  font-size: 12px;
+  color: var(--text-faint);
+  cursor: pointer;
+  transition: color .15s ease;
+}
+
+.chat-action-btn:hover {
+  color: var(--accent);
+}
+
+.chat-action-btn.danger:hover {
+  color: #b54a6a;
+}
+
+.chat-action-divider {
+  color: var(--border);
+  font-size: 11px;
+  user-select: none;
+}
+
 .chat-row-readonly .chat-action-toolbar {
   display: none !important;
 }
@@ -4477,42 +4637,6 @@ nav {
   cursor: default;
   user-select: none;
   pointer-events: none;
-}
-
-.arc-view-chat-btn-wrap {
-  display: flex;
-  justify-content: center;
-  padding: 18px 24px 4px;
-}
-
-.arc-view-chat-btn {
-  display: inline-flex;
-  align-items: center;
-  gap: 8px;
-  font-size: 14px;
-  font-weight: 600;
-  font-family: var(--sans);
-  color: var(--arc-accent, #4a7a3a);
-  background: rgba(255, 255, 255, 0.08);
-  border: 1.5px solid var(--arc-light, #6a9a5a);
-  border-radius: 10px;
-  padding: 12px 28px;
-  cursor: pointer;
-  transition: all 0.2s ease;
-  letter-spacing: 0.01em;
-  backdrop-filter: blur(4px);
-}
-
-.arc-view-chat-btn:hover {
-  background: var(--arc-accent, #4a7a3a);
-  color: #fff;
-  border-color: var(--arc-accent, #4a7a3a);
-  transform: translateY(-1px);
-  box-shadow: 0 4px 16px var(--arc-glow, rgba(74, 122, 58, 0.28));
-}
-
-.arc-view-chat-btn:active {
-  transform: translateY(0);
 }
 
 .btn-chat-history {
@@ -5164,4 +5288,191 @@ nav {
   font-size: 12.5px;
   color: var(--text-faint);
   user-select: none;
+}
+/* ==========================================================================
+   ARCHIVE — 월별 서가 (Monthly Shelf Timeline)
+   아카이브 탭에서 종료된 독서방을 '연대기'처럼 달 단위로 묶어 보여준다.
+   기존 아카이브 카드(.card.arc-card)를 그대로 재사용하고, 그 위에 월 구분만 얹는다.
+   ========================================================================== */
+
+/* 월 그룹 목록 컨테이너 — 카드 그리드 대신 이 컨테이너가 세로로 쌓인다 */
+.arc-month-list {
+  display: block;
+  padding: 0 28px 32px;
+  position: relative;
+}
+
+/* 서가 기둥: 왼쪽 세로 실선 */
+.arc-month-list::before {
+  content: "";
+  position: absolute;
+  left: 33px;
+  top: 6px;
+  bottom: 40px;
+  width: 1px;
+  background: linear-gradient(180deg, var(--accent-border), var(--border-light) 60%, transparent);
+}
+
+.arc-month-group {
+  position: relative;
+  padding-left: 22px;
+  margin-bottom: 26px;
+}
+
+/* 연도가 바뀌는 첫 그룹에만 붙는 연도 마커 */
+.arc-year-marker {
+  font-family: var(--serif);
+  font-size: 26px;
+  font-weight: 700;
+  color: var(--accent);
+  letter-spacing: 0.06em;
+  margin: 6px 0 14px -22px;
+  padding-left: 22px;
+  opacity: 0.55;
+}
+
+/* 월 헤더 — 스크롤 시 상단 고정 */
+.arc-month-header {
+  position: sticky;
+  top: 68px;
+  z-index: 5;
+  display: flex;
+  align-items: baseline;
+  gap: 10px;
+  padding: 8px 0 10px;
+  background: linear-gradient(180deg, var(--bg) 78%, rgba(250, 248, 245, 0));
+}
+
+/* 기둥 위의 점 */
+.arc-month-header::before {
+  content: "";
+  position: absolute;
+  left: -26px;
+  top: 15px;
+  width: 9px;
+  height: 9px;
+  border-radius: 50%;
+  background: var(--accent);
+  box-shadow: 0 0 0 3px var(--bg);
+}
+
+.arc-month-label {
+  font-family: var(--serif);
+  font-size: 17px;
+  font-weight: 700;
+  color: var(--text);
+  letter-spacing: 0.02em;
+}
+
+.arc-month-count {
+  font-size: 12px;
+  color: var(--text-faint);
+  letter-spacing: 0.08em;
+  white-space: nowrap;
+}
+
+/* 라벨과 권수 사이를 잇는 가는 선 (에디토리얼 느낌) */
+.arc-month-rule {
+  flex: 1;
+  height: 1px;
+  background: var(--border);
+  transform: translateY(-4px);
+}
+
+/* 달 안의 카드들 — 기존 카드 그리드와 동일한 규격 */
+/* hidden 속성이 붙으면 반드시 숨겨져야 한다.
+   display:grid가 브라우저 기본 [hidden]{display:none}보다 우선하기 때문에,
+   이 보정이 없으면 '월 접기'가 상태만 바뀌고 카드는 그대로 보인다. */
+.arc-month-grid[hidden] {
+  display: none;
+}
+
+.arc-month-grid {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 14px;
+  padding-top: 4px;
+}
+
+.arc-month-empty {
+  font-size: 13px;
+  color: var(--text-faint);
+  padding: 28px 0;
+}
+
+/* ── 아카이브 규모 대응: 연도 칩 · 접기 · 더 보기 ─────────────────────── */
+
+.arc-year-chips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  padding: 2px 0 16px 22px;
+}
+
+.arc-year-chip {
+  font-family: var(--sans);
+  font-size: 12px;
+  letter-spacing: 0.04em;
+  color: var(--text-muted);
+  background: #fff;
+  border: 1px solid var(--border);
+  border-radius: 14px;
+  padding: 5px 13px;
+  cursor: pointer;
+  transition: all .15s ease;
+}
+
+.arc-year-chip:hover {
+  border-color: var(--accent-border);
+  color: var(--accent);
+}
+
+.arc-year-chip.on {
+  background: var(--accent);
+  border-color: var(--accent);
+  color: #fff;
+  font-weight: 600;
+}
+
+/* 월 헤더는 접기 버튼이 되었으므로 button 기본 스타일을 지운다 */
+button.arc-month-header {
+  width: 100%;
+  border: 0;
+  font-family: inherit;
+  text-align: left;
+  cursor: pointer;
+}
+
+button.arc-month-header:hover .arc-month-label {
+  color: var(--accent);
+}
+
+.arc-month-caret {
+  font-size: 11px;
+  color: var(--text-faint);
+  margin-left: 2px;
+}
+
+/* 접힌 달은 표식만 옅게 */
+.arc-month-header.collapsed .arc-month-label {
+  color: var(--text-muted);
+  font-weight: 400;
+}
+
+.arc-more-btn {
+  display: block;
+  margin: 8px 0 0 22px;
+  padding: 11px 20px;
+  font-family: var(--sans);
+  font-size: 13px;
+  color: var(--accent);
+  background: #fff;
+  border: 1px solid var(--accent-border);
+  border-radius: 8px;
+  cursor: pointer;
+  transition: all .15s ease;
+}
+
+.arc-more-btn:hover {
+  background: var(--accent-bg);
 }

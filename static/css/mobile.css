@@ -1,0 +1,615 @@
+/* ==========================================================================
+   가공독서회 — 모바일 대응 레이아웃 (Mobile Responsive Layer)
+
+   유지보수 규칙
+   1) 이 파일은 styles.css '다음에' 로드되며, 데스크톱 규칙을 덮어쓰기만 한다.
+      데스크톱 레이아웃을 바꿀 일은 styles.css에서, 모바일만 다르게 할 일은 이 파일에서 처리한다.
+   2) 브레이크포인트는 아래 세 단계만 사용한다. 새 값을 추가하지 말고 이 안에서 조정한다.
+        - 태블릿 : max-width 900px
+        - 모바일 : max-width 640px  (대부분의 조정이 여기에 들어간다)
+        - 소형   : max-width 380px  (iPhone SE 등)
+   3) 화면(홈 / 상세 / 채팅 / 후보 / 서재 / 아카이브 / 안내 / 인증) 단위로 구획을 나눠 두었다.
+      새 규칙은 반드시 해당 화면 구획 안에 넣는다.
+   ========================================================================== */
+
+
+/* ==========================================================================
+   태블릿 (<= 900px)
+   ========================================================================== */
+@media (max-width: 900px) {
+
+  /* 3열 카드 → 2열 */
+  .cards-grid {
+    grid-template-columns: repeat(2, 1fr);
+  }
+
+  /* 후보 도서 3장을 가로로 나란히 두기엔 좁으므로 좌우 스와이프로 전환 */
+  .candidates-container {
+    justify-content: flex-start;
+    gap: 20px;
+    padding: 28px 20px 48px;
+  }
+
+  .candidate-card {
+    flex: 0 0 78%;
+    min-width: 0;
+    max-width: none;
+    scroll-snap-align: center;
+  }
+
+  /* 참여자 5열 → 3열 */
+  .arc-participants-grid {
+    grid-template-columns: repeat(3, 1fr);
+  }
+
+  /* 아카이브 매거진 여백 축소 */
+  .arc-section,
+  .arc-chapter-header,
+  .arc-book-band,
+  .arc-stats-bar,
+  .arc-rx-summary {
+    padding-left: 24px;
+    padding-right: 24px;
+  }
+
+  .arc-messages-area {
+    padding-left: 24px;
+    padding-right: 24px;
+  }
+}
+
+
+/* ==========================================================================
+   모바일 (<= 640px)
+   ========================================================================== */
+@media (max-width: 640px) {
+
+  /* ── 공통 ────────────────────────────────────────────────────────────── */
+
+  /* 긴 제목·URL 때문에 페이지가 옆으로 밀리는 것을 방지 */
+  html,
+  body {
+    overflow-x: hidden;
+  }
+
+  /* 한국어는 어절 단위로 끊는다.
+     overflow-wrap: anywhere 는 쓰지 않는다 — 좁은 flex 항목(예: 언어 전환 버튼)에서
+     한 글자씩 줄바꿈되어 내비게이션 높이가 늘어나는 부작용이 있었다. */
+  body {
+    word-break: keep-all;
+  }
+
+  /* ── NAV : 3줄로 넘치던 메뉴를 한 줄 가로 스크롤로 ──────────────────── */
+  nav {
+    height: 56px;
+    padding: 0 10px;
+    gap: 6px;
+  }
+
+  .logo {
+    font-size: 17px;
+    flex-shrink: 0;
+  }
+
+  .nav-links {
+    gap: 2px;
+    min-width: 0;                    /* flex 자식이 줄어들 수 있게 */
+    align-items: center;
+    flex-wrap: nowrap;
+    overflow-x: auto;
+    -ms-overflow-style: none;
+    scrollbar-width: none;
+  }
+
+  /* 내비게이션 항목은 줄바꿈 없이 한 줄로 유지하고, 넘치면 가로 스와이프로 넘긴다 */
+  .lang-switch-wrap {
+    flex: 0 0 auto;
+    margin-left: 3px;
+    margin-right: 2px;
+    padding: 1px 4px;
+    gap: 1px;
+  }
+
+  .lang-btn {
+    white-space: nowrap;
+    font-size: 10.5px;
+    padding: 2px 5px;
+  }
+
+  /* 좁은 화면에서는 '/' 구분자 없이도 두 버튼이 구분되므로 자리만 차지한다 */
+  .lang-sep {
+    display: none;
+  }
+
+  .nav-links::-webkit-scrollbar {
+    display: none;                   /* 스크롤바는 숨기고 스와이프만 남긴다 */
+  }
+
+  /* 로그인/프로필 영역은 스크롤에 밀려 가려지면 안 되므로 오른쪽 끝에 고정한다.
+     (sticky라서 메뉴가 다 들어오는 넓은 화면에서는 위치가 그대로다)
+     왼쪽 그림자로 "뒤에 더 있다"는 것을 알린다. */
+  #nav-auth-area {
+    position: sticky;
+    right: 0;
+    z-index: 1;
+    background: #fff;
+    padding-left: 8px;
+    box-shadow: -10px 0 10px -8px rgba(0, 0, 0, 0.18);
+  }
+
+  .nav-btn {
+    font-size: 10.5px;
+    padding: 4px 6px;
+    white-space: nowrap;
+    flex: 0 0 auto;
+  }
+
+  /* ── 홈 : 히어로 ─────────────────────────────────────────────────────── */
+  .hero {
+    padding: 36px 18px 32px;
+  }
+
+  .hero-label {
+    font-size: 11.5px;
+    letter-spacing: 0.14em;
+  }
+
+  .hero-title {
+    font-size: 25px;
+    line-height: 1.3;
+  }
+
+  .hero-desc {
+    font-size: 13.5px;
+    line-height: 1.75;
+  }
+
+  /* ── 홈 : 섹션 · 카드 그리드 ─────────────────────────────────────────── */
+  /* 화면 좌우 여백은 섹션(.home-section)이 담당한다.
+     .cards-grid는 그 안에 있으므로 좌우 패딩을 0으로 되돌려 이중 여백을 막는다. */
+  .home-section,
+  .live-section,
+  .arc-home-section {
+    padding: 20px 16px 0;
+  }
+
+  .section-label {
+    font-size: 11.5px;
+  }
+
+  .cards-grid {
+    grid-template-columns: repeat(2, 1fr);
+    gap: 10px;
+    padding: 0 0 20px;
+  }
+
+
+  .card-cover {
+    height: 148px;                   /* 2열이라 카드가 넓어진 만큼 표지도 키운다 */
+  }
+
+  .card-title {
+    font-size: 13.5px;
+  }
+
+  /* ── 홈 : 새 책 소환하기 배너 ────────────────────────────────────────── */
+  /* 설명 문구와 버튼을 가로로 두면 좁은 화면에서 문구가 두세 단어씩 끊기고
+     버튼이 카드 밖으로 밀려난다. 세로로 쌓고 버튼은 가로 전체를 쓰게 한다. */
+  .gen-section {
+    flex-direction: column;
+    align-items: stretch;
+    gap: 14px;
+    margin: 20px 16px 0;
+    padding: 18px 18px 20px;
+  }
+
+  .gen-text h3 {
+    font-size: 16px;
+  }
+
+  .gen-text p {
+    font-size: 13px;
+    line-height: 1.7;
+  }
+
+  .gen-btn {
+    width: 100%;
+    padding: 13px 18px;
+    font-size: 14px;
+  }
+
+  /* 좁은 카드에서는 줄거리를 2줄로 줄여 카드가 지나치게 길어지지 않게 한다 */
+  .card-synopsis {
+    font-size: 12px;
+    -webkit-line-clamp: 2;
+  }
+
+  /* 장르 탭은 넘칠 때 가로 스와이프 */
+  .genre-tabs {
+    overflow-x: auto;
+    flex-wrap: nowrap;
+    -ms-overflow-style: none;
+    scrollbar-width: none;
+  }
+
+  .genre-tabs::-webkit-scrollbar {
+    display: none;
+  }
+
+  /* ── 홈 : 마감 임박 리스트 ───────────────────────────────────────────── */
+  .deadline-card {
+    padding: 11px 12px;
+    gap: 10px;
+  }
+
+  .deadline-title {
+    font-size: 13.5px;
+  }
+
+  /* ── 도서 상세 ───────────────────────────────────────────────────────── */
+  .detail-top {
+    flex-direction: column;          /* 표지 옆 정보 → 표지 위·정보 아래 */
+    align-items: center;
+    text-align: center;
+    gap: 16px;
+  }
+
+  .detail-cover {
+    width: 168px;
+    height: 235px;
+  }
+
+  .detail-header {
+    padding: 18px 16px 22px;
+  }
+
+  .stats-section,
+  .endorse-section {
+    padding-left: 16px;
+    padding-right: 16px;
+  }
+
+  .detail-title {
+    font-size: 20px;
+  }
+
+  .detail-synopsis {
+    font-size: 14.5px;
+    text-align: left;
+  }
+
+  .detail-tags,
+  .detail-action-row {
+    justify-content: center;
+    flex-wrap: wrap;
+  }
+
+  /* 좌우 2단 통계(평균 평점 | 내 평점) → 위아래 1단 */
+  .stats-inner {
+    grid-template-columns: 1fr;
+    gap: 18px;
+  }
+
+  /* 2단 사이의 세로 구분선(1px)은 1단 배치에서 가로선이 되어야 한다.
+     데스크톱의 좌우 여백(margin: 0 20px)을 그대로 두면 폭 100%와 합쳐져 넘치므로 함께 해제한다. */
+  .stats-divider {
+    width: auto;
+    height: 1px;
+    margin: 0;
+  }
+
+  .btn-join {
+    width: 100%;
+    padding: 13px 18px;
+    font-size: 14px;
+  }
+
+  /* ── 채팅방(독서방) ──────────────────────────────────────────────────── */
+  .chat-header {
+    padding: 12px;
+    gap: 8px;
+  }
+
+  /* 제목이 여러 줄로 접히며 헤더가 120px까지 늘어나던 문제 →
+     한 줄 말줄임으로 고정하고, 남는 폭은 검색창이 아니라 제목이 갖는다. */
+  .chat-header-info {
+    flex: 1 1 auto;
+    min-width: 0;
+  }
+
+  .chat-header-title,
+  .chat-header-meta {
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
+
+  .chat-header-title {
+    font-size: 14.5px;
+  }
+
+  .chat-header-meta {
+    font-size: 11.5px;
+  }
+
+  /* 검색창은 평소 아이콘 크기로 접어 두고, 탭해서 포커스되면 펼쳐진다 */
+  .chat-header-search-bar {
+    width: 42px;
+    padding: 0 12px;
+    flex: 0 0 auto;
+  }
+
+  .chat-header-search-bar:focus-within {
+    width: min(66vw, 260px);
+  }
+
+  /* 모바일에는 hover 개념이 없으므로, hover로 펼쳐지는 규칙은 무효화한다 */
+  .chat-header-search-bar:hover:not(:focus-within) {
+    width: 42px;
+    background: rgba(255, 255, 255, 0.14);
+    box-shadow: inset 0 1px 3px rgba(0, 0, 0, 0.15);
+  }
+
+  .chat-row {
+    padding-left: 12px;
+    padding-right: 12px;
+  }
+
+  .chat-bubble {
+    max-width: 78%;                  /* 데스크톱 72% → 좁은 화면에선 조금 더 넓게 */
+    font-size: 14.5px;
+  }
+
+  .chat-input-bar {
+    padding: 10px 12px;
+  }
+
+  /* iOS 사파리는 글자 크기가 16px 미만인 입력창에 포커스하면 화면을 자동 확대한다.
+     입력 요소는 모바일에서 16px 이상을 유지한다. */
+  .chat-textarea,
+  input[type="text"],
+  input[type="email"],
+  input[type="password"],
+  textarea {
+    font-size: 16px;
+  }
+
+  /* 반응 선택 팝오버가 화면을 넘던 문제 */
+  .rx-picker {
+    max-width: calc(100vw - 24px);
+    flex-wrap: wrap;
+    justify-content: center;
+  }
+
+  /* ── 후보 도서 선택 ──────────────────────────────────────────────────── */
+  .candidates-container {
+    gap: 14px;
+    padding: 20px 16px 40px;
+  }
+
+  .candidate-card {
+    flex: 0 0 84%;
+  }
+
+  .candidate-card .card-cover {
+    height: 200px;
+  }
+
+  /* ── 내 서재 ─────────────────────────────────────────────────────────── */
+  .shelf-area,
+  .arc-shelf-area {
+    padding: 18px 16px 0;
+  }
+
+  .lib-empty-state {
+    padding: 20px 12px;
+  }
+
+  /* ── 아카이브 매거진 ─────────────────────────────────────────────────── */
+  .arc-section,
+  .arc-chapter-header,
+  .arc-book-band,
+  .arc-stats-bar,
+  .arc-rx-summary,
+  .arc-messages-area {
+    padding-left: 16px;
+    padding-right: 16px;
+  }
+
+  .arc-section {
+    padding-top: 36px;
+    padding-bottom: 36px;
+  }
+
+  .arc-book-band {
+    flex-direction: column;
+    align-items: center;
+    text-align: center;
+    gap: 14px;
+  }
+
+  .arc-book-band-cover {
+    width: 120px;
+    height: 168px;
+  }
+
+  .arc-participants-grid {
+    grid-template-columns: repeat(2, 1fr);
+  }
+
+  .arc-rx-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .arc-view-toggle-btn {
+    top: 14px;
+    right: 14px;
+    font-size: 11px;
+  }
+
+  /* 가로 보기(페이지 넘기기) 모드도 화면 폭에 맞춘다 */
+  .arc-content.arc-horizontal-mode .arc-page {
+    padding-left: 16px;
+    padding-right: 16px;
+  }
+
+  /* ── 안내 · 약관 페이지 ──────────────────────────────────────────────── */
+  .info-page-wrap {
+    padding-left: 16px;
+    padding-right: 16px;
+  }
+
+  .info-section {
+    padding: 18px 16px;
+  }
+
+  .guide-section {
+    padding: 32px 12px 0;
+  }
+
+  .guide-hero::before {
+    width: 140px;
+    height: 140px;
+  }
+
+  /* ── 로그인 · 회원가입 ───────────────────────────────────────────────── */
+  .auth-hero {
+    padding: 26px 18px 28px;
+  }
+
+  .auth-form-area {
+    padding: 22px 18px 32px;
+  }
+
+  /* ── 모달 · 표지 확대 ────────────────────────────────────────────────── */
+  .custom-modal-card {
+    width: min(92vw, 420px);
+  }
+
+  .custom-modal-header {
+    padding: 16px 18px;
+  }
+
+  .custom-modal-body {
+    padding: 18px;
+  }
+
+  /* 표지 확대 뷰어: 고정 340x476 → 화면에 맞춰 비율 유지 */
+  .cover-zoom-img,
+  .cover-zoom-bg {
+    width: min(80vw, 340px);
+    height: min(112vw, 476px);
+  }
+
+  /* 비밀번호 재설정 페이지(reset_password.html)는 자체 <style> 블록이
+     이 파일보다 뒤에 오므로, 해당 페이지의 모바일 규칙은 그 파일 안에 둔다. */
+
+  /* ── 푸터 ────────────────────────────────────────────────────────────── */
+  .home-footer {
+    padding: 22px 16px 28px;
+  }
+}
+
+
+/* ==========================================================================
+   소형 기기 (<= 340px) — 아주 좁은 구형 단말
+   (iPhone SE 폭 375px에서는 2열 카드가 더 보기 좋아 이 구간에 넣지 않는다)
+   ========================================================================== */
+@media (max-width: 340px) {
+
+  .hero-title {
+    font-size: 22px;
+  }
+
+  /* 이 폭에서는 2열 카드가 너무 좁아져 표지·제목이 뭉개지므로 1열로 */
+  .cards-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .card-cover {
+    height: 168px;
+  }
+
+  .detail-cover {
+    width: 148px;
+    height: 207px;
+  }
+
+  .nav-btn {
+    font-size: 10.5px;
+    padding: 5px 8px;
+  }
+
+  .chat-bubble {
+    max-width: 84%;
+  }
+}
+
+/* ==========================================================================
+   아카이브 월별 서가 — 모바일 조정
+   (브레이크포인트는 위 규칙과 동일하게 640px을 사용한다)
+   ========================================================================== */
+@media (max-width: 640px) {
+
+  .arc-month-list {
+    padding: 0 16px 24px;
+  }
+
+  .arc-month-list::before {
+    left: 20px;                      /* 좁아진 좌우 여백에 맞춰 서가 기둥 위치 보정 */
+  }
+
+  .arc-month-group {
+    padding-left: 16px;
+    margin-bottom: 20px;
+  }
+
+  .arc-month-header {
+    top: 56px;                       /* 모바일 내비게이션 높이에 맞춘 sticky 위치 */
+  }
+
+  .arc-month-header::before {
+    left: -20px;
+  }
+
+  .arc-year-marker {
+    font-size: 21px;
+    margin-left: -16px;
+    padding-left: 16px;
+  }
+
+  .arc-month-label {
+    font-size: 15px;
+  }
+
+  .arc-month-grid {
+    grid-template-columns: repeat(2, 1fr);
+    gap: 10px;
+  }
+
+  .arc-year-chips {
+    padding-left: 16px;
+    overflow-x: auto;
+    flex-wrap: nowrap;
+    scrollbar-width: none;
+  }
+
+  .arc-year-chips::-webkit-scrollbar {
+    display: none;
+  }
+
+  .arc-year-chip {
+    flex: 0 0 auto;
+  }
+
+  .arc-more-btn {
+    margin-left: 16px;
+    width: calc(100% - 16px);
+  }
+}
+
+@media (max-width: 340px) {
+  .arc-month-grid {
+    grid-template-columns: 1fr;
+  }
+}
