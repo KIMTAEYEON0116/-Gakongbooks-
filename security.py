@@ -10,6 +10,7 @@ import time
 from typing import Dict, List
 
 from fastapi import HTTPException, Request, status
+import config
 from starlette.middleware.base import BaseHTTPMiddleware
 
 
@@ -67,12 +68,18 @@ class RateLimiter:
 def client_ip(request: Request) -> str:
     """
     클라이언트 IP를 추출한다.
-    리버스 프록시 뒤에서 운영한다면 프록시가 X-Forwarded-For를 신뢰 가능하게 세팅해야 한다.
+
+    X-Forwarded-For 는 누구나 붙일 수 있는 헤더이므로, 요청이 config.TRUSTED_PROXY_IPS 에
+    등록된 프록시에서 들어온 경우에만 믿는다. 그 외에는 소켓의 원격 주소를 그대로 쓴다.
+    (예전에는 무조건 신뢰해서, 서버를 직접 노출하면 헤더 한 줄로 로그인 시도 제한을 우회할 수 있었다)
     """
-    forwarded = request.headers.get("x-forwarded-for")
-    if forwarded:
-        return forwarded.split(",")[0].strip()
-    return request.client.host if request.client else "unknown"
+    peer = request.client.host if request.client else "unknown"
+    if peer in config.TRUSTED_PROXY_IPS:
+        forwarded = request.headers.get("x-forwarded-for")
+        if forwarded:
+            # 프록시가 여러 단이면 맨 앞이 원 클라이언트
+            return forwarded.split(",")[0].strip()
+    return peer
 
 
 # 브라우저 측 방어선. XSS가 하나 뚫려도 피해 범위를 줄여준다.

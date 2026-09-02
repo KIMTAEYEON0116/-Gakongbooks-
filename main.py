@@ -77,6 +77,20 @@ def strip_chat_emoji(text: str) -> str:
 MODERATOR_EMAIL = config.ADMIN_SEED_EMAIL
 MODERATOR_NICKNAME = "🎙️ AI 사회자"
 
+# 시드(가상) 독자 계정의 이메일 도메인.
+# 서비스 소개용으로 미리 채워 둔 대화의 작성자는 모두 이 도메인을 쓴다.
+# 실사용자가 이 대화를 실제 사람의 감상으로 오해하지 않도록, 채팅 응답에 isSample 플래그를 실어
+# 프론트가 '예시' 표시를 붙일 수 있게 한다. (실제 가입은 이 도메인으로 받지 않는다)
+SAMPLE_EMAIL_DOMAIN = "@gakong.com"
+
+
+def is_sample_user(user) -> bool:
+    """서비스 소개용 시드 독자 계정인지 판별한다. 봇(사회자)은 별도 플래그가 있으므로 제외."""
+    if user is None or getattr(user, "is_bot", False):
+        return False
+    email = (getattr(user, "email", "") or "").lower()
+    return email.endswith(SAMPLE_EMAIL_DOMAIN)
+
 # ── 공통 유틸 헬퍼 (중복 제거) ──
 
 def format_kst_time(dt) -> str:
@@ -1262,6 +1276,9 @@ async def api_generate_unique_nickname(db: Session = Depends(database.get_db)):
 @app.post("/api/auth/signup", status_code=status.HTTP_201_CREATED)
 def signup(user_data: UserSignup, request: Request, db: Session = Depends(database.get_db)):
     # 0. 동일 IP에서의 대량 계정 생성 차단
+    if (user_data.email or "").strip().lower().endswith(SAMPLE_EMAIL_DOMAIN):
+        # 시드 독자 도메인은 서비스 소개용 계정 전용이다.
+        raise HTTPException(status_code=400, detail="사용할 수 없는 이메일 도메인입니다.")
     SIGNUP_LIMITER.hit(security.client_ip(request))
 
     # 1. 이메일 중복 체크
@@ -1750,10 +1767,11 @@ async def generate_candidates(
 
 
 async def _produce_candidate_books(db: Session, background_tasks: BackgroundTasks,
-                                   owner_user_id: Optional[int] = None) -> list:
+                                   owner_user_id: Optional[int] = None,
+                                   count: int = 3) -> list:
     """
     Pool(보관함)에서 재사용 가능한 후보를 우선 꺼내오고, 부족한 만큼만 Gemini(실패 시 폴백 템플릿)로
-    새로 생성하여 3권의 CandidateBook 레코드를 만듭니다. 표지 생성은 백그라운드로 분리합니다.
+    새로 생성하여 count권(기본 3권)의 CandidateBook 레코드를 만듭니다. 표지 생성은 백그라운드로 분리합니다.
     사람이 누르는 "새 책 생성" 엔드포인트와 활성 독서방 자동 보충 백그라운드 잡이 공통으로 재사용합니다.
     """
     genres = [
@@ -1805,9 +1823,9 @@ async def _produce_candidate_books(db: Session, background_tasks: BackgroundTask
         models.CandidateBook.status == 'pool'
     ).order_by(
         func.random()
-    ).limit(3).all()
+    ).limit(count).all()
     
-    needed_count = 3 - len(reused_candidates)
+    needed_count = count - len(reused_candidates)
     
     # Gemini용 프롬프트 조립 (백엔드 AI 100% 자율 몰입 데이터 생성 프롬프트)
     prompt = f"""
@@ -2722,6 +2740,17 @@ def get_chat_history(book_id: int, db: Session = Depends(database.get_db)):
     """
     해당 독서방의 모든 대화 기록(댓글 리스트)을 시간순으로 조회합니다.
     """
+
+    # 종료된 방의 대화는 만료 처리 때 past_chat_messages 로 이관된다. 보관본이 있으면
+    # /chat-history 와 같은 결과를 그대로 돌려준다. (예전에는 이 분기가 없어 만료된 방을 열면
+    # 대화가 전부 사라진 것처럼 보였고, 아래 웰컴 카드 삽입이 종료된 방에 새 행까지 남깔다)
+    _book = db.query(models.Book).filter(models.Book.id == book_id).first()
+    if _book and _book.is_archived:
+        _has_past = db.query(models.PastChatMessage.id).filter(
+            models.PastChatMessage.book_id == book_id
+        ).first() is not None
+        if _has_past:
+            return get_chat_history_archive(book_id, db)
     messages = db.query(models.ChatMessage).filter(
         models.ChatMessage.book_id == book_id
     ).order_by(models.ChatMessage.id.asc()).all()
@@ -2730,7 +2759,7 @@ def get_chat_history(book_id: int, db: Session = Depends(database.get_db)):
     has_mod_msg = any(m.user_id == moderator.id for m in messages)
     
     # 해당 독서방에 AI 사회자 질문 메시지가 없는 경우 (기존 방 포함) 첫 웰컴 카드 자동 생성
-    if not has_mod_msg:
+    if not has_mod_msg and not (_book and _book.is_archived):  # 종료된 방에는 웰컴 카드를 심지 않는다
         try:
             target_bid = int(book_id)
         except (ValueError, TypeError):
@@ -2780,6 +2809,7 @@ def get_chat_history(book_id: int, db: Session = Depends(database.get_db)):
             "userId": m.user_id,
             "user": user_nick,
             "isBot": bool(m.user.is_bot) if m.user else False,
+            "isSample": is_sample_user(m.user),
             "text": m.content or "",
             "ts": format_kst_time(m.created_at),
             "date": m.created_at.isoformat() if m.created_at else models.get_kst_now().isoformat(),
@@ -2838,6 +2868,7 @@ def send_chat_message(
         "userId": current_user_id,
         "user": db_msg.user.nickname,
         "isBot": bool(db_msg.user.is_bot),
+        "isSample": is_sample_user(db_msg.user),
         "text": db_msg.content,
         "ts": format_kst_time(db_msg.created_at),
         "date": db_msg.created_at.isoformat(),
@@ -2913,6 +2944,14 @@ def get_chat_history_archive(book_id: int, db: Session = Depends(database.get_db
 
     if past_msgs:
         # past_chat_messages에 데이터가 있으면 그것을 반환
+        # 보관본에는 이메일이 없으므로 user_id로 시드 독자 여부를 한 번에 조회해 둔다
+        past_user_ids = {m.user_id for m in past_msgs if m.user_id}
+        sample_user_ids = set()
+        if past_user_ids:
+            sample_user_ids = {
+                u.id for u in db.query(models.User).filter(models.User.id.in_(past_user_ids)).all()
+                if is_sample_user(u)
+            }
         history = []
         for m in past_msgs:
             # 답장 원본 정보 조립
@@ -2925,6 +2964,7 @@ def get_chat_history_archive(book_id: int, db: Session = Depends(database.get_db
                 "user": m.user_nickname,
                 # 보관본에는 user_id가 아니라 닉네임만 남으므로 봇 닉네임과 비교한다
                 "isBot": m.user_nickname == MODERATOR_NICKNAME,
+                "isSample": m.user_id in sample_user_ids,
                 "text": m.content,
                 "ts": format_kst_time(m.original_created_at),
                 "date": m.original_created_at.isoformat(),
@@ -2944,7 +2984,11 @@ def get_chat_history_archive(book_id: int, db: Session = Depends(database.get_db
     for m in messages:
         history.append({
             "id": m.id,
-            "user": m.user.nickname,
+            "userId": m.user_id,
+            "user": m.user.nickname if m.user else "독자",
+            # 보관본 경로와 같은 플래그를 실어 프론트가 두 경로를 구분하지 않게 한다
+            "isBot": bool(m.user.is_bot) if m.user else False,
+            "isSample": is_sample_user(m.user),
             "text": m.content,
             "ts": format_kst_time(m.created_at),
             "date": m.created_at.isoformat(),
@@ -3000,21 +3044,29 @@ async def realtime_archive_loop():
 # ----------------------------------------------
 
 
+# 홈 첫 화면에 항상 보장할 최소 활성 독서방 수. 자동 보충 루프가 이 수까지 채운다.
+MIN_ACTIVE_BOOKS = 3
+
+
 async def _auto_refill_active_books_if_needed():
     """
-    활성 독서방(Book, is_archived=False)이 0권이면, 사람이 고르는 과정 없이 시스템이
-    pool 우선 재사용 + 부족분 AI 생성으로 3권을 만들어 즉시 활성 독서방으로 채택합니다.
-    1권이라도 있으면 아무것도 하지 않아 무분별한 생성을 방지합니다.
+    활성 독서방(Book, is_archived=False)이 MIN_ACTIVE_BOOKS권 미만이면, 사람이 고르는 과정 없이
+    시스템이 pool 우선 재사용 + 부족분 AI 생성으로 **부족한 만큼만** 만들어 활성 독서방으로 채택합니다.
+
+    예전에는 0권일 때만 3권을 채웠는데, 10일 수명이 끝나 방들이 한꺼번에 아카이브되면
+    홈에 영구 샘플 1권만 남은 채로 몇 주가 지나가는 일이 실제로 있었다(2026-09-02 확인).
+    첫 화면에 늘 최소 3권이 보이도록 하되, 이미 충분하면 Gemini를 호출하지 않는다.
     """
     db = database.SessionLocal()
     try:
-        active_count = db.query(func.count(models.Book.id)).filter(models.Book.is_archived == False).scalar()
-        if active_count and active_count > 0:
+        active_count = db.query(func.count(models.Book.id)).filter(models.Book.is_archived == False).scalar() or 0
+        deficit = MIN_ACTIVE_BOOKS - active_count
+        if deficit <= 0:
             return
 
-        print("[Auto Refill] 활성 독서방이 0권입니다. 자동 보충을 시작합니다.")
+        print(f"[Auto Refill] 활성 독서방 {active_count}권 → {MIN_ACTIVE_BOOKS}권까지 {deficit}권 자동 보충을 시작합니다.")
         dummy_background_tasks = BackgroundTasks()
-        candidates = await _produce_candidate_books(db, dummy_background_tasks)
+        candidates = await _produce_candidate_books(db, dummy_background_tasks, count=deficit)
 
         # 표지가 아직 없는 후보는 채택 전 동기적으로 생성 (adopt_candidate와 동일한 안전장치)
         for cand in candidates:

@@ -1900,6 +1900,9 @@ function renderGenreSection() {
               userId: c.userId,
               mine: (typeof CURRENT_USER_ID !== 'undefined' && CURRENT_USER_ID !== null && c.userId == CURRENT_USER_ID),
               user: c.user,
+              // 서버 플래그를 그대로 실어 준다 (사회자 판별 · 가상 독자 '예시' 표시)
+              isBot: !!c.isBot,
+              isSample: !!c.isSample,
               av: c.user.charAt(0),
               avBg: '#f5d87a',
               avColor: '#7a4a10',
@@ -2047,6 +2050,12 @@ function renderGenreSection() {
       body.appendChild(makeDivider(t('chat_open_date')));
       body.appendChild(makeNotice(t('chat_room_opened')));
 
+      // 서비스 소개용으로 미리 채워 둔 가상 독자의 감상이 섞여 있으면 그 사실을 먼저 알린다.
+      // (실사용자가 시드 대화를 실제 사람들의 감상으로 오해하지 않도록 — 서버의 isSample 플래그 기준)
+      if (msgs.some(function (m) { return m.isSample; })) {
+        body.appendChild(makeNotice(t('sample_notice')));
+      }
+
       var lastDateKey = null;
       msgs.forEach(function (msg) {
         var dk = dateKey(msg.date);
@@ -2074,6 +2083,12 @@ function renderGenreSection() {
       // (예전에는 여기 인라인 스타일이 박혀 있어 CSS를 덮어썼고, 크림색 배경에서 탁한 회색으로 보였다)
       d.innerHTML = '<span>' + escHtml(label) + '</span>';
       return d;
+    }
+    // 시드(가상) 독자의 메시지에 붙는 작은 '예시' 표시. 서버가 내려준 isSample 플래그만 믿는다.
+    function sampleTagHtml(msg) {
+      return msg && msg.isSample
+        ? ' <span class="sample-tag" title="' + escHtml(t('sample_notice')) + '">' + escHtml(t('sample_tag')) + '</span>'
+        : '';
     }
     function makeNotice(text) {
       var d = document.createElement('div');
@@ -2172,7 +2187,7 @@ function buildMsgEl(msg, bookId) {
         row.innerHTML =
           avHtml +
           '<div class="chat-col" id="col-' + msg.id + '">' +
-          '<div class="chat-name' + (isMod ? ' mod-name' : '') + '">' + escHtml(msg.user || '') + '</div>' +
+          '<div class="chat-name' + (isMod ? ' mod-name' : '') + '">' + escHtml(msg.user || '') + sampleTagHtml(msg) + '</div>' +
           bubbleHtml +
           actionToolbar +
           rxBlock +
@@ -2834,7 +2849,8 @@ function buildMsgEl(msg, bookId) {
                   user: c.user,
                   content: c.content,
                   created_at: c.created_at,
-                  reactions: c.reactions || {}
+                  reactions: c.reactions || {},
+                  isSample: !!c.isSample
                 };
               });
             }
@@ -2851,7 +2867,8 @@ function buildMsgEl(msg, bookId) {
                 user: ch.user,
                 text: ch.text,
                 ts: ch.ts,
-                date: ch.date
+                date: ch.date,
+                isSample: !!ch.isSample
               };
             });
           }
@@ -2897,7 +2914,8 @@ function buildMsgEl(msg, bookId) {
             user: user,
             content: text,
             created_at: book.archivedDate + ' 오후 ' + (2 + i) + ':15',
-            reactions: { "❤️": 15 + i * 3, "✨": 9 + i * 2 }
+            reactions: { "❤️": 15 + i * 3, "✨": 9 + i * 2 },
+            isSample: true   // 템플릿 감상 — 실제 독자의 글이 아니므로 '예시'로 표시한다
           });
         }
       }
@@ -2912,7 +2930,8 @@ function buildMsgEl(msg, bookId) {
             user: s.user,
             text: s.text,
             ts: s.ts || ('오후 08:' + (12 + idx * 4)),
-            date: s.date || new Date().toISOString()
+            date: s.date || new Date().toISOString(),
+            isSample: true   // 샘플 대화 시드 — 같은 이유로 '예시' 표시
           });
         });
       }
@@ -3063,6 +3082,12 @@ function buildMsgEl(msg, bookId) {
 
       html += '<div class="arc-messages-area">';
 
+      // 가상 독자의 예시 감상이 포함된 아카이브라면 본문 시작 전에 알린다
+      if (combinedComments.some(function (c) { return c.isSample; }) ||
+          combinedChats.some(function (ch) { return ch.isSample; })) {
+        html += '<div class="arc-sample-notice">' + escHtml(t('sample_notice')) + '</div>';
+      }
+
       // 상위 2개 감상 댓글 카드 렌더링
       var earlyComments = combinedComments.slice(0, 2);
       earlyComments.forEach(function(c, idx) {
@@ -3077,7 +3102,7 @@ function buildMsgEl(msg, bookId) {
         html += '    <div class="arc-msg-head">';
         html += '      <div class="arc-msg-av" style="background:' + clr.bg + ';color:' + clr.fg + ';">' + escHtml(c.user.charAt(0)) + '</div>';
         html += '      <div>';
-        html += '        <div class="arc-msg-name">' + escHtml(c.user) + '</div>';
+        html += '        <div class="arc-msg-name">' + escHtml(c.user) + sampleTagHtml(c) + '</div>';
         html += '        <div class="arc-msg-time">독서회 댓글 · ' + escHtml(String(c.created_at)) + '</div>';
         html += '      </div>';
         html += '    </div>';
@@ -3108,7 +3133,7 @@ function buildMsgEl(msg, bookId) {
         }
         html += '      <div class="arc-chat-col">';
         if (!isMine) {
-          html += '        <div class="arc-chat-name-sm">' + escHtml(ch.user) + '</div>';
+          html += '        <div class="arc-chat-name-sm">' + escHtml(ch.user) + sampleTagHtml(ch) + '</div>';
         }
         html += '        <div class="arc-chat-bubble">' + escHtml(ch.text || '') + '</div>';
         if (!isMine) {
@@ -3879,6 +3904,8 @@ function adaptDbBookToFrontend(dbBook) {
         participants_joining: "명 참여 중",
         closing_soon: "⚠ 곧 마감 · ",
         archive_badge: "아카이브",
+        sample_tag: "예시",
+        sample_notice: "이 방의 일부 감상은 서비스 소개를 위해 미리 작성한 가상 독자의 예시입니다.",
         archive_open_btn: "📖 아카이브 열람하기",
         page_unit: "쪽",
         discount_note: " (10% 할인가)",
@@ -4160,6 +4187,8 @@ function adaptDbBookToFrontend(dbBook) {
         participants_joining: "人が参加中",
         closing_soon: "⚠ まもなく締切 · ",
         archive_badge: "アーカイブ",
+        sample_tag: "例",
+        sample_notice: "この部屋の一部の感想は、サービス紹介のために事前に作成した仮想読者のサンプルです。",
         archive_open_btn: "📖 アーカイブを閲覧する",
         page_unit: "ページ",
         discount_note: "（10%割引価格）",

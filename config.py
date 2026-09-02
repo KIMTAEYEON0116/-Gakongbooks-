@@ -131,6 +131,16 @@ SMTP_CONFIGURED = bool(
     and SMTP_PASSWORD not in _SMTP_PLACEHOLDERS
 )
 
+# 운영에서 SMTP가 없으면 '비밀번호 찾기'가 성공 메시지만 띄우고 실제로는 아무 메일도 보내지 않아
+# 사용자가 계정을 영구히 잃는다. JWT·관리자 이메일처럼 기동 단계에서 막는다.
+if IS_PRODUCTION and not SMTP_CONFIGURED:
+    raise ConfigError(
+        "[치명] APP_ENV=production 에서는 SMTP_USERNAME / SMTP_PASSWORD 가 필요합니다. "
+        "비밀번호 재설정 메일을 보낼 수 없으면 사용자가 계정을 복구할 방법이 없습니다."
+    )
+if not SMTP_CONFIGURED:
+    print("[config] SMTP 미설정 → 비밀번호 재설정 메일이 발송되지 않습니다 (개발 환경에서만 허용).")
+
 # ── 비밀번호 재설정 링크 ──
 # 메일에 담을 링크의 기준 주소. 운영 도메인으로 반드시 교체해야 링크가 동작한다.
 APP_BASE_URL = _get("APP_BASE_URL", "http://127.0.0.1:8001").rstrip("/")
@@ -138,3 +148,12 @@ PASSWORD_RESET_TTL_MINUTES = _get_int("PASSWORD_RESET_TTL_MINUTES", 30)
 
 # ── 기타 외부 서비스 ──
 GEMINI_API_KEY = _get("GEMINI_API_KEY")
+
+# ── 리버스 프록시 ──
+# X-Forwarded-For 는 위조가 자유로운 헤더다. 여기에 적힌 IP(프록시)에서 들어온 요청에 한해서만
+# 그 헤더를 클라이언트 IP로 인정한다. 비어 있으면 헤더를 무시하고 소켓 주소를 쓴다.
+# 예) Nginx가 같은 호스트에 있으면 TRUSTED_PROXY_IPS=127.0.0.1
+TRUSTED_PROXY_IPS = {ip.strip() for ip in _get("TRUSTED_PROXY_IPS").split(",") if ip.strip()}
+if IS_PRODUCTION and not TRUSTED_PROXY_IPS:
+    print("[config] TRUSTED_PROXY_IPS 미설정 → X-Forwarded-For 를 무시합니다. "
+          "프록시 뒤에서 운영한다면 프록시 IP를 지정해야 IP 기준 레이트리밋이 올바르게 동작합니다.")
