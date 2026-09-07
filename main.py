@@ -994,6 +994,8 @@ async def lifespan(app: FastAPI):
     # AI 사회자 계정 및 시드 독서방 자동 생성
     db = database.SessionLocal()
     try:
+        # 스키마 패치를 가장 먼저 — 아래 시드가 새 컬럼을 쓸 수 있다
+        apply_schema_patches()
         enforce_roles(db)
         seed_glass_shop_book_if_needed(db)
         seed_lost_voyage_book_if_needed(db)
@@ -3040,18 +3042,147 @@ def delete_chat_message(
 
 
 # --- 리얼타임(백그라운드) 아카이브 검사 루프 ---
+async def generate_closing_remark(book_id: int):
+    """
+    종료된 독서방의 총평(폐회사)을 만들어 books.closing_remark에 저장한다.
+
+    아카이브 화면은 통계(참여 인원·반응 수·평균 평점)와 베스트 감상을 이미 따로 보여준다.
+    그래서 총평에는 숫자와 인용을 넣지 않고, 대화가 어디로 흘렀는지만 서술하게 한다.
+    실패하면 아무것도 저장하지 않는다 — 프론트가 기존 고정 문구로 대체한다.
+    """
+    db = database.SessionLocal()
+    try:
+        book = db.query(models.Book).filter(models.Book.id == book_id).first()
+        if not book or book.closing_remark:
+            return
+
+        # 종료 시점에는 대화가 보관 테이블로 옮겨져 있으므로 양쪽을 모두 본다.
+        past = db.query(models.PastChatMessage).filter(
+            models.PastChatMessage.book_id == book_id
+        ).order_by(models.PastChatMessage.original_created_at.asc()).all()
+        if past:
+            lines = [f"{m.user_nickname}: {m.content}" for m in past]
+        else:
+            live = db.query(models.ChatMessage).filter(
+                models.ChatMessage.book_id == book_id
+            ).order_by(models.ChatMessage.created_at.asc()).all()
+            lines = [
+                f"{(m.user.nickname if m.user else '독자')}: {m.content}" for m in live
+            ]
+
+        # 사회자 자신의 발언은 총평 근거에서 제외한다(자기 말을 요약하게 되므로).
+        lines = [ln for ln in lines if not ln.startswith(MODERATOR_NICKNAME)]
+        if len(lines) < 2:
+            return   # 요약할 대화가 없으면 만들지 않는다
+
+        chat_text = "\n".join(lines)[:6000]
+        gemini_key = config.GEMINI_API_KEY
+        if not gemini_key:
+            return
+
+        prompt = f"""
+        당신은 '가공독서회'의 AI 사회자입니다. 열흘간 진행된 독서방이 방금 종료되었습니다.
+        아래는 이 방에서 독자들이 나눈 대화 전문입니다.
+
+        [도서] 『{book.title}』 ({book.genre})
+        [시놉시스] {book.synopsis}
+
+        [독자 대화]
+        {chat_text}
+
+        [수행할 작업]
+        이 독서방의 닫는 글을 3~4문장으로 작성하세요. 아카이브에 기록으로 남습니다.
+
+        [조건]
+        1. 이 방에서 실제로 오간 이야기의 흐름을 짚으세요 — 어떤 지점에 독자들이 오래 머물렀는지,
+           어디에서 의견이 갈렸는지를 구체적으로 쓰되 특정 독자의 닉네임은 부르지 마세요.
+        2. 숫자(참여 인원, 반응 수, 평점)를 절대 쓰지 마세요. 화면 다른 곳에 이미 표시됩니다.
+        3. 독자의 문장을 그대로 인용하지 마세요. 인용문도 화면 다른 곳에 이미 있습니다.
+        4. 마지막 문장은 이 방을 닫는 말로 맺으세요.
+        5. 이모지와 이모티콘을 절대 사용하지 마세요.
+        6. 마크다운 기호나 부연설명 없이 본문 텍스트만 출력하세요.
+        """
+
+        url = f"https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key={gemini_key}"
+        payload = {
+            "contents": [{"parts": [{"text": prompt}]}],
+            # 2.5 Flash는 추론 토큰을 먼저 쓰므로 넉넉히 잡아야 본문이 잘리지 않는다
+            "generationConfig": {"temperature": 0.7, "maxOutputTokens": 4096},
+        }
+        async with httpx.AsyncClient() as _client:
+            response = await _client.post(
+                url, headers={"Content-Type": "application/json"}, json=payload, timeout=25.0
+            )
+        if response.status_code != 200:
+            print(f"[Closing] Gemini 응답 오류 {response.status_code} (book {book_id})")
+            return
+
+        text = response.json()["candidates"][0]["content"]["parts"][0]["text"].strip()
+        text = strip_chat_emoji(text)
+        if not text:
+            return
+
+        # 문장 중간에서 끊긴 응답은 기록으로 남기지 않는다.
+        # 저장하지 않으면 다음 루프가 이 방을 다시 대상으로 잡아 재시도한다.
+        if not text.rstrip().endswith(("다.", "요.", ".", "!", "?", "”", "'")):
+            print(f"[Closing] book {book_id} 응답이 문장 중간에서 끊겨 저장하지 않습니다.")
+            return
+
+        book.closing_remark = text
+        db.commit()
+        print(f"[Closing] book {book_id} 폐회사 작성 완료 ({len(text)}자)")
+    except Exception as e:
+        print(f"[Closing] 폐회사 생성 실패 (book {book_id}): {e}")
+    finally:
+        db.close()
+
+
 async def realtime_archive_loop():
     while True:
         try:
             db = database.SessionLocal()
             _auto_archive_expired_books(db)
+            # 폐회사가 아직 없는 종료 방을 한 번에 하나씩 채운다.
+            # (한 번에 몰아 호출하지 않아 Gemini 사용량이 튀지 않는다)
+            pending = db.query(models.Book).filter(
+                models.Book.is_archived == True,
+                (models.Book.closing_remark == None) | (models.Book.closing_remark == "")
+            ).first()
+            pending_id = pending.id if pending else None
             db.close()
+            if pending_id:
+                await generate_closing_remark(pending_id)
         except Exception as e:
             print(f"Realtime archive loop error: {e}")
 
         # 1분(60초)마다 백그라운드에서 실시간 만료 검사 수행
         await asyncio.sleep(60)
 # ----------------------------------------------
+
+
+# ── 스키마 자동 패치 ──
+# 이 프로젝트는 마이그레이션 도구를 쓰지 않으므로, 모델에 컬럼을 더할 때
+# 기동 시점에 실제 테이블을 확인해 없으면 붙인다. (테이블, 컬럼명, 정의) 형식.
+_SCHEMA_PATCHES = [
+    ("books", "closing_remark", "TEXT NULL"),
+]
+
+
+def apply_schema_patches():
+    """모델에는 있으나 실제 테이블에 없는 컬럼을 추가한다. 이미 있으면 조용히 넘어간다."""
+    from sqlalchemy import text as _sql_text
+    for table, column, definition in _SCHEMA_PATCHES:
+        try:
+            with database.engine.connect() as conn:
+                rows = conn.execute(_sql_text(f"SHOW COLUMNS FROM `{table}` LIKE '{column}'")).fetchall()
+                if rows:
+                    continue
+                conn.execute(_sql_text(f"ALTER TABLE `{table}` ADD COLUMN `{column}` {definition}"))
+                conn.commit()
+                print(f"[Schema] {table}.{column} 컬럼을 추가했습니다.")
+        except Exception as e:
+            # 컬럼이 이미 있거나 권한 문제인 경우 — 기동을 막지는 않는다.
+            print(f"[Schema] {table}.{column} 패치 실패(무시): {e}")
 
 
 # 홈 첫 화면에 항상 보장할 최소 활성 독서방 수. 자동 보충 루프가 이 수까지 채운다.

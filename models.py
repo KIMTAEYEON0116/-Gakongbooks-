@@ -58,6 +58,9 @@ class Book(Base):
     page_count = Column(Integer, nullable=True)          # 책 페이지 수
     immersion_data = Column(Text, nullable=True)         # 가상 상세 도서 정보 (챕터, 리뷰, 트리비아 등 JSON)
 
+    # 독서방 종료 시 AI 사회자가 남기는 총평. 아카이브 하단 「기록의 보관을 마치며」에 쓰인다.
+    # 비어 있으면 프론트가 기존 고정 문구로 대체하므로 생성 실패가 화면을 깨지 않는다.
+    closing_remark = Column(Text, nullable=True)
     deadline_days = Column(Integer, default=10)
     is_archived = Column(Boolean, default=False)
     created_at = Column(DateTime, default=get_kst_now)

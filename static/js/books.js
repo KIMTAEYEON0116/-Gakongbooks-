@@ -218,13 +218,20 @@
       '심리소설': { ko: '심리소설', ja: '心理小説' },
       '드라마': { ko: '드라마', ja: 'ドラマ' },
       'SF': { ko: 'SF', ja: 'SF' },
-      '미스터리': { ko: '미스터리', ja: 'ミステリー' }
+      '미스터리': { ko: '미스터리', ja: 'ミステリー' },
+      '드라마/로맨스': { ko: '드라마/로맨스', ja: 'ドラマ/ロマンス' },
+      '일반소설': { ko: '일반소설', ja: '一般小説' }
     };
 
     function translateGenre(genre) {
       var lang = (typeof CURRENT_LANG !== 'undefined') ? CURRENT_LANG : 'ko';
       if (lang === 'ja' && GENRE_I18N[genre] && GENRE_I18N[genre].ja) {
         return GENRE_I18N[genre].ja;
+      }
+      // 사전에 없는 장르는 원문을 그대로 쓴다(정보 손실 방지). 다만 일본어 화면에
+      // 한국어가 남는다는 뜻이므로, 새 장르가 생기면 바로 알아채도록 경고를 남긴다.
+      if (lang === 'ja' && genre && !GENRE_I18N[genre]) {
+        console.warn('[i18n] 장르 사전에 없는 값:', genre);
       }
       return genre;
     }
@@ -3042,10 +3049,10 @@ function buildMsgEl(msg, bookId) {
       html += '  <div class="arc-eyebrow">EDITOR\'S NOTE</div>';
       html += '  <div class="arc-editorial-title">' + t('arc_editorial_title') + '</div>';
       html += '  <div class="arc-editorial-body">';
-      html += '    <p>이 책은 존재하지 않습니다. 그러나 이 안에 담긴 감상들은 진짜입니다.</p>';
-      html += '    <p>가공독서회의 ' + totalUsers + '명 독자들은 『' + book.title + '』의 시놉시스 한 줄을 마주하고 사흘간 무수히 아름다운 감상을 꽃피워냈습니다. 아무도 실제로 이 책을 읽지 않았지만, 모두가 각자의 마음속에서 이 책을 다 읽어낸 것처럼 고요하고도 깊은 이야기를 나누었습니다.</p>';
-      html += '    <p>이 아카이브는 바로 그 환상적인 공간의 편린이자 정수가 담긴 기록입니다. 실시간 독서 대화 스레드에서 특히 뜨거웠던 문맥들, 댓글 중에서 독자들의 심금을 울려 가장 추천을 많이 받은 명구절들을 세심하게 묶었습니다.</p>';
-      html += '    <p>존재하지 않기에 무한히 뻗어나갈 수 있었던 상상의 조각상들, 그것이 이 아카이브 책장이 건네는 진심 어린 기록입니다.</p>';
+      html += '    <p>' + t('arc_ed_p1') + '</p>';
+      html += '    <p>' + t('arc_ed_p2a') + totalUsers + t('arc_ed_p2b') + escHtml(book.title) + t('arc_ed_p2c') + '</p>';
+      html += '    <p>' + t('arc_ed_p3') + '</p>';
+      html += '    <p>' + t('arc_ed_p4') + '</p>';
       html += '  </div>';
       var yearVal = '2026';
       var monthVal = '6';
@@ -3054,7 +3061,7 @@ function buildMsgEl(msg, bookId) {
         yearVal = parts[0];
         monthVal = parseInt(parts[1]) || '6';
       }
-      html += '  <div class="arc-editorial-sig"><span>가공독서회 아카이브 편집위원회</span><span>' + yearVal + '년 ' + monthVal + '월</span></div>';
+      html += '  <div class="arc-editorial-sig"><span>' + t('arc_ed_sig') + '</span><span>' + t('arc_date_fmt').replace('{y}', yearVal).replace('{m}', monthVal) + '</span></div>';
       html += '</div>';
 
       arcPages.push(html); html = '';
@@ -3063,7 +3070,7 @@ function buildMsgEl(msg, bookId) {
       html += '<div class="arc-section" style="background:#fff;">';
       html += '  <div class="arc-eyebrow">PARTICIPANTS</div>';
       html += '  <div class="arc-section-title">' + t('arc_participants_title') + totalUsers + t('arc_participants_unit') + '</div>';
-      html += '  <div class="arc-section-sub">닉네임은 가공독서회 시스템이 고유하게 배정했습니다. 본명은 영구 비공개됩니다.</div>';
+      html += '  <div class="arc-section-sub">' + t('arc_nick_notice') + '</div>';
       html += '  <div class="arc-participants-grid">';
       distinctUsers.forEach(function(u) {
         var clr = getNickColor(u);
@@ -3081,8 +3088,8 @@ function buildMsgEl(msg, bookId) {
       html += '<div class="arc-chapter-divider"></div>';
       html += '<div class="arc-chapter-header">';
       html += '  <div class="arc-chapter-num">' + t('arc_chapter1_num') + '</div>';
-      html += '  <div class="arc-chapter-title">책의 첫인상과 사색의 순간들</div>';
-      html += '  <div class="arc-chapter-desc">『' + book.title + '』의 세계를 처음 마주했을 때 독자들이 나눈 깊고 고요한 첫 감상들의 모음.</div>';
+      html += '  <div class="arc-chapter-title">' + t('arc_chapter1_title') + '</div>';
+      html += '  <div class="arc-chapter-desc">' + t('arc_chapter1_desc_a') + escHtml(book.title) + t('arc_chapter1_desc_b') + '</div>';
       html += '</div>';
 
       html += '<div class="arc-messages-area">';
@@ -3108,7 +3115,7 @@ function buildMsgEl(msg, bookId) {
         html += '      <div class="arc-msg-av" style="background:' + clr.bg + ';color:' + clr.fg + ';">' + escHtml(c.user.charAt(0)) + '</div>';
         html += '      <div>';
         html += '        <div class="arc-msg-name">' + escHtml(c.user) + sampleTagHtml(c) + '</div>';
-        html += '        <div class="arc-msg-time">독서회 댓글 · ' + escHtml(String(c.created_at)) + '</div>';
+        html += '        <div class="arc-msg-time">' + t('arc_msg_label') + escHtml(String(c.created_at)) + '</div>';
         html += '      </div>';
         html += '    </div>';
         html += '    <div class="arc-msg-body">' + escHtml(c.content) + '</div>';
@@ -3117,16 +3124,16 @@ function buildMsgEl(msg, bookId) {
         var rxHearts = c.reactions && c.reactions["❤️"] || (18 + idx * 6);
         var rxStars = c.reactions && c.reactions["✨"] || (14 + idx * 5);
 
-        html += '      <span class="arc-rx-tag hot">❤️ 공감해요 ' + rxHearts + '</span>';
-        html += '      <span class="arc-rx-tag hot">✨ 인상 깊어요 ' + rxStars + '</span>';
-        html += '      <div class="arc-rx-total">총 <strong>' + (rxHearts + rxStars) + '</strong>개 반응</div>';
+        html += '      <span class="arc-rx-tag hot">❤️ ' + t('rx_heart') + ' ' + rxHearts + '</span>';
+        html += '      <span class="arc-rx-tag hot">✨ ' + t('rx_spark') + ' ' + rxStars + '</span>';
+        html += '      <div class="arc-rx-total">' + t('arc_rx_total_a') + '<strong>' + (rxHearts + rxStars) + '</strong>' + t('arc_rx_total_b') + '</div>';
         html += '    </div>';
         html += '  </div>';
       });
 
       // 실시간 채팅방 스레드 발췌 렌더링
       html += '  <div class="arc-chat-thread">';
-      html += '    <div class="arc-chat-thread-label"><span>독서방 실시간 대화 스레드 발췌</span></div>';
+      html += '    <div class="arc-chat-thread-label"><span>' + t('arc_thread_label') + '</span></div>';
       combinedChats.forEach(function(ch, idx) {
         var clr = getNickColor(ch.user);
         var isMine = ch.user === 'ME' || ch.user === assignedNick;
@@ -3168,8 +3175,8 @@ function buildMsgEl(msg, bookId) {
       html += '<div class="arc-chapter-divider"></div>';
       html += '<div class="arc-chapter-header">';
       html += '  <div class="arc-chapter-num">' + t('arc_chapter2_num') + '</div>';
-      html += '  <div class="arc-chapter-title">가장 오래 남은 감상 문장들</div>';
-      html += '  <div class="arc-chapter-desc">독서방 전반에서 반응 수 합계 기준, 독자들에게 가장 뜨거운 공명을 불러일으킨 감상들.</div>';
+      html += '  <div class="arc-chapter-title">' + t('arc_chapter2_title') + '</div>';
+      html += '  <div class="arc-chapter-desc">' + t('arc_chapter2_desc') + '</div>';
       html += '</div>';
 
       html += '<div class="arc-section arc-top-sentences" style="padding-top:0;">';
@@ -3204,7 +3211,7 @@ function buildMsgEl(msg, bookId) {
           html += '          <span class="arc-s-rx">❤️ 18</span><span class="arc-s-rx">✨ 14</span>';
         }
         html += '        </div>';
-        html += '        <span style="font-size:11px;color:var(--text-faint);margin-left:8px;">총 ' + totalRx + ' 공명 · 아카이브 전체 ' + (index + 1) + '위</span>';
+        html += '        <span style="font-size:11px;color:var(--text-faint);margin-left:8px;">' + t('arc_rank_a') + totalRx + t('arc_rank_b') + (index + 1) + t('arc_rank_c') + '</span>';
         html += '      </div>';
         html += '    </div>';
         html += '  </div>';
@@ -3215,9 +3222,16 @@ function buildMsgEl(msg, bookId) {
       html += '<div class="arc-chapter-divider"></div>';
       html += '<div class="arc-closing">';
       html += '  <div class="arc-closing-mark">✦</div>';
-      html += '  <div class="arc-closing-title">기록의 보관을 마치며</div>';
+      html += '  <div class="arc-closing-title">' + t('arc_closing_title') + '</div>';
       html += '  <div class="arc-closing-body">';
+      // 종료 시 AI 사회자가 그 방의 대화를 읽고 쓴 총평이 있으면 그것을 싣는다.
+      // 통계와 베스트 감상은 화면 다른 곳에 이미 있으므로 총평에는 숫자·인용이 없다.
+      // 생성에 실패해 비어 있으면 모든 방에 공통으로 쓰이던 기존 문구로 대체한다.
+      if (book.closingRemark) {
+        html += '    ' + escHtml(book.closingRemark).replace(/\n/g, '<br>');
+      } else {
       html += '    『' + book.title + '』의 독서방은 공식 종료되었습니다. 그러나 우리가 활자 너머로 나누었던 상상과 연대의 불씨는 사라지지 않고 이 아카이브 공간에 영원히 보존될 것입니다.';
+      }
       html += '  </div>';
       html += '</div>';
 
@@ -3627,6 +3641,7 @@ function adaptDbBookToFrontend(dbBook) {
         },
         publisherReview: dbBook.publisher_review || 'AI와 독자의 상상력이 만들어낸 전례 없는 독서 경험.',
         openingLine: dbBook.opening_line || '',
+        closingRemark: dbBook.closing_remark || '',
         memorableQuote: dbBook.memorable_quote || '',
         coreDilemma: dbBook.core_dilemma || '',
         additionalQuestions: dbBook.additional_questions || '',
@@ -3909,6 +3924,27 @@ function adaptDbBookToFrontend(dbBook) {
         participants_joining: "명 참여 중",
         closing_soon: "⚠ 곧 마감 · ",
         archive_badge: "아카이브",
+        arc_ed_p1: "이 책은 존재하지 않습니다. 그러나 이 안에 담긴 감상들은 진짜입니다.",
+        arc_ed_p2a: "가공독서회의 ",
+        arc_ed_p2b: "명 독자들은 『",
+        arc_ed_p2c: "』의 시놉시스 한 줄을 마주하고 사흘간 무수히 아름다운 감상을 꽃피워냈습니다. 아무도 실제로 이 책을 읽지 않았지만, 모두가 각자의 마음속에서 이 책을 다 읽어낸 것처럼 고요하고도 깊은 이야기를 나누었습니다.",
+        arc_ed_p3: "이 아카이브는 바로 그 환상적인 공간의 편린이자 정수가 담긴 기록입니다. 실시간 독서 대화 스레드에서 특히 뜨거웠던 문맥들, 댓글 중에서 독자들의 심금을 울려 가장 추천을 많이 받은 명구절들을 세심하게 묶었습니다.",
+        arc_ed_p4: "존재하지 않기에 무한히 뻗어나갈 수 있었던 상상의 조각상들, 그것이 이 아카이브 책장이 건네는 진심 어린 기록입니다.",
+        arc_ed_sig: "가공독서회 아카이브 편집위원회",
+        arc_date_fmt: "{y}년 {m}월",
+        arc_nick_notice: "닉네임은 가공독서회 시스템이 고유하게 배정했습니다. 본명은 영구 비공개됩니다.",
+        arc_chapter1_title: "책의 첫인상과 사색의 순간들",
+        arc_chapter1_desc_a: "『",
+        arc_chapter1_desc_b: "』의 세계를 처음 마주했을 때 독자들이 나눈 깊고 고요한 첫 감상들의 모음.",
+        arc_msg_label: "독서회 댓글 · ",
+        arc_rx_total_a: "총 ",
+        arc_rx_total_b: "개 반응",
+        arc_thread_label: "독서방 실시간 대화 스레드 발췌",
+        arc_chapter2_title: "가장 오래 남은 감상 문장들",
+        arc_chapter2_desc: "독서방 전반에서 반응 수 합계 기준, 독자들에게 가장 뜨거운 공명을 불러일으킨 감상들.",
+        arc_rank_a: "총 ",
+        arc_rank_b: " 공명 · 아카이브 전체 ",
+        arc_rank_c: "위",
         sample_tag: "예시",
         sample_notice: "이 방의 일부 감상은 서비스 소개를 위해 미리 작성한 가상 독자의 예시입니다.",
         archive_open_btn: "📖 아카이브 열람하기",
@@ -4048,7 +4084,7 @@ function adaptDbBookToFrontend(dbBook) {
         arc_participants_sub: "닉네임은 가공독서회 시스템이 랜덤으로 배정합니다. 본명은 공개되지 않습니다.",
         arc_chapter1_num: "1장",
         arc_chapter2_num: "2장",
-        arc_closing_title: "기록의 보존",
+        arc_closing_title: "기록의 보관을 마치며",
         arc_col_publisher: "발행처",
         arc_col_editor: "기획 및 구성",
         arc_col_class: "서지 분류 번호",
@@ -4192,6 +4228,27 @@ function adaptDbBookToFrontend(dbBook) {
         participants_joining: "人が参加中",
         closing_soon: "⚠ まもなく締切 · ",
         archive_badge: "アーカイブ",
+        arc_ed_p1: "この本は存在しません。しかし、ここに収められた感想は本物です。",
+        arc_ed_p2a: "架空読書会の",
+        arc_ed_p2b: "名の読者は『",
+        arc_ed_p2c: "』のあらすじ一行と向き合い、三日間で数えきれないほど美しい感想を咲かせました。誰一人この本を実際に読んではいませんが、皆それぞれの心の中で読み終えたかのように、静かで深い対話を交わしました。",
+        arc_ed_p3: "このアーカイブは、その幻想的な空間の断片であり、精髄が収められた記録です。リアルタイム対話スレッドで特に熱を帯びた文脈と、読者の心を打ち最も多くの共感を集めた名文を丁寧に束ねました。",
+        arc_ed_p4: "存在しないからこそ無限に広がることができた想像の彫像たち。それがこのアーカイブの書棚が差し出す、真心のこもった記録です。",
+        arc_ed_sig: "架空読書会 アーカイブ編集委員会",
+        arc_date_fmt: "{y}年{m}月",
+        arc_nick_notice: "ニックネームは架空読書会のシステムが固有に割り当てました。本名は永久に非公開です。",
+        arc_chapter1_title: "本の第一印象と思索の瞬間",
+        arc_chapter1_desc_a: "『",
+        arc_chapter1_desc_b: "』の世界に初めて出会ったとき、読者が交わした深く静かな最初の感想集。",
+        arc_msg_label: "読書会コメント · ",
+        arc_rx_total_a: "計 ",
+        arc_rx_total_b: "件の反応",
+        arc_thread_label: "読書室リアルタイム対話スレッド抜粋",
+        arc_chapter2_title: "最も長く残った感想の一文",
+        arc_chapter2_desc: "読書室全体の反応数の合計を基準に、読者に最も熱い共鳴を呼び起こした感想。",
+        arc_rank_a: "計 ",
+        arc_rank_b: " 共鳴 · アーカイブ全体 ",
+        arc_rank_c: "位",
         sample_tag: "例",
         sample_notice: "この部屋の一部の感想は、サービス紹介のために事前に作成した仮想読者のサンプルです。",
         archive_open_btn: "📖 アーカイブを閲覧する",
@@ -4331,7 +4388,7 @@ function adaptDbBookToFrontend(dbBook) {
         arc_participants_sub: "ニックネームは架空読書会のシステムがランダムに割り当てます。本名は公開されません。",
         arc_chapter1_num: "第1章",
         arc_chapter2_num: "第2章",
-        arc_closing_title: "記録の保存",
+        arc_closing_title: "記録の保管を終えて",
         arc_col_publisher: "発行元",
         arc_col_editor: "企画・構成",
         arc_col_class: "書誌分類番号",
