@@ -3224,12 +3224,9 @@ function buildMsgEl(msg, bookId) {
       html += '  <div class="arc-closing-mark">✦</div>';
       html += '  <div class="arc-closing-title">' + t('arc_closing_title') + '</div>';
       html += '  <div class="arc-closing-body">';
-      // 종료 시 AI 사회자가 그 방의 대화를 읽고 쓴 총평이 있으면 그것을 싣는다.
-      // 통계와 베스트 감상은 화면 다른 곳에 이미 있으므로 총평에는 숫자·인용이 없다.
-      // 생성에 실패해 비어 있으면 모든 방에 공통으로 쓰이던 기존 문구로 대체한다.
-      if (book.closingRemark) {
-        html += '    ' + escHtml(book.closingRemark).replace(/\n/g, '<br>');
-      } else {
+      // 그 방의 총평은 사회자가 채팅 마지막에 남기고 대화 스레드에 함께 실린다.
+      // 여기(편집위원회 명의의 닫는 말)는 모든 방에 공통인 고정 문구를 유지한다.
+      {
       html += '    『' + book.title + '』의 독서방은 공식 종료되었습니다. 그러나 우리가 활자 너머로 나누었던 상상과 연대의 불씨는 사라지지 않고 이 아카이브 공간에 영원히 보존될 것입니다.';
       }
       html += '  </div>';

@@ -3042,6 +3042,68 @@ def delete_chat_message(
 
 
 # --- 리얼타임(백그라운드) 아카이브 검사 루프 ---
+def find_expiring_book_ids(db: Session) -> list:
+    """기한이 지났지만 아직 아카이브되지 않은 도서 id를 돌려준다.
+
+    _auto_archive_expired_books()와 같은 판정을 쓰되, 이관 '전에' 사회자의 폐회 인사를
+    채팅에 남길 수 있도록 대상만 먼저 알려주는 용도다.
+    """
+    now = models.get_kst_now()
+    ids = []
+    for book in db.query(models.Book).filter(models.Book.is_archived == False).all():
+        if not book.created_at:
+            continue
+        if book.created_at <= now - timedelta(days=(book.deadline_days or 10)):
+            ids.append(book.id)
+    return ids
+
+
+async def post_closing_message(book_id: int) -> bool:
+    """종료를 앞둔 독서방에 사회자의 마지막 인사를 채팅으로 남긴다.
+
+    독서방은 채팅방에서 마무리되어야 아카이브로 넘어간다. 이 메시지가 대화의 마지막이 되고,
+    이관될 때 함께 보관본으로 옮겨져 아카이브 스레드도 닫는 말로 끝나게 된다.
+    """
+    await generate_closing_remark(book_id)
+
+    db = database.SessionLocal()
+    try:
+        book = db.query(models.Book).filter(models.Book.id == book_id).first()
+        if not book or not book.closing_remark:
+            return False
+
+        moderator = get_or_create_moderator(db)
+        # 이미 폐회 인사가 있으면 다시 남기지 않는다
+        exists = db.query(models.ChatMessage).filter(
+            models.ChatMessage.book_id == book_id,
+            models.ChatMessage.user_id == moderator.id,
+            models.ChatMessage.content == book.closing_remark,
+        ).first()
+        if exists:
+            return False
+
+        # 마지막 대화보다 뒤에 오도록 시각을 잡는다
+        last = db.query(models.ChatMessage).filter(
+            models.ChatMessage.book_id == book_id
+        ).order_by(models.ChatMessage.created_at.desc()).first()
+        ts = (last.created_at + timedelta(seconds=10)) if last and last.created_at else models.get_kst_now()
+
+        db.add(models.ChatMessage(
+            book_id=book_id,
+            user_id=moderator.id,
+            content=book.closing_remark,
+            created_at=ts,
+        ))
+        db.commit()
+        print(f"[Closing] book {book_id} 폐회 인사를 채팅에 남겼습니다.")
+        return True
+    except Exception as e:
+        print(f"[Closing] 폐회 인사 게시 실패 (book {book_id}): {e}")
+        return False
+    finally:
+        db.close()
+
+
 async def generate_closing_remark(book_id: int):
     """
     종료된 독서방의 총평(폐회사)을 만들어 books.closing_remark에 저장한다.
@@ -3141,17 +3203,19 @@ async def realtime_archive_loop():
     while True:
         try:
             db = database.SessionLocal()
-            _auto_archive_expired_books(db)
-            # 폐회사가 아직 없는 종료 방을 한 번에 하나씩 채운다.
-            # (한 번에 몰아 호출하지 않아 Gemini 사용량이 튀지 않는다)
-            pending = db.query(models.Book).filter(
-                models.Book.is_archived == True,
-                (models.Book.closing_remark == None) | (models.Book.closing_remark == "")
-            ).first()
-            pending_id = pending.id if pending else None
+
+            # 1) 기한이 끝난 방에는 먼저 사회자가 채팅으로 마지막 인사를 남긴다.
+            #    독서방은 채팅방에서 마무리된 뒤에 아카이브로 넘어가야 하고,
+            #    이 메시지까지 함께 이관되어야 아카이브 스레드도 닫는 말로 끝난다.
+            expiring = find_expiring_book_ids(db)
             db.close()
-            if pending_id:
-                await generate_closing_remark(pending_id)
+            for bid in expiring:
+                await post_closing_message(bid)
+
+            # 2) 그다음에 이관한다 (폐회 인사 포함)
+            db = database.SessionLocal()
+            _auto_archive_expired_books(db)
+            db.close()
         except Exception as e:
             print(f"Realtime archive loop error: {e}")
 
