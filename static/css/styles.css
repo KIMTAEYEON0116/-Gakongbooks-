@@ -960,14 +960,19 @@ nav {
 }
 
 .shelf-row {
-  margin-bottom: 28px;
+  margin-bottom: 40px;
 }
 
 .books-row {
   display: flex;
   align-items: flex-end;
-  gap: 5px;
-  padding: 0 6px;
+  /* 표지 사이 간격 — 책등(5px)보다 넓게 두어야 표지가 서로 눌려 보이지 않는다 */
+  gap: 14px;
+  /* 위아래 여백. 예전에는 0이라 표지가 선반 널에 딱 붙어 답답했다.
+     아래쪽을 조금 남겨 책이 선반에 '놓인' 것처럼 보이게 한다. */
+  padding: 18px 8px 10px;
+  overflow-x: auto;
+  overflow-y: hidden;
 }
 
 .book-spine {
@@ -1971,6 +1976,8 @@ nav {
   width: 96px;
   cursor: pointer;
   transition: transform 0.18s ease;
+  /* 마우스를 올리면 살짝 떠오르는데, 위쪽 여백이 없으면 잘려 보인다 */
+  will-change: transform;
 }
 .lib-cover:hover,
 .lib-cover:focus-visible {

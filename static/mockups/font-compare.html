@@ -1,0 +1,204 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="utf-8">
+<title>본문 글꼴 비교 — 가공독서회</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Noto+Serif+KR:wght@400;600;700&family=Noto+Sans+KR:wght@400;500;700&family=IBM+Plex+Sans+KR:wght@400;500;600;700&family=Noto+Serif+JP:wght@400;600&family=Noto+Sans+JP:wght@400;500;700&family=IBM+Plex+Sans+JP:wght@400;500;600;700&family=LINE+Seed+JP:wght@400;700&family=BIZ+UDPGothic:wght@400;700&family=Zen+Kaku+Gothic+New:wght@400;500;700&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/orioncactus/pretendard@v1.3.9/dist/web/static/pretendard.min.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/orioncactus/pretendard@v1.3.9/dist/web/static/pretendard-jp.min.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/webfontworld/lineSeed/LINESeedKR.css">
+<style>
+  :root{
+    --bg:#faf6ef; --panel:#fffdf9; --line:#e8dfd0; --ink:#3b2f22;
+    --soft:#6b5a3e; --faint:#9c8b73; --accent:#b45309;
+  }
+  *{box-sizing:border-box}
+  body{margin:0;background:var(--bg);color:var(--ink);font-size:14px;
+       font-family:'Pretendard','Noto Sans KR',sans-serif}
+  .wrap{max-width:1080px;margin:0 auto;padding:28px 24px 90px}
+  h1{font-size:24px;margin:0 0 6px}
+  .lede{color:var(--soft);font-size:13.5px;line-height:1.75;margin:0 0 8px;max-width:760px}
+  .note{color:var(--faint);font-size:12.5px;line-height:1.7;margin:0 0 26px;max-width:760px}
+
+  .card{background:var(--panel);border:1px solid var(--line);border-radius:12px;
+        padding:22px 24px 24px;margin-bottom:20px}
+  .head{display:flex;align-items:baseline;gap:10px;flex-wrap:wrap;margin-bottom:3px}
+  .name{font-size:17px;font-weight:700}
+  .tag{font-size:11px;font-weight:700;letter-spacing:.03em;color:#fff;
+       background:var(--accent);border-radius:999px;padding:3px 9px}
+  .tag.now{background:#4a7a3a}
+  .tag.cdn{background:#6b5a3e}
+  .meta{color:var(--faint);font-size:12px;margin:4px 0 16px}
+
+  /* 각 후보 미리보기 영역만 해당 서체를 쓴다 */
+  .demo{border-top:1px solid var(--line);padding-top:16px}
+  .f-serif  .demo{font-family:'Noto Serif KR','Noto Serif JP',serif}
+  .f-noto   .demo{font-family:'Noto Sans KR','Noto Sans JP',sans-serif}
+  .f-plex   .demo{font-family:'IBM Plex Sans KR','IBM Plex Sans JP',sans-serif}
+  .f-pre    .demo{font-family:'Pretendard','Pretendard JP',sans-serif}
+  .f-line   .demo{font-family:'LINESeedKR','LINE Seed JP',sans-serif}
+  .f-bizud  .demo{font-family:'Noto Sans KR','BIZ UDPGothic',sans-serif}
+  .f-zen    .demo{font-family:'Noto Sans KR','Zen Kaku Gothic New',sans-serif}
+
+  .title{font-size:22px;font-weight:700;line-height:1.35;margin:0 0 8px}
+  .body{font-size:15.5px;line-height:1.85;color:var(--ink);margin:0 0 14px;max-width:640px}
+  .small{font-size:12.5px;line-height:1.7;color:var(--soft);margin:0 0 4px}
+  .tiny{font-size:11.5px;color:var(--faint)}
+  .ja{font-size:14.5px;line-height:1.8;color:var(--soft);margin:12px 0 0;
+      padding-top:12px;border-top:1px dashed var(--line)}
+  .nums{font-size:13px;color:var(--soft);margin-top:10px;letter-spacing:.02em}
+  .row{display:flex;gap:10px;flex-wrap:wrap;margin-top:14px}
+  .btn{font:inherit;font-size:13.5px;font-weight:600;color:#fff;background:var(--accent);
+       border:none;border-radius:7px;padding:9px 16px;cursor:pointer}
+  .chip{font-size:12px;font-weight:600;color:var(--soft);background:#f3ede1;
+        border:1px solid var(--line);border-radius:999px;padding:5px 12px}
+
+  table{border-collapse:collapse;width:100%;margin-top:16px;font-size:12.5px}
+  th,td{border:1px solid var(--line);padding:9px 11px;text-align:left;vertical-align:top}
+  th{background:#f3ede1;font-weight:700}
+  td{color:var(--soft)}
+  .verdict{background:#f3ede1;border-left:3px solid var(--accent);border-radius:6px;
+           padding:15px 18px;margin-top:26px;font-size:13px;line-height:1.8;color:var(--soft)}
+  .verdict b{color:var(--ink)}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <h1>본문 글꼴 비교</h1>
+  <p class="lede">
+    실제 화면에 쓰이는 문구로 네 가지를 나란히 놓았습니다.
+    제목·본문·작은 라벨·숫자·일본어를 한 벌에 담았으니, 각 크기에서 어떻게 읽히는지 보시면 됩니다.
+  </p>
+  <p class="note">
+    네 가지 모두 무료이며 상업적 사용이 가능합니다(SIL Open Font License).
+    한국어와 일본어 자형을 모두 갖춘 것만 골랐습니다.
+  </p>
+
+  <!-- 1 -->
+  <div class="card f-serif">
+    <div class="head"><span class="tag now">지금 적용됨</span><span class="name">Noto Serif</span></div>
+    <div class="meta">명조 · Google Fonts · 문학적이지만 작은 글씨에서 획이 가늘어짐</div>
+    <div class="demo">
+      <p class="title">깨진 렌즈가 비춘 잃어버린 항해</p>
+      <p class="body">고독한 지도 제작자 '테오'는 낡고 깨진 단안경을 통해 보이지 않는 운명의 해도를 그린다. 어느 날 단안경이 보여준 파편화된 미래의 재앙에, 테오는 마을에 경고하지만 아무도 믿어주지 않는다.</p>
+      <p class="small">에세이/비문학 · 참여 독자 12명 · 종료일 2026-09-12</p>
+      <p class="tiny">닉네임은 가공독서회 시스템이 고유하게 배정했습니다.</p>
+      <p class="nums">평균 평점 4.7 · 반응 182개 · D-5 · ₩13,500</p>
+      <p class="ja">砕けたレンズが映す、失われた航海 — 孤独な地図製作者「テオ」は、古く砕けた単眼鏡を通して見えない運命の海図を描く。</p>
+      <div class="row"><button class="btn">독서방 참여하기</button><span class="chip">내 서재에 담기</span></div>
+    </div>
+  </div>
+
+  <!-- 2 -->
+  <div class="card f-noto">
+    <div class="head"><span class="tag">후보</span><span class="name">Noto Sans</span></div>
+    <div class="meta">고딕 · Google Fonts · 무난하고 안정적, 개성은 적음</div>
+    <div class="demo">
+      <p class="title">깨진 렌즈가 비춘 잃어버린 항해</p>
+      <p class="body">고독한 지도 제작자 '테오'는 낡고 깨진 단안경을 통해 보이지 않는 운명의 해도를 그린다. 어느 날 단안경이 보여준 파편화된 미래의 재앙에, 테오는 마을에 경고하지만 아무도 믿어주지 않는다.</p>
+      <p class="small">에세이/비문학 · 참여 독자 12명 · 종료일 2026-09-12</p>
+      <p class="tiny">닉네임은 가공독서회 시스템이 고유하게 배정했습니다.</p>
+      <p class="nums">평균 평점 4.7 · 반응 182개 · D-5 · ₩13,500</p>
+      <p class="ja">砕けたレンズが映す、失われた航海 — 孤独な地図製作者「テオ」は、古く砕けた単眼鏡を通して見えない運命の海図を描く。</p>
+      <div class="row"><button class="btn">독서방 참여하기</button><span class="chip">내 서재에 담기</span></div>
+    </div>
+  </div>
+
+  <!-- 3 -->
+  <div class="card f-plex">
+    <div class="head"><span class="tag">후보</span><span class="name">IBM Plex Sans KR</span></div>
+    <div class="meta">고딕 · Google Fonts · 글자 폭이 넓어 작은 크기에서도 또렷함</div>
+    <div class="demo">
+      <p class="title">깨진 렌즈가 비춘 잃어버린 항해</p>
+      <p class="body">고독한 지도 제작자 '테오'는 낡고 깨진 단안경을 통해 보이지 않는 운명의 해도를 그린다. 어느 날 단안경이 보여준 파편화된 미래의 재앙에, 테오는 마을에 경고하지만 아무도 믿어주지 않는다.</p>
+      <p class="small">에세이/비문학 · 참여 독자 12명 · 종료일 2026-09-12</p>
+      <p class="tiny">닉네임은 가공독서회 시스템이 고유하게 배정했습니다.</p>
+      <p class="nums">평균 평점 4.7 · 반응 182개 · D-5 · ₩13,500</p>
+      <p class="ja">砕けたレンズが映す、失われた航海 — 孤独な地図製作者「テオ」は、古く砕けた単眼鏡を通して見えない運命の海図を描く。</p>
+      <div class="row"><button class="btn">독서방 참여하기</button><span class="chip">내 서재에 담기</span></div>
+    </div>
+  </div>
+
+  <!-- 4 -->
+  <div class="card f-pre">
+    <div class="head"><span class="tag">후보</span><span class="tag cdn">외부 CDN</span><span class="name">Pretendard</span></div>
+    <div class="meta">고딕 · jsDelivr · 한국어 웹에서 가장 널리 쓰이는 본문 글꼴, 자간이 고름</div>
+    <div class="demo">
+      <p class="title">깨진 렌즈가 비춘 잃어버린 항해</p>
+      <p class="body">고독한 지도 제작자 '테오'는 낡고 깨진 단안경을 통해 보이지 않는 운명의 해도를 그린다. 어느 날 단안경이 보여준 파편화된 미래의 재앙에, 테오는 마을에 경고하지만 아무도 믿어주지 않는다.</p>
+      <p class="small">에세이/비문학 · 참여 독자 12명 · 종료일 2026-09-12</p>
+      <p class="tiny">닉네임은 가공독서회 시스템이 고유하게 배정했습니다.</p>
+      <p class="nums">평균 평점 4.7 · 반응 182개 · D-5 · ₩13,500</p>
+      <p class="ja">砕けたレンズが映す、失われた航海 — 孤独な地図製作者「テオ」は、古く砕けた単眼鏡を通して見えない運命の海図を描く。</p>
+      <div class="row"><button class="btn">독서방 참여하기</button><span class="chip">내 서재에 담기</span></div>
+    </div>
+  </div>
+
+
+  <!-- 5 -->
+  <div class="card f-line">
+    <div class="head"><span class="tag">후보</span><span class="tag cdn">외부 CDN</span><span class="name">LINE Seed</span></div>
+    <div class="meta">고딕 · LINE 배포 · 한국·일본 양쪽에서 쓰이는 한 가족, 자형이 둥글고 부드러움</div>
+    <div class="demo">
+      <p class="title">깨진 렌즈가 비춘 잃어버린 항해</p>
+      <p class="body">고독한 지도 제작자 '테오'는 낡고 깨진 단안경을 통해 보이지 않는 운명의 해도를 그린다. 어느 날 단안경이 보여준 파편화된 미래의 재앙에, 테오는 마을에 경고하지만 아무도 믿어주지 않는다.</p>
+      <p class="small">에세이/비문학 · 참여 독자 12명 · 종료일 2026-09-12</p>
+      <p class="tiny">닉네임은 가공독서회 시스템이 고유하게 배정했습니다.</p>
+      <p class="nums">평균 평점 4.7 · 반응 182개 · D-5 · ₩13,500</p>
+      <p class="ja">砕けたレンズが映す、失われた航海 — 孤独な地図製作者「テオ」は、古く砕けた単眼鏡を通して見えない運命の海図を描く。読書室に12名が集まり、平均評価は4.7でした。</p>
+      <div class="row"><button class="btn">독서방 참여하기</button><span class="chip">내 서재에 담기</span></div>
+    </div>
+  </div>
+
+  <!-- 6 -->
+  <div class="card f-bizud">
+    <div class="head"><span class="tag">일본어 전용</span><span class="name">BIZ UDPGothic</span></div>
+    <div class="meta">고딕 · Google Fonts · 모리사와의 유니버설 디자인 글꼴, 일본 공공·교육 현장 표준 (한국어 자형 없음 → 한국어는 Noto Sans KR)</div>
+    <div class="demo">
+      <p class="title">깨진 렌즈가 비춘 잃어버린 항해</p>
+      <p class="body">고독한 지도 제작자 '테오'는 낡고 깨진 단안경을 통해 보이지 않는 운명의 해도를 그린다. 어느 날 단안경이 보여준 파편화된 미래의 재앙에, 테오는 마을에 경고하지만 아무도 믿어주지 않는다.</p>
+      <p class="small">에세이/비문학 · 참여 독자 12명 · 종료일 2026-09-12</p>
+      <p class="tiny">닉네임은 가공독서회 시스템이 고유하게 배정했습니다.</p>
+      <p class="nums">평균 평점 4.7 · 반응 182개 · D-5 · ₩13,500</p>
+      <p class="ja">砕けたレンズが映す、失われた航海 — 孤独な地図製作者「テオ」は、古く砕けた単眼鏡を通して見えない運命の海図を描く。読書室に12名が集まり、平均評価は4.7でした。</p>
+      <div class="row"><button class="btn">독서방 참여하기</button><span class="chip">내 서재에 담기</span></div>
+    </div>
+  </div>
+
+  <!-- 7 -->
+  <div class="card f-zen">
+    <div class="head"><span class="tag">일본어 전용</span><span class="name">Zen Kaku Gothic New</span></div>
+    <div class="meta">고딕 · Google Fonts · 최근 일본 웹에서 많이 쓰임, 획이 곧고 단정함 (한국어 자형 없음 → 한국어는 Noto Sans KR)</div>
+    <div class="demo">
+      <p class="title">깨진 렌즈가 비춘 잃어버린 항해</p>
+      <p class="body">고독한 지도 제작자 '테오'는 낡고 깨진 단안경을 통해 보이지 않는 운명의 해도를 그린다. 어느 날 단안경이 보여준 파편화된 미래의 재앙에, 테오는 마을에 경고하지만 아무도 믿어주지 않는다.</p>
+      <p class="small">에세이/비문학 · 참여 독자 12명 · 종료일 2026-09-12</p>
+      <p class="tiny">닉네임은 가공독서회 시스템이 고유하게 배정했습니다.</p>
+      <p class="nums">평균 평점 4.7 · 반응 182개 · D-5 · ₩13,500</p>
+      <p class="ja">砕けたレンズが映す、失われた航海 — 孤独な地図製作者「テオ」は、古く砕けた単眼鏡を通して見えない運命の海図を描く。読書室に12名が集まり、平均評価は4.7でした。</p>
+      <div class="row"><button class="btn">독서방 참여하기</button><span class="chip">내 서재에 담기</span></div>
+    </div>
+  </div>
+
+
+  <div class="verdict">
+    <b>고르는 기준</b> — 이 서비스는 줄거리와 감상처럼 <b>긴 글을 오래 읽는 화면</b>이 많고,
+    참여 인원·평점·D-day 같은 <b>작은 숫자 라벨</b>도 곳곳에 있습니다. 두 가지를 함께 만족해야 합니다.
+    한 벌로 통일하려면 <b>한국어와 일본어 자형을 모두 갖춘</b> 위쪽 다섯 가지 중에서 골라야 합니다.
+    아래 두 가지는 일본어 자형만 있어, 쓰려면 한국어용 글꼴과 짝지어야 합니다.
+    <table>
+      <tr><th>후보</th><th>한국어</th><th>일본어</th><th>작은 글씨</th><th>불러오는 곳</th><th>성격</th></tr>
+      <tr><td><b>Noto Serif</b> (현재)</td><td>있음</td><td>있음</td><td>나쁨</td><td>Google</td><td>문학적, 획이 가늘어짐</td></tr>
+      <tr><td><b>Noto Sans</b></td><td>있음</td><td>있음</td><td>좋음</td><td>Google</td><td>양국 모두 가장 무난한 표준</td></tr>
+      <tr><td><b>IBM Plex Sans</b></td><td>있음</td><td>있음</td><td>매우 좋음</td><td>Google</td><td>글자 폭이 넓어 또렷함</td></tr>
+      <tr><td><b>Pretendard</b></td><td>있음</td><td>있음</td><td>매우 좋음</td><td>jsDelivr</td><td>한국 웹 사실상 표준</td></tr>
+      <tr><td><b>LINE Seed</b></td><td>있음</td><td>있음</td><td>좋음</td><td>Google(JP)<br>jsDelivr(KR)</td><td>한일 양국 서비스에서 두루 쓰임</td></tr>
+      <tr><td><b>BIZ UDPGothic</b></td><td>없음</td><td>있음</td><td>매우 좋음</td><td>Google</td><td>일본 가독성 표준(UD 글꼴)</td></tr>
+      <tr><td><b>Zen Kaku Gothic New</b></td><td>없음</td><td>있음</td><td>좋음</td><td>Google</td><td>최근 일본 웹에서 인기</td></tr>
+    </table>
+  </div>
+</div>
+</body>
+</html>
