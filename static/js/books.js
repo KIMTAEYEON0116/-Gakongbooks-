@@ -244,6 +244,9 @@
       return (msg && msg.text) || '';
     }
 
+    // DB에 저장된 사회자 닉네임. 화면에서는 언어에 맞는 이름으로 바꿔 보여준다.
+    var MODERATOR_DISPLAY_KO = '🎙️ AI 사회자';
+
     function translateGenre(genre) {
       var lang = (typeof CURRENT_LANG !== 'undefined') ? CURRENT_LANG : 'ko';
       if (lang === 'ja' && GENRE_I18N[genre] && GENRE_I18N[genre].ja) {
@@ -738,7 +741,7 @@ function renderGenreSection() {
         el.innerHTML =
           '<div class="deadline-badge" style="background:' + badgeBg + '">' +
           (perpetual
-            ? '<div class="deadline-days deadline-days-sm">' + escHtml(t('detail_always_open')) + '</div>'
+            ? '<div class="deadline-days deadline-days-sm">' + escHtml(t('badge_always_open')) + '</div>'
             : '<div class="deadline-days">' + days + '</div>' +
               '<div class="deadline-lbl">' + t('days_left') + '</div>') +
           '</div>' +
@@ -817,7 +820,18 @@ function renderGenreSection() {
       }
 
       // 도서 상세 몰입 상세 보드 렌더링
+      // 목차는 언어에 맞는 것을 쓴다. 번역본이 있으면 그것을, 없으면 원문을 쓴다.
+      // (예전에는 원문만 보고, 없으면 화면에서 한국어 목차를 지어내 일본어 화면에도 한국어가 남았다)
       var imm = book.immersionData || {};
+      var immJa = bookField(book, 'immersion_data');
+      if (immJa && immJa !== book.immersionData) {
+        try {
+          var parsedJa = (typeof immJa === 'string') ? JSON.parse(immJa) : immJa;
+          if (parsedJa && parsedJa.table_of_contents && parsedJa.table_of_contents.length) {
+            imm = parsedJa;
+          }
+        } catch (e) { /* 번역본이 깨졌으면 원문을 그대로 쓴다 */ }
+      }
       if (!imm.table_of_contents || imm.table_of_contents.length === 0 || (imm.table_of_contents[0] && imm.table_of_contents[0].title === '시작되는 여정')) {
         imm.table_of_contents = generateRichTableOfContents(book);
       }
@@ -855,7 +869,13 @@ function renderGenreSection() {
       }
       var tagsEl = document.getElementById('dc-tags');
       tagsEl.innerHTML = '';
-      book.tags.forEach(function (t) {
+      // 태그도 번역본이 있으면 그것을 쓴다. bookField는 문자열을 돌려주므로 쉼표로 나눈다.
+      var tagSrc = bookField(book, 'tags');
+      var tagList = Array.isArray(tagSrc)
+        ? tagSrc
+        : String(tagSrc || '').split(',').map(function (x) { return x.trim(); }).filter(Boolean);
+      if (!tagList.length) tagList = book.tags || [];
+      tagList.forEach(function (t) {
         var span = document.createElement('span');
         span.className = 'detail-tag';
         span.textContent = t;
@@ -1879,15 +1899,41 @@ function renderGenreSection() {
     ];
 
     function dateLabel(d) {
-      // 어제, 오늘 텍스트 대신 항상 정확한 날짜 표시
-      return d.toLocaleDateString('ko-KR', { year: 'numeric', month: 'long', day: 'numeric' });
+      // 어제, 오늘 텍스트 대신 항상 정확한 날짜 표시.
+      // 로케일을 화면 언어에 맞춘다 — 예전에는 'ko-KR'로 고정돼 일본어 화면에도
+      // '2026년 9월 7일'이 그대로 나왔다.
+      var lang = (typeof CURRENT_LANG !== 'undefined' && CURRENT_LANG === 'ja') ? 'ja-JP' : 'ko-KR';
+      return d.toLocaleDateString(lang, { year: 'numeric', month: 'long', day: 'numeric' });
     }
     function dateKey(d) { // YYYY-MM-DD string for grouping
       return d.getFullYear() + '-' + (d.getMonth() + 1) + '-' + d.getDate();
     }
+    // 메시지의 표시 시각. 서버가 만든 문자열(ts)은 한국어 '오전/오후'가 박혀 있어
+    // 일본어 화면에 그대로 남는다. 날짜 값이 있으면 화면에서 언어에 맞게 다시 만든다.
+    // 문자열 안에 박힌 '오전/오후'만 화면 언어에 맞게 바꾼다.
+    // 서버가 만들어 둔 시각 문자열을 통째로 다시 만들 수 없을 때 쓴다.
+    function localizeAmPm(text) {
+      if (!text) return '';
+      var lang = (typeof CURRENT_LANG !== 'undefined') ? CURRENT_LANG : 'ko';
+      if (lang !== 'ja') return text;
+      return text.replace(/오전/g, '午前').replace(/오후/g, '午後');
+    }
+
+    function msgTime(msg) {
+      if (msg && msg.date) {
+        var d = (msg.date instanceof Date) ? msg.date : new Date(msg.date);
+        if (!isNaN(d.getTime())) return fmtTs(d);
+      }
+      return (msg && msg.ts) || '';
+    }
+
     function fmtTs(d) {
+      // '오전/오후'를 직접 붙이면 일본어 화면에도 한국어가 남는다.
+      // 로케일에 맡기면 일본어에서는 '午前/午後'로 나온다.
       var h = d.getHours(), m = d.getMinutes();
-      return (h < 12 ? '오전 ' : '오후 ') + (h % 12 || 12) + ':' + (m < 10 ? '0' + m : m);
+      var lang = (typeof CURRENT_LANG !== 'undefined' && CURRENT_LANG === 'ja') ? 'ja-JP' : 'ko-KR';
+      var ampm = (lang === 'ja-JP') ? (h < 12 ? '午前 ' : '午後 ') : (h < 12 ? '오전 ' : '오후 ');
+      return ampm + (h % 12 || 12) + ':' + (m < 10 ? '0' + m : m);
     }
 
     function makeMsg(opts) {
@@ -1974,7 +2020,8 @@ function renderGenreSection() {
         }
       } catch (e) { console.error(e); }
 
-      document.getElementById('chat-room-title').textContent = book.title + t('chat_room_suffix');
+      document.getElementById('chat-room-title').textContent = bookField(book, 'title') + t('chat_room_suffix');
+      setupTopicAutoCollapse();
       // 백엔드에서 정확하게 집계된 participant_count(book.count)를 신뢰할 수 있는 출처로 사용
       document.getElementById('chat-room-meta').textContent = book.count + t('participants_joining');
       // ── 📌 토론 주제 배너 채우기 ──
@@ -2071,6 +2118,37 @@ function renderGenreSection() {
     window.scrollChatToBottom = scrollChatToBottom;
     window.focusChatInput = focusChatInput;
 
+    // 배너 자동 접기.
+    // 방에 들어온 직후에는 펼쳐 두어 무엇을 이야기할 방인지 알리고,
+    // 대화를 읽기 시작하면(아래로 스크롤) 제목 줄만 남겨 화면을 비워 준다.
+    // 사람이 직접 펼친 뒤에는 건드리지 않는다.
+    var _topicUserOpened = false;
+
+    function setupTopicAutoCollapse() {
+      var body = document.getElementById('chat-topic-body');
+      var btn = document.getElementById('chat-topic-toggle');
+      if (!body) return;
+
+      _topicUserOpened = false;
+      body.classList.remove('hidden');
+      if (btn) { btn.classList.remove('collapsed'); btn.textContent = '▲'; }
+
+      if (window._topicScrollHandler) {
+        window.removeEventListener('scroll', window._topicScrollHandler);
+      }
+      window._topicScrollHandler = function () {
+        if (_topicUserOpened) return;                    // 사용자가 편 상태면 그대로 둔다
+        var pg = document.getElementById('pg-chat');
+        if (!pg || pg.hidden || getComputedStyle(pg).display === 'none') return;
+        var y = window.scrollY || document.documentElement.scrollTop;
+        if (y > 80 && !body.classList.contains('hidden')) {
+          body.classList.add('hidden');
+          if (btn) { btn.classList.add('collapsed'); btn.textContent = '▼'; }
+        }
+      };
+      window.addEventListener('scroll', window._topicScrollHandler, { passive: true });
+    }
+
     function toggleTopicBanner() {
       var body = document.getElementById('chat-topic-body');
       var btn = document.getElementById('chat-topic-toggle');
@@ -2079,6 +2157,7 @@ function renderGenreSection() {
         body.classList.remove('hidden');
         btn.classList.remove('collapsed');
         btn.textContent = '▲';
+        _topicUserOpened = true;   // 직접 펼쳤으므로 자동으로 접지 않는다
       } else {
         body.classList.add('hidden');
         btn.classList.add('collapsed');
@@ -2224,7 +2303,7 @@ function buildMsgEl(msg, bookId) {
       }
       if (msg.mine) {
         row.innerHTML =
-          '<div class="chat-time-wrap"><span class="chat-time">' + escHtml(msg.ts) + '</span></div>' +
+          '<div class="chat-time-wrap"><span class="chat-time">' + escHtml(msgTime(msg)) + '</span></div>' +
           '<div class="chat-col" id="col-' + msg.id + '">' +
           bubbleHtml +
           actionToolbar +
@@ -2240,12 +2319,13 @@ function buildMsgEl(msg, bookId) {
         row.innerHTML =
           avHtml +
           '<div class="chat-col" id="col-' + msg.id + '">' +
-          '<div class="chat-name' + (isMod ? ' mod-name' : '') + '">' + escHtml(msg.user || '') + sampleTagHtml(msg) + '</div>' +
+          '<div class="chat-name' + (isMod ? ' mod-name' : '') + '">' +
+          escHtml(isMod ? t('moderator_name') : (msg.user || '')) + sampleTagHtml(msg) + '</div>' +
           bubbleHtml +
           actionToolbar +
           rxBlock +
           '</div>' +
-          '<div class="chat-time-wrap"><span class="chat-time">' + escHtml(msg.ts) + '</span></div>';
+          '<div class="chat-time-wrap"><span class="chat-time">' + escHtml(msgTime(msg)) + '</span></div>';
       }
       return row;
     }
@@ -2932,7 +3012,7 @@ function buildMsgEl(msg, bookId) {
 
       // 상단 스티키 헤더 정보 동적 갱신
       var miniTitle = document.getElementById('arc-page-title');
-      if (miniTitle) miniTitle.textContent = book.title;
+      if (miniTitle) miniTitle.textContent = bookField(book, 'title');
 
       // 고유 참여자(닉네임 집합) 추출
       var distinctUsersSet = new Set();
@@ -3002,7 +3082,7 @@ function buildMsgEl(msg, bookId) {
       var avgScore = ratingsSummary.avg_score || 4.6;
 
       var miniMeta = document.getElementById('arc-page-meta');
-      if (miniMeta) miniMeta.textContent = totalUsers + '명 참여 · ' + book.archivedDate + ' 종료';
+      if (miniMeta) miniMeta.textContent = totalUsers + t('arc_meta_joined') + book.archivedDate + t('arc_meta_closed');
 
       // HSL 조화로운 컬러 테마 맵 ( deterministic 닉네임 아바타 구현 )
       function getNickColor(name) {
@@ -3029,11 +3109,12 @@ function buildMsgEl(msg, bookId) {
 
       // 1. 아카이브 고품격 커버 (Editorial Cover)
       html += '<div class="arc-cover" style="border-top: 6px solid ' + book.color + ';">';
-      html += '  <div class="arc-cover-label">가공독서회 · 아카이브 에디션 · 제' + book.id + '호</div>';
-      html += '  <div class="arc-cover-title">' + book.title + '</div>';
-      html += '  <div class="arc-cover-subtitle">' + book.author + ' · ' + book.genre + ' · ' + book.price + '</div>';
+      html += '  <div class="arc-cover-label">' + t('arc_edition_a') + book.id + t('arc_edition_b') + '</div>';
+      html += '  <div class="arc-cover-title">' + escHtml(bookField(book, 'title')) + '</div>';
+      html += '  <div class="arc-cover-subtitle">' + escHtml(bookField(book, 'author')) + ' · ' +
+        escHtml(translateGenre(book.genre)) + ' · ' + escHtml(book.price) + '</div>';
       html += '  <div class="arc-cover-divider"></div>';
-      html += '  <div class="arc-cover-author-note">' + totalUsers + '인의 독서회 종료 기념 감상 아카이브 에디션</div>';
+      html += '  <div class="arc-cover-author-note">' + totalUsers + t('arc_cover_note') + '</div>';
       html += '  <div class="arc-cover-meta">';
       html += '    <span>READING ROOM ARCHIVE</span>';
       html += '    <span>' + totalUsers + ' READERS · ' + totalChats + ' MESSAGES</span>';
@@ -3047,12 +3128,19 @@ function buildMsgEl(msg, bookId) {
       html += '<div class="arc-book-band">';
       html += '  <div class="arc-book-band-cover" style="' + getCoverCss(book) + '"></div>';
       html += '  <div>';
-      html += '    <div class="arc-book-band-genre" style="color:' + book.color + ';">' + book.genre.toUpperCase() + '</div>';
-      html += '    <div class="arc-book-band-title">' + book.title + '</div>';
-      html += '    <div class="arc-book-band-author">' + book.author + '</div>';
-      html += '    <div class="arc-book-band-synopsis">' + book.synopsis + '</div>';
+      html += '    <div class="arc-book-band-genre" style="color:' + safeCssColor(book.color) + ';">' +
+        escHtml(translateGenre(book.genre)) + '</div>';
+      html += '    <div class="arc-book-band-title">' + escHtml(bookField(book, 'title')) + '</div>';
+      html += '    <div class="arc-book-band-author">' + escHtml(bookField(book, 'author')) + '</div>';
+      html += '    <div class="arc-book-band-synopsis">' + escHtml(bookField(book, 'synopsis')) + '</div>';
       html += '    <div class="arc-book-band-tags">';
-      book.tags.forEach(function(t) {
+      // 태그도 번역본을 쓴다 (bookField는 문자열을 돌려주므로 쉼표로 나눈다)
+      var arcTagSrc = bookField(book, 'tags');
+      var arcTags = Array.isArray(arcTagSrc)
+        ? arcTagSrc
+        : String(arcTagSrc || '').split(',').map(function (x) { return x.trim(); }).filter(Boolean);
+      if (!arcTags.length) arcTags = book.tags || [];
+      arcTags.forEach(function(t) {
         html += '      <span class="arc-book-band-tag">' + t + '</span>';
       });
       html += '    </div>';
@@ -3117,7 +3205,8 @@ function buildMsgEl(msg, bookId) {
         var clr = getNickColor(u);
         html += '    <div class="arc-p-chip">';
         html += '      <div class="arc-p-av" style="background:' + clr.bg + ';color:' + clr.fg + ';">' + escHtml(u.charAt(0)) + '</div>';
-        html += '      <div class="arc-p-name">' + escHtml(u) + '</div>';
+        html += '      <div class="arc-p-name">' +
+          escHtml(u === MODERATOR_DISPLAY_KO ? t('moderator_name') : u) + '</div>';
         html += '    </div>';
       });
       html += '  </div>';
@@ -3156,7 +3245,7 @@ function buildMsgEl(msg, bookId) {
         html += '      <div class="arc-msg-av" style="background:' + clr.bg + ';color:' + clr.fg + ';">' + escHtml(c.user.charAt(0)) + '</div>';
         html += '      <div>';
         html += '        <div class="arc-msg-name">' + escHtml(c.user) + sampleTagHtml(c) + '</div>';
-        html += '        <div class="arc-msg-time">' + t('arc_msg_label') + escHtml(String(c.created_at)) + '</div>';
+        html += '        <div class="arc-msg-time">' + t('arc_msg_label') + escHtml(localizeAmPm(String(c.created_at))) + '</div>';
         html += '      </div>';
         html += '    </div>';
         html += '    <div class="arc-msg-body">' + escHtml(c.content) + '</div>';
@@ -3188,7 +3277,7 @@ function buildMsgEl(msg, bookId) {
         if (!isMine) {
           html += '        <div class="arc-chat-name-sm">' + escHtml(ch.user) + sampleTagHtml(ch) + '</div>';
         }
-        html += '        <div class="arc-chat-bubble">' + escHtml(ch.text || '') + '</div>';
+        html += '        <div class="arc-chat-bubble">' + escHtml(msgText(ch)) + '</div>';
         if (!isMine) {
           html += '        <div style="display:flex;gap:4px;margin-top:4px;">';
           html += '          <span class="arc-crx hot">❤️ ' + (12 - idx * 2 > 0 ? 12 - idx * 2 : 5) + '</span>';
@@ -3196,17 +3285,22 @@ function buildMsgEl(msg, bookId) {
           html += '        </div>';
         }
         html += '      </div>';
-        html += '      <span style="font-size:10px;color:#6b5040;align-self:flex-end;flex-shrink:0;margin-left:4px;">' + escHtml(String(ch.ts || '')) + '</span>';
+        html += '      <span style="font-size:10px;color:#6b5040;align-self:flex-end;flex-shrink:0;margin-left:4px;">' + escHtml(msgTime(ch)) + '</span>';
         html += '    </div>';
       });
       html += '  </div>';
 
       // 도서 시평 추천 문학 쿼트 블록 렌더링
-      var quoteText = book.memorableQuote || (book.endorsement ? book.endorsement.quote : "이 글귀는 우리가 활자 속으로 도망치는 모든 밤에 바치는 찬사이다.");
-      var quoteAttr = book.memorableQuote ? "— 책 속 결정적 대사" : (book.endorsement ? book.endorsement.attr : "— 문학평론가 (익명)");
+      // 인용문도 번역본이 있으면 그것을 쓴다
+      var quoteText = bookField(book, 'memorable_quote')
+        || bookField(book, 'endorsement_quote')
+        || t('arc_quote_fallback');
+      var quoteAttr = bookField(book, 'memorable_quote')
+        ? t('arc_quote_from_book')
+        : (bookField(book, 'endorsement_attr') || t('arc_quote_attr_fallback'));
       html += '  <div class="arc-quote-block">';
-      html += '    <div class="arc-quote-text">"' + quoteText + '"</div>';
-      html += '    <div class="arc-quote-attr">' + quoteAttr + '</div>';
+      html += '    <div class="arc-quote-text">"' + escHtml(quoteText) + '"</div>';
+      html += '    <div class="arc-quote-attr">' + escHtml(quoteAttr) + '</div>';
       html += '  </div>';
       html += '</div>';
 
@@ -3268,7 +3362,7 @@ function buildMsgEl(msg, bookId) {
       // 그 방의 총평은 사회자가 채팅 마지막에 남기고 대화 스레드에 함께 실린다.
       // 여기(편집위원회 명의의 닫는 말)는 모든 방에 공통인 고정 문구를 유지한다.
       {
-      html += '    『' + book.title + '』의 독서방은 공식 종료되었습니다. 그러나 우리가 활자 너머로 나누었던 상상과 연대의 불씨는 사라지지 않고 이 아카이브 공간에 영원히 보존될 것입니다.';
+      html += '    『' + escHtml(bookField(book, 'title')) + t('arc_closing_body');
       }
       html += '  </div>';
       html += '</div>';
@@ -3278,11 +3372,11 @@ function buildMsgEl(msg, bookId) {
       html += '  <div class="arc-colophon-grid">';
       html += '    <div>';
       html += '      <div class="arc-col-lbl">' + t('arc_col_publisher') + '</div>';
-      html += '      <div class="arc-col-val">가공독서회 보존기록팀</div>';
+      html += '      <div class="arc-col-val">' + t('arc_col_team') + '</div>';
       html += '    </div>';
       html += '    <div>';
       html += '      <div class="arc-col-lbl">' + t('arc_col_editor') + '</div>';
-      html += '      <div class="arc-col-val">가공 아카이브 에디터 일동</div>';
+      html += '      <div class="arc-col-val">' + t('arc_col_editors') + '</div>';
       html += '    </div>';
       html += '    <div>';
       html += '      <div class="arc-col-lbl">' + t('arc_col_class') + '</div>';
@@ -4022,6 +4116,21 @@ function adaptDbBookToFrontend(dbBook) {
         chat_reply_cancel: "답장 취소",
         chat_topic_toggle: "접기/펼치기",
         chat_highlight_title: "작품 하이라이트",
+        chat_quote_label: "💬 명대사",
+        chat_topic_label: "🗣 토론 질문",
+        arc_meta_joined: "명 참여 · ",
+        arc_meta_closed: " 종료",
+        arc_edition_a: "가공독서회 · 아카이브 에디션 · 제",
+        arc_edition_b: "호",
+        arc_back: "← 돌아가기",
+        arc_cover_note: "인의 독서회 종료 기념 감상 아카이브 에디션",
+        arc_quote_fallback: "이 글귀는 우리가 활자 속으로 도망친 이유였다.",
+        arc_quote_from_book: "— 책 속 결정적 대사",
+        arc_quote_attr_fallback: "— 문학평론가 (익명)",
+        arc_closing_body: "』의 독서방은 공식 종료되었습니다. 그러나 우리가 활자 너머로 나누었던 상상과 연대의 불씨는 사라지지 않고 이 아카이브에 머뭅니다.",
+        arc_col_team: "가공독서회 보존기록팀",
+        arc_col_editors: "가공 아카이브 에디터 일동",
+        moderator_name: "🎙️ AI 사회자",
         chat_first_line: "📖 첫 문장",
         chat_famous_line: "💬 명대사",
         chat_room_opened: "📚 독서방이 열렸습니다.",
@@ -4155,6 +4264,7 @@ function adaptDbBookToFrontend(dbBook) {
         detail_days_left: "일 남음",
         detail_end_suffix: " 종료",
         detail_always_open: "상시 열림",
+        badge_always_open: "상시",
         detail_ended_label: "종료됨",
         detail_ended_cap: "이 독서방은 종료되어 아카이브로 보관 중입니다.",
         detail_cap_always: "상시 운영되는 독서방입니다. 언제든 참여할 수 있어요.",
@@ -4327,6 +4437,21 @@ function adaptDbBookToFrontend(dbBook) {
         chat_reply_cancel: "返信をキャンセル",
         chat_topic_toggle: "折りたたむ/展開",
         chat_highlight_title: "作品ハイライト",
+        chat_quote_label: "💬 名台詞",
+        chat_topic_label: "🗣 討論テーマ",
+        arc_meta_joined: "名参加 · ",
+        arc_meta_closed: " 終了",
+        arc_edition_a: "架空読書会 · アーカイブエディション · 第",
+        arc_edition_b: "号",
+        arc_back: "← 戻る",
+        arc_cover_note: "名の読書会 終了記念 感想アーカイブエディション",
+        arc_quote_fallback: "この一節こそ、私たちが活字のなかへ逃げ込んだ理由だった。",
+        arc_quote_from_book: "— 作中の決定的な台詞",
+        arc_quote_attr_fallback: "— 文芸評論家（匿名）",
+        arc_closing_body: "』の読書室は正式に終了しました。けれど、活字の向こうで交わした想像と連帯の火種は消えることなく、このアーカイブに留まりつづけます。",
+        arc_col_team: "架空読書会 保存記録チーム",
+        arc_col_editors: "架空アーカイブ 編集者一同",
+        moderator_name: "🎙️ AI司会者",
         chat_first_line: "📖 冒頭の一文",
         chat_famous_line: "💬 名セリフ",
         chat_room_opened: "📚 読書室が開かれました。",
@@ -4460,6 +4585,7 @@ function adaptDbBookToFrontend(dbBook) {
         detail_days_left: "日残り",
         detail_end_suffix: " 終了",
         detail_always_open: "常時開室",
+        badge_always_open: "常時",
         detail_ended_label: "終了",
         detail_ended_cap: "この読書室は終了し、アーカイブに保管されています。",
         detail_cap_always: "常時開いている読書室です。いつでも参加できます。",

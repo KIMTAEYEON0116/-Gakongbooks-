@@ -23,19 +23,27 @@
     <div class="chat-topic-banner" id="chat-topic-banner" style="display:none;">
       <div class="chat-topic-header">
         <span class="chat-topic-pin">🔖</span>
-        <span class="chat-topic-label">작품 하이라이트</span>
+        <span class="chat-topic-label" data-i18n="chat_highlight_title">작품 하이라이트</span>
         <button class="chat-topic-toggle" id="chat-topic-toggle" onclick="toggleTopicBanner()" title="접기/펼치기" data-i18n-title="chat_topic_toggle">▲</button>
       </div>
       <div class="chat-topic-body" id="chat-topic-body">
         <!-- 소설의 첫 문장 -->
         <div class="chat-topic-section" id="chat-topic-sec-opening">
-          <div class="chat-topic-section-label">📖 첫 문장</div>
+          <div class="chat-topic-section-label" data-i18n="chat_first_line">📖 첫 문장</div>
           <div class="chat-topic-opening" id="chat-topic-opening"></div>
         </div>
         <!-- 명대사 -->
         <div class="chat-topic-section" id="chat-topic-sec-quote">
-          <div class="chat-topic-section-label">💬 명대사</div>
+          <div class="chat-topic-section-label" data-i18n="chat_quote_label">💬 명대사</div>
           <div class="chat-topic-quote" id="chat-topic-quote"></div>
+        </div>
+        <!-- 오늘의 토론 질문.
+             사회자의 첫 인사에도 같은 질문이 들어가지만, 대화가 쌓이면 위로 밀려
+             보이지 않는다. 여기 두면 스크롤과 무관하게 항상 확인할 수 있다. -->
+        <div class="chat-topic-section chat-topic-sec-wide" id="chat-topic-sec-dilemma">
+          <div class="chat-topic-section-label" data-i18n="chat_topic_label">🗣 토론 질문</div>
+          <div class="chat-topic-dilemma" id="chat-topic-dilemma"></div>
+          <div class="chat-topic-questions" id="chat-topic-questions"></div>
         </div>
       </div>
     </div>
