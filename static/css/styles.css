@@ -17,19 +17,24 @@
   --accent-border: #e8c89a;
   /* 본문 폰트 — 한국어 기본. 일본어일 때는 아래 html[lang="ja"] 규칙이 JP 폰트를 우선한다.
      (한중일 한자는 나라별로 자형이 달라서, 언어에 맞는 폰트를 먼저 두어야 자연스럽게 보인다) */
-  /* 서체는 한 벌로 통일한다 (Noto Sans).
-     참여 인원·평점·D-day 같은 작은 숫자 라벨이 화면 곳곳에 있어, 그 크기에서
-     획이 또렷한 고딕을 택했다. 명조는 문학적이지만 작은 글씨에서 획이 가늘어졌다.
+  /* 서체는 한 벌로 통일한다 (Noto Serif).
+     문학 아카이브라는 성격에 명조가 맞다. 다만 기본 굵기(400)에서는 획이 가늘어
+     참여 인원·평점·D-day 같은 작은 숫자가 흐릿했다. 서체를 바꾸는 대신 굵기를 올려
+     그 문제만 걷어낸다 — 본문 --w-body, 통계·라벨 --w-small.
      --serif와 --sans 두 변수가 98곳에서 쓰이고 있어 변수는 남기되 같은 서체를 가리킨다. */
-  --serif: 'Noto Sans KR', 'Noto Sans JP', 'Apple SD Gothic Neo', 'Malgun Gothic', sans-serif;
-  --sans: 'Noto Sans KR', 'Noto Sans JP', 'Apple SD Gothic Neo', 'Malgun Gothic', sans-serif;
+  --serif: 'Noto Serif KR', 'Noto Serif JP', 'Apple SD Gothic Neo', 'Malgun Gothic', serif;
+  --sans: 'Noto Serif KR', 'Noto Serif JP', 'Apple SD Gothic Neo', 'Malgun Gothic', serif;
+
+  /* 굵기 기준. 명조를 얇지 않게 쓰기 위한 값이다. */
+  --w-body: 500;   /* 본문·줄거리·채팅 */
+  --w-small: 600;  /* 통계·숫자·작은 라벨 — 한 단계 더 올려야 또렷하다 */
 }
 
 /* 일본어 표시 중일 때의 폰트 우선순위 (setLanguage()가 <html lang>을 바꾼다) */
 html[lang="ja"] {
-  /* 일본어 화면도 같은 원칙 — 고딕 한 벌. 일본어 자형이 우선되도록 순서만 바꾼다. */
-  --serif: 'Noto Sans JP', 'Hiragino Kaku Gothic ProN', 'Yu Gothic', 'Meiryo', sans-serif;
-  --sans: 'Noto Sans JP', 'Hiragino Kaku Gothic ProN', 'Yu Gothic', 'Meiryo', sans-serif;
+  /* 일본어 화면도 같은 원칙 — 명조 한 벌. 일본어 자형이 우선되도록 순서만 바꾼다. */
+  --serif: 'Noto Serif JP', 'Hiragino Mincho ProN', 'Yu Mincho', serif;
+  --sans: 'Noto Serif JP', 'Hiragino Mincho ProN', 'Yu Mincho', serif;
 }
 
 body {
@@ -41,6 +46,8 @@ body {
   /* 화면전체 레이아웃을 flex로 설정 */
   flex-direction: column;
   /* 요소를 위에서 아래로 배치 */
+  /* 명조를 기본 굵기로 두면 얇다. 한 단계 올려 본문 전체의 인상을 잡는다. */
+  font-weight: var(--w-body);
 }
 
 /* /  NAV  / */
@@ -1039,6 +1046,10 @@ nav {
   height: 58px;
   border-radius: 3px;
   flex-shrink: 0;
+  /* 표지 이미지가 들어올 수 있다 */
+  background-size: cover;
+  background-position: center;
+  overflow: hidden;
   display: flex;
   align-items: center;
   justify-content: center;
@@ -2025,6 +2036,35 @@ nav {
 .lib-cover.selected .lib-cover-img {
   outline: 2px solid var(--accent, #b45309);
   outline-offset: 2px;
+}
+
+
+/* ── 작은 글씨 굵기 보정 ──
+   명조는 작은 크기에서 가로획이 사라져 숫자가 흐릿하게 읽힌다.
+   화면에서 값을 읽어야 하는 곳(참여 인원·평점·반응 수·남은 기간·가격·날짜)만
+   한 단계 더 올린다. 설명 문장이나 안내문은 대상이 아니다. */
+.card-count,
+.card-price,
+.card-genre,
+.rx-count,
+.dday-num,
+.dday-sub,
+.deadline-days,
+.deadline-lbl,
+.deadline-count,
+.detail-meta-line,
+.detail-price,
+.detail-pages,
+.stats-avg-num,
+.stats-count,
+.arc-stat-num,
+.arc-stat-label,
+.arc-rx-total,
+.arc-msg-time,
+.chat-time,
+.lib-stat-num,
+.lib-stat-label {
+  font-weight: var(--w-small);
 }
 
 /* 시드(가상) 독자 메시지에 붙는 '예시' 표시 — 닉네임 옆 작은 라벨 */
@@ -4432,7 +4472,7 @@ nav {
 .info-page-title {
   font-family: var(--serif);
   font-size: 24px;
-  font-weight: 800;
+  font-weight: 700;   /* 로드하는 최대 굵기 */
   color: var(--text);
   margin: 0;
   letter-spacing: -0.02em;
@@ -4761,7 +4801,7 @@ nav {
   background: #f5d87a;
   color: #2e2518;
   font-size: 12px;
-  font-weight: 800;
+  font-weight: 700;   /* 로드하는 최대 굵기 */
   padding: 1px 4px;
   border-radius: 3px;
   letter-spacing: 0.05em;
@@ -4908,7 +4948,7 @@ nav {
 
 .chat-topic-q-item::before {
   content: "Q.";
-  font-weight: 800;
+  font-weight: 700;   /* 로드하는 최대 굵기 */
   color: #e5c158;
   flex-shrink: 0;
 }

@@ -1741,8 +1741,11 @@ function renderGenreSection() {
       }
 
       document.getElementById('lib-bdp-qdate').textContent = '';
-      document.getElementById('lib-bdp-cover').style.background = book.color;
-      document.getElementById('lib-bdp-cover').textContent = book.title;
+      // 표지 이미지가 있으면 그것을 쓴다. 없을 때만 색 배경 위에 제목을 얹는다.
+      // (예전에는 이미지를 무시하고 늘 색 배경이라, 같은 책이 화면마다 다르게 보였다)
+      var bdpCover = document.getElementById('lib-bdp-cover');
+      bdpCover.style.cssText = getCoverCss(book);
+      bdpCover.textContent = book.coverImageUrl ? '' : bookField(book, 'title');
       document.getElementById('lib-bdp-title').textContent = book.title;
       document.getElementById('lib-bdp-sub').textContent = translateGenre(book.genre) + t('detail_virtual_book');
       var tagsEl = document.getElementById('lib-bdp-tags');
@@ -3603,7 +3606,10 @@ function buildMsgEl(msg, bookId) {
       if (el) el.classList.add('sel');
       var myChatCount = (chatMsgs[id] || []).filter(function (m) { return m.userId === 'ME' || m.userId == CURRENT_USER_ID; }).length;
       var cov = document.getElementById('arc-lib-bdp-cover');
-      if (cov) { cov.style.background = book.color; cov.textContent = book.title.slice(0, 4); }
+      if (cov) {
+        cov.style.cssText = getCoverCss(book);
+        cov.textContent = book.coverImageUrl ? '' : bookField(book, 'title').slice(0, 4);
+      }
       var ti = document.getElementById('arc-lib-bdp-title');
       if (ti) ti.textContent = book.title;
       var su = document.getElementById('arc-lib-bdp-sub');

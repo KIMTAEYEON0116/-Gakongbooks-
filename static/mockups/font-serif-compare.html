@@ -1,0 +1,169 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="utf-8">
+<title>문학적이면서 읽기 쉬운 글꼴 — 가공독서회</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans+KR:wght@400;500;600;700&family=IBM+Plex+Sans+JP:wght@400;500;600;700&family=Noto+Serif+KR:wght@400;500;600;700&family=Noto+Serif+JP:wght@400;500;600;700&family=Gowun+Batang:wght@400;700&family=Nanum+Myeongjo:wght@400;700;800&family=Song+Myung&family=Shippori+Mincho:wght@400;500;600;700&family=BIZ+UDPMincho&family=Zen+Old+Mincho:wght@400;500;700&display=swap" rel="stylesheet">
+<style>
+  :root{
+    --bg:#faf6ef; --panel:#fffdf9; --line:#e8dfd0; --ink:#3b2f22;
+    --soft:#6b5a3e; --faint:#9c8b73; --accent:#b45309;
+  }
+  *{box-sizing:border-box}
+  body{margin:0;background:var(--bg);color:var(--ink);font-size:14px;
+       font-family:'IBM Plex Sans KR',sans-serif}
+  .wrap{max-width:1100px;margin:0 auto;padding:28px 24px 90px}
+  h1{font-size:24px;margin:0 0 6px}
+  .lede{color:var(--soft);font-size:13.5px;line-height:1.75;margin:0 0 8px;max-width:780px}
+  .note{color:var(--faint);font-size:12.5px;line-height:1.7;margin:0 0 24px;max-width:780px}
+  h2.sec{font-size:15px;margin:34px 0 12px;padding-bottom:8px;border-bottom:2px solid var(--line)}
+
+  .card{background:var(--panel);border:1px solid var(--line);border-radius:12px;
+        padding:20px 22px 22px;margin-bottom:18px}
+  .head{display:flex;align-items:baseline;gap:9px;flex-wrap:wrap;margin-bottom:3px}
+  .name{font-size:16px;font-weight:700}
+  .tag{font-size:11px;font-weight:700;letter-spacing:.03em;color:#fff;
+       background:var(--accent);border-radius:999px;padding:3px 9px}
+  .tag.now{background:#4a7a3a}
+  .tag.pick{background:#2f6f8f}
+  .meta{color:var(--faint);font-size:12px;margin:4px 0 14px;line-height:1.6}
+
+  .demo{border-top:1px solid var(--line);padding-top:15px}
+  .title{font-size:21px;font-weight:700;line-height:1.4;margin:0 0 8px}
+  .body{font-size:15.5px;line-height:1.9;margin:0 0 12px;max-width:640px}
+  .small{font-size:12.5px;line-height:1.7;color:var(--soft);margin:0 0 3px}
+  .tiny{font-size:11.5px;color:var(--faint)}
+  .nums{font-size:13px;color:var(--soft);margin-top:9px;letter-spacing:.02em}
+  .ja{font-size:14.5px;line-height:1.9;color:var(--ink);margin:13px 0 0;
+      padding-top:12px;border-top:1px dashed var(--line)}
+  .jasmall{font-size:12px;color:var(--faint);margin-top:5px}
+
+  /* 후보별 서체 — 한국어와 일본어를 각각 지정 */
+  .f-plex   .demo{font-family:'IBM Plex Sans KR','IBM Plex Sans JP',sans-serif}
+  .f-noto   .demo{font-family:'Noto Serif KR','Noto Serif JP',serif}
+  .f-gowun  .demo{font-family:'Gowun Batang','Shippori Mincho',serif}
+  .f-nanum  .demo{font-family:'Nanum Myeongjo','BIZ UDPMincho',serif}
+  .f-song   .demo{font-family:'Song Myung','Zen Old Mincho',serif}
+
+  table{border-collapse:collapse;width:100%;margin-top:14px;font-size:12.5px}
+  th,td{border:1px solid var(--line);padding:9px 11px;text-align:left;vertical-align:top}
+  th{background:#f3ede1;font-weight:700}
+  td{color:var(--soft)}
+  .verdict{background:#f3ede1;border-left:3px solid var(--accent);border-radius:6px;
+           padding:15px 18px;margin-top:26px;font-size:13px;line-height:1.85;color:var(--soft)}
+  .verdict b{color:var(--ink)}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <h1>문학적이면서 읽기 쉬운 글꼴</h1>
+  <p class="lede">
+    명조 계열 중 <b>작은 글씨에서도 흐려지지 않는</b> 것들을 모았습니다.
+    한국어와 일본어를 모두 갖춘 조합만 골랐고, 전부 무료입니다(SIL Open Font License).
+  </p>
+  <p class="note">
+    한 벌로 한국어와 일본어를 함께 덮는 명조는 사실상 Noto Serif뿐입니다.
+    나머지는 <b>한국어용과 일본어용을 짝지어</b> 씁니다. 지금 코드가 언어에 따라 글꼴을
+    바꾸도록 되어 있어(<code>html[lang]</code>), 짝을 지어도 화면 한 곳에 두 서체가 섞이지 않습니다.
+  </p>
+
+  <h2 class="sec">기준 — 지금 적용된 글꼴</h2>
+
+  <div class="card f-plex">
+    <div class="head"><span class="tag now">지금 적용됨</span><span class="name">IBM Plex Sans</span></div>
+    <div class="meta">고딕 · 한 벌로 한·일 모두 · 가장 또렷하지만 문학적 분위기는 적음</div>
+    <div class="demo">
+      <p class="title">깨진 렌즈가 비춘 잃어버린 항해</p>
+      <p class="body">고독한 지도 제작자 '테오'는 낡고 깨진 단안경을 통해 보이지 않는 운명의 해도를 그린다. 어느 날 단안경이 보여준 파편화된 미래의 재앙에, 테오는 마을에 경고하지만 아무도 믿어주지 않는다.</p>
+      <p class="small">에세이/비문학 · 참여 독자 12명 · 종료일 2026-09-12</p>
+      <p class="tiny">닉네임은 가공독서회 시스템이 고유하게 배정했습니다.</p>
+      <p class="nums">평균 평점 4.7 · 반응 182개 · D-5 · ₩13,500</p>
+      <p class="ja">砕けたレンズが映す、失われた航海 — 孤独な地図製作者「テオ」は、古く砕けた単眼鏡を通して見えない運命の海図を描く。</p>
+      <p class="jasmall">エッセイ · 参加読者 12名 · 平均評価 4.7 · 反応 182件</p>
+    </div>
+  </div>
+
+  <h2 class="sec">명조 후보</h2>
+
+  <div class="card f-noto">
+    <div class="head"><span class="name">Noto Serif</span><span class="tag">한 벌로 한·일</span></div>
+    <div class="meta">한국어 Noto Serif KR + 일본어 Noto Serif JP · 같은 가족이라 자형이 완전히 일관됨 · 다만 가로획이 가늘어 작은 숫자가 흐릿함</div>
+    <div class="demo">
+      <p class="title">깨진 렌즈가 비춘 잃어버린 항해</p>
+      <p class="body">고독한 지도 제작자 '테오'는 낡고 깨진 단안경을 통해 보이지 않는 운명의 해도를 그린다. 어느 날 단안경이 보여준 파편화된 미래의 재앙에, 테오는 마을에 경고하지만 아무도 믿어주지 않는다.</p>
+      <p class="small">에세이/비문학 · 참여 독자 12명 · 종료일 2026-09-12</p>
+      <p class="tiny">닉네임은 가공독서회 시스템이 고유하게 배정했습니다.</p>
+      <p class="nums">평균 평점 4.7 · 반응 182개 · D-5 · ₩13,500</p>
+      <p class="ja">砕けたレンズが映す、失われた航海 — 孤独な地図製作者「テオ」は、古く砕けた単眼鏡を通して見えない運命の海図を描く。</p>
+      <p class="jasmall">エッセイ · 参加読者 12名 · 平均評価 4.7 · 反応 182件</p>
+    </div>
+  </div>
+
+  <div class="card f-gowun">
+    <div class="head"><span class="tag pick">추천</span><span class="name">고운바탕 + Shippori Mincho</span></div>
+    <div class="meta">한국어 Gowun Batang + 일본어 しっぽり明朝 · <b>Shippori Mincho는 일본 소설가를 위해 만들어진 명조</b>로 축지활판소 스타일을 따른다 · 고운바탕은 획이 또렷하고 자간이 넉넉해 긴 글에 강함</div>
+    <div class="demo">
+      <p class="title">깨진 렌즈가 비춘 잃어버린 항해</p>
+      <p class="body">고독한 지도 제작자 '테오'는 낡고 깨진 단안경을 통해 보이지 않는 운명의 해도를 그린다. 어느 날 단안경이 보여준 파편화된 미래의 재앙에, 테오는 마을에 경고하지만 아무도 믿어주지 않는다.</p>
+      <p class="small">에세이/비문학 · 참여 독자 12명 · 종료일 2026-09-12</p>
+      <p class="tiny">닉네임은 가공독서회 시스템이 고유하게 배정했습니다.</p>
+      <p class="nums">평균 평점 4.7 · 반응 182개 · D-5 · ₩13,500</p>
+      <p class="ja">砕けたレンズが映す、失われた航海 — 孤独な地図製作者「テオ」は、古く砕けた単眼鏡を通して見えない運命の海図を描く。</p>
+      <p class="jasmall">エッセイ · 参加読者 12名 · 平均評価 4.7 · 反応 182件</p>
+    </div>
+  </div>
+
+  <div class="card f-nanum">
+    <div class="head"><span class="name">나눔명조 + BIZ UDP明朝</span><span class="tag">가독성 중시</span></div>
+    <div class="meta">한국어 Nanum Myeongjo + 일본어 BIZ UDPMincho · <b>BIZ UDP明朝는 모리사와의 유니버설 디자인 명조</b>로, 가로획을 지나치게 가늘게 만들지 않아 작은 크기에서도 눈이 덜 피로하다 · 나눔명조는 한국에서 가장 익숙한 본문 명조</div>
+    <div class="demo">
+      <p class="title">깨진 렌즈가 비춘 잃어버린 항해</p>
+      <p class="body">고독한 지도 제작자 '테오'는 낡고 깨진 단안경을 통해 보이지 않는 운명의 해도를 그린다. 어느 날 단안경이 보여준 파편화된 미래의 재앙에, 테오는 마을에 경고하지만 아무도 믿어주지 않는다.</p>
+      <p class="small">에세이/비문학 · 참여 독자 12명 · 종료일 2026-09-12</p>
+      <p class="tiny">닉네임은 가공독서회 시스템이 고유하게 배정했습니다.</p>
+      <p class="nums">평균 평점 4.7 · 반응 182개 · D-5 · ₩13,500</p>
+      <p class="ja">砕けたレンズが映す、失われた航海 — 孤独な地図製作者「テオ」は、古く砕けた単眼鏡を通して見えない運命の海図を描く。</p>
+      <p class="jasmall">エッセイ · 参加読者 12名 · 平均評価 4.7 · 反応 182件</p>
+    </div>
+  </div>
+
+  <div class="card f-song">
+    <div class="head"><span class="name">송명 + Zen Old Mincho</span><span class="tag">고전적</span></div>
+    <div class="meta">한국어 Song Myung + 일본어 Zen Old Mincho · 붓의 흐름이 남아 있어 가장 고전적 · 굵기가 한 종뿐이라 제목과 본문의 차이를 크기로만 줘야 한다</div>
+    <div class="demo">
+      <p class="title">깨진 렌즈가 비춘 잃어버린 항해</p>
+      <p class="body">고독한 지도 제작자 '테오'는 낡고 깨진 단안경을 통해 보이지 않는 운명의 해도를 그린다. 어느 날 단안경이 보여준 파편화된 미래의 재앙에, 테오는 마을에 경고하지만 아무도 믿어주지 않는다.</p>
+      <p class="small">에세이/비문학 · 참여 독자 12명 · 종료일 2026-09-12</p>
+      <p class="tiny">닉네임은 가공독서회 시스템이 고유하게 배정했습니다.</p>
+      <p class="nums">평균 평점 4.7 · 반응 182개 · D-5 · ₩13,500</p>
+      <p class="ja">砕けたレンズが映す、失われた航海 — 孤独な地図製作者「テオ」は、古く砕けた単眼鏡を通して見えない運命の海図を描く。</p>
+      <p class="jasmall">エッセイ · 参加読者 12名 · 平均評価 4.7 · 反応 182件</p>
+    </div>
+  </div>
+
+  <div class="verdict">
+    <b>보시는 요령</b> — 큰 제목은 어느 것이나 좋아 보입니다. 갈리는 곳은
+    <b>「평균 평점 4.7 · 반응 182개 · D-5」 줄과 회색 작은 글씨</b>입니다.
+    여기서 획이 사라져 보이면 화면 전체가 흐릿해집니다.
+    <table>
+      <tr><th>조합</th><th>긴 본문</th><th>작은 숫자</th><th>문학적 분위기</th><th>굵기 종류</th></tr>
+      <tr><td>IBM Plex Sans (현재)</td><td>좋음</td><td>매우 좋음</td><td>적음</td><td>4종</td></tr>
+      <tr><td>Noto Serif</td><td>좋음</td><td>나쁨</td><td>좋음</td><td>4종</td></tr>
+      <tr><td><b>고운바탕 + Shippori</b></td><td>매우 좋음</td><td>보통</td><td>매우 좋음</td><td>2종 / 4종</td></tr>
+      <tr><td>나눔명조 + BIZ UDP明朝</td><td>좋음</td><td>좋음</td><td>좋음</td><td>3종 / 1종</td></tr>
+      <tr><td>송명 + Zen Old Mincho</td><td>보통</td><td>나쁨</td><td>매우 좋음</td><td>1종 / 3종</td></tr>
+    </table>
+    <p style="margin:14px 0 0">
+      <b>제 추천은 「고운바탕 + Shippori Mincho」입니다.</b>
+      Shippori Mincho가 소설 조판을 위해 만들어진 글꼴이라 이 서비스의 성격과 정확히 맞고,
+      고운바탕은 명조인데도 획이 또렷해 Noto Serif보다 작은 글씨에서 잘 버팁니다.
+      작은 숫자가 끝내 걸리면, <b>본문만 명조로 두고 라벨·숫자는 지금의 IBM Plex Sans로</b>
+      남기는 이원 구성도 가능합니다. 코드가 <code>--serif</code>와 <code>--sans</code> 두 변수로
+      나뉘어 있어 값만 다르게 주면 됩니다.
+    </p>
+  </div>
+</div>
+</body>
+</html>
