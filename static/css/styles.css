@@ -17,14 +17,18 @@
   --accent-border: #e8c89a;
   /* 본문 폰트 — 한국어 기본. 일본어일 때는 아래 html[lang="ja"] 규칙이 JP 폰트를 우선한다.
      (한중일 한자는 나라별로 자형이 달라서, 언어에 맞는 폰트를 먼저 두어야 자연스럽게 보인다) */
+  /* 서체는 한 벌로 통일한다 (Noto Serif).
+     문학 아카이브라는 성격에 명조가 맞고, 화면마다 명조·고딕이 섞이면 톤이 흐트러진다.
+     --sans는 39곳에서 쓰이고 있어 변수 자체는 남기되 같은 서체를 가리키게 했다. */
   --serif: 'Noto Serif KR', 'Noto Serif JP', 'Apple SD Gothic Neo', 'Malgun Gothic', serif;
-  --sans: 'Noto Sans KR', 'Noto Sans JP', 'Apple SD Gothic Neo', 'Malgun Gothic', sans-serif;
+  --sans: 'Noto Serif KR', 'Noto Serif JP', 'Apple SD Gothic Neo', 'Malgun Gothic', serif;
 }
 
 /* 일본어 표시 중일 때의 폰트 우선순위 (setLanguage()가 <html lang>을 바꾼다) */
 html[lang="ja"] {
+  /* 일본어 화면도 같은 원칙 — 명조 한 벌 */
   --serif: 'Noto Serif JP', 'Hiragino Mincho ProN', 'Yu Mincho', serif;
-  --sans: 'Noto Sans JP', 'Hiragino Kaku Gothic ProN', 'Yu Gothic', 'Meiryo', sans-serif;
+  --sans: 'Noto Serif JP', 'Hiragino Mincho ProN', 'Yu Mincho', serif;
 }
 
 body {
