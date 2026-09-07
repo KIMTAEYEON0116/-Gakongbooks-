@@ -28,6 +28,9 @@
   /* 굵기 기준. 명조를 얇지 않게 쓰기 위한 값이다. */
   --w-body: 500;   /* 본문·줄거리·채팅 */
   --w-small: 600;  /* 통계·숫자·작은 라벨 — 한 단계 더 올려야 또렷하다 */
+
+  /* 상단 내비게이션 높이. sticky 요소가 그 아래에 붙을 때 기준으로 쓴다. */
+  --nav-h: 56px;
 }
 
 /* 일본어 표시 중일 때의 폰트 우선순위 (setLanguage()가 <html lang>을 바꾼다) */
@@ -4816,7 +4819,9 @@ nav {
   background: #1c170f;
   border-bottom: 2px solid #362e20;
   position: sticky;
-  top: 0;
+  /* 상단 내비게이션도 sticky(높이 56px)라, 0으로 두면 그 아래로 숨는다.
+     내비 바로 밑에 붙어 채팅방을 벗어날 때까지 화면에 남는다. */
+  top: var(--nav-h, 56px);
   z-index: 35;
   box-shadow: 0 8px 24px rgba(0, 0, 0, 0.25);
   transition: all 0.3s ease;
