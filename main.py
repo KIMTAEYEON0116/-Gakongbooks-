@@ -81,6 +81,10 @@ MODERATOR_NICKNAME = "🎙️ AI 사회자"
 # 서비스 소개용으로 미리 채워 둔 대화의 작성자는 모두 이 도메인을 쓴다.
 # 실사용자가 이 대화를 실제 사람의 감상으로 오해하지 않도록, 채팅 응답에 isSample 플래그를 실어
 # 프론트가 '예시' 표시를 붙일 수 있게 한다. (실제 가입은 이 도메인으로 받지 않는다)
+# 사회자 웰컴 카드(첫 인사)를 식별하는 문구.
+# 생성과 탐지가 반드시 같은 문자열을 쓰도록 상수로 둔다.
+WELCOME_MARKER = "독서방에 오신 것을 환영합니다"
+
 SAMPLE_EMAIL_DOMAIN = "@gakong.com"
 
 
@@ -2753,13 +2757,19 @@ def get_chat_history(book_id: int, db: Session = Depends(database.get_db)):
             return get_chat_history_archive(book_id, db)
     messages = db.query(models.ChatMessage).filter(
         models.ChatMessage.book_id == book_id
-    ).order_by(models.ChatMessage.id.asc()).all()
+    ).order_by(models.ChatMessage.created_at.asc(), models.ChatMessage.id.asc()).all()
     
     moderator = get_or_create_moderator(db)
-    has_mod_msg = any(m.user_id == moderator.id for m in messages)
-    
-    # 해당 독서방에 AI 사회자 질문 메시지가 없는 경우 (기존 방 포함) 첫 웰컴 카드 자동 생성
-    if not has_mod_msg and not (_book and _book.is_archived):  # 종료된 방에는 웰컴 카드를 심지 않는다
+    # 웰컴 카드가 이미 있는지로 판단한다.
+    # 예전에는 '사회자 메시지가 하나라도 있으면' 넣지 않았는데, 그러면 사회자가 @멘션에
+    # 답한 적 있는 방은 첫 인사가 영영 생기지 않았다 (16개 방 중 14개가 그 상태였다).
+    has_welcome = any(
+        m.user_id == moderator.id and WELCOME_MARKER in (m.content or "")
+        for m in messages
+    )
+
+    # 첫 인사가 없는 방에 웰컴 카드를 만들어 둔다 (종료된 방은 제외 — 새 행을 남기지 않는다)
+    if not has_welcome and not (_book and _book.is_archived):
         try:
             target_bid = int(book_id)
         except (ValueError, TypeError):
@@ -2779,7 +2789,7 @@ def get_chat_history(book_id: int, db: Session = Depends(database.get_db)):
                 q_list = ["1. 이 책의 주인공의 선택에 대해 어떻게 생각하시나요?"]
                 
             q_text = "\n".join(q_list)
-            welcome_text = f"독자님, 『{book.title}』 독서방에 오신 것을 환영합니다!\n오늘 함께 나눌 추천 토론 질문입니다:\n\n{q_text}\n\n자유롭게 의견을 남기시거나 @사회자에게 이야기를 건네보세요!"
+            welcome_text = f"독자님, 『{book.title}』 {WELCOME_MARKER}!\n오늘 함께 나눌 추천 토론 질문입니다:\n\n{q_text}\n\n자유롭게 의견을 남기시거나 @사회자에게 이야기를 건네보세요!"
             
             # 독서방 최상단에 물리적으로 가장 먼저 위치하도록 시간 조정
             first_base_time = (book.created_at if book and book.created_at else models.get_kst_now())
@@ -2978,7 +2988,7 @@ def get_chat_history_archive(book_id: int, db: Session = Depends(database.get_db
     # (데이터 규모가 커지기 전까지는 이 경로가 주로 사용됩니다)
     messages = db.query(models.ChatMessage).filter(
         models.ChatMessage.book_id == book_id
-    ).order_by(models.ChatMessage.id.asc()).all()
+    ).order_by(models.ChatMessage.created_at.asc(), models.ChatMessage.id.asc()).all()
 
     history = []
     for m in messages:
