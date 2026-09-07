@@ -88,10 +88,11 @@ def client_ip(request: Request) -> str:
 _CSP = (
     "default-src 'self'; "
     "img-src 'self' data: https:; "
-    # 글꼴은 Google Fonts와 jsDelivr(Pretendard)에서 받는다.
-    # 둘 다 스타일시트와 폰트 파일을 함께 제공하므로 style-src·font-src에 모두 필요하다.
-    "style-src 'self' 'unsafe-inline' https://fonts.googleapis.com https://cdn.jsdelivr.net; "
-    "font-src 'self' https://fonts.gstatic.com https://cdn.jsdelivr.net data:; "
+    # 글꼴은 Google Fonts에서만 받는다.
+    # (글꼴 비교 목업에서 잠시 jsDelivr을 허용했지만, 쓰지 않기로 했으므로 되돌렸다.
+    #  외부 출처는 실제로 쓰는 곳만 열어 둔다)
+    "style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; "
+    "font-src 'self' https://fonts.gstatic.com data:; "
     "script-src 'self' 'unsafe-inline'; "
     "connect-src 'self'; "
     "frame-ancestors 'none'; "
