@@ -582,7 +582,7 @@ def get_or_create_moderator(db: Session):
         moderator = models.User(
             email=MODERATOR_EMAIL,
             nickname=MODERATOR_NICKNAME,
-            password_hash=auth.get_password_hash(secrets.token_urlsafe(32)),
+            password_hash=auth.get_password_hash(seed_account_password()),
             is_admin=False,
             is_bot=True,
         )
@@ -703,7 +703,7 @@ def seed_glass_shop_book_if_needed(db: Session):
         for nick, email in readers_info:
             u = db.query(models.User).filter(models.User.nickname == nick).first()
             if not u:
-                u = models.User(email=email, password_hash=auth.get_password_hash("password123"), nickname=nick)
+                u = models.User(email=email, password_hash=auth.get_password_hash(seed_account_password()), nickname=nick)
                 db.add(u)
                 db.commit()
                 db.refresh(u)
@@ -804,7 +804,7 @@ def seed_lost_voyage_book_if_needed(db: Session):
         for nick, email in readers_info:
             u = db.query(models.User).filter(models.User.nickname == nick).first()
             if not u:
-                u = models.User(email=email, password_hash=auth.get_password_hash("password123"), nickname=nick)
+                u = models.User(email=email, password_hash=auth.get_password_hash(seed_account_password()), nickname=nick)
                 db.add(u)
                 db.commit()
                 db.refresh(u)
@@ -959,7 +959,7 @@ async def trigger_ai_moderator_response(book_id: int, user_message_id: int = Non
                 5. [필수] 이모지와 이모티콘을 절대 사용하지 마세요. 감정은 문장으로만 표현합니다.
                 """
             
-            url = f"https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key={gemini_key}"
+            url = f"https://generativelanguage.googleapis.com/v1beta/models/{config.GEMINI_MODEL}:generateContent?key={gemini_key}"
             headers = {"Content-Type": "application/json"}
             payload = {
                 "contents": [{"parts": [{"text": prompt}]}],
@@ -1234,7 +1234,7 @@ async def generate_new_nicknames_via_gemini() -> List[str]:
     """
     
     if gemini_key and gemini_key != "YOUR_GEMINI_API_KEY_HERE":
-        url = f"https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key={gemini_key}"
+        url = f"https://generativelanguage.googleapis.com/v1beta/models/{config.GEMINI_MODEL}:generateContent?key={gemini_key}"
         headers = {"Content-Type": "application/json"}
         payload = {
             "contents": [{"parts": [{"text": prompt}]}],
@@ -1375,6 +1375,14 @@ PASSWORD_RESET_LIMITER = security.RateLimiter(
 )
 # 링크 '발송 요청'과 링크를 받은 뒤의 '비밀번호 제출'은 제한기를 나눠야 한다.
 # 같은 제한기를 쓰면, 메일을 3번 요청한 사람이 정작 링크를 눌러 새 비밀번호를 넣을 때 막힌다.
+# AI 사회자 호출 제한.
+# 멘션 한 번이 Gemini 호출 한 번이므로, 제한이 없으면 계정 하나로 사용량을 태울 수 있다.
+# 방마다 따로 세어 한 방에서 연달아 부르는 것만 막고 다른 방 참여는 방해하지 않는다.
+MODERATOR_MENTION_LIMITER = security.RateLimiter(
+    max_attempts=3, window_seconds=5 * 60,
+    message="AI 사회자는 잠시 후에 다시 불러주세요. {minutes}분 후 다시 응답합니다.",
+)
+
 PASSWORD_SUBMIT_LIMITER = security.RateLimiter(
     max_attempts=10, window_seconds=60 * 60,
     message="비밀번호 재설정 시도가 너무 많습니다. {minutes}분 후 다시 시도해주세요.",
@@ -1397,6 +1405,16 @@ def login(login_data: UserLogin, request: Request, db: Session = Depends(databas
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
             detail="이메일 또는 비밀번호가 올바르지 않습니다."
+        )
+
+    # 서비스 소개용 시드 독자 계정은 운영에서 로그인 대상이 아니다.
+    # 가입은 이 도메인을 막고 있었지만 로그인은 막지 않아, 예측 가능한 비밀번호로
+    # 페르소나를 그대로 탈취할 수 있었다.
+    # 개발 환경에서는 화면 확인용으로 열어 둔다(비밀번호도 개발에서만 고정값).
+    if config.IS_PRODUCTION and (user.email or "").strip().lower().endswith(SAMPLE_EMAIL_DOMAIN):
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="이 계정으로는 로그인할 수 없습니다."
         )
 
     # 봇 계정(AI 사회자)은 사람이 로그인할 수 없다 — 공식 계정 사칭 차단
@@ -1969,7 +1987,7 @@ async def _produce_candidate_books(db: Session, background_tasks: BackgroundTask
     generated_books_data = []
     
     if gemini_key and gemini_key != "YOUR_GEMINI_API_KEY_HERE" and needed_count > 0:
-        url = f"https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key={gemini_key}"
+        url = f"https://generativelanguage.googleapis.com/v1beta/models/{config.GEMINI_MODEL}:generateContent?key={gemini_key}"
         headers = {"Content-Type": "application/json"}
         payload = {
             "contents": [{"parts": [{"text": prompt}]}],
@@ -2319,7 +2337,7 @@ def seed_fountain_pen_book_if_needed(db: Session):
         for nick, email in readers_info:
             u = db.query(models.User).filter(models.User.nickname == nick).first()
             if not u:
-                u = models.User(email=email, password_hash=auth.get_password_hash("password123"), nickname=nick)
+                u = models.User(email=email, password_hash=auth.get_password_hash(seed_account_password()), nickname=nick)
                 db.add(u); db.commit(); db.refresh(u)
             user_map[nick] = u
 
@@ -2417,7 +2435,7 @@ def seed_faded_gaze_book_if_needed(db: Session):
         for nick, email in readers_info:
             u = db.query(models.User).filter(models.User.nickname == nick).first()
             if not u:
-                u = models.User(email=email, password_hash=auth.get_password_hash("password123"), nickname=nick)
+                u = models.User(email=email, password_hash=auth.get_password_hash(seed_account_password()), nickname=nick)
                 db.add(u); db.commit(); db.refresh(u)
             user_map[nick] = u
 
@@ -2629,7 +2647,20 @@ def rate_book(
         score=rating_data.score
     )
     db.add(db_rating)
-    db.commit()
+    try:
+        db.commit()
+    except IntegrityError:
+        # 같은 사용자의 요청이 거의 동시에 두 번 들어온 경우.
+        # 위 조회에서는 둘 다 '없음'으로 보였지만 유일 제약이 막았다.
+        # 이미 등록된 평점을 요청 값으로 맞춰 준다.
+        db.rollback()
+        again = db.query(models.Rating).filter(
+            models.Rating.book_id == book_id,
+            models.Rating.user_id == current_user_id
+        ).first()
+        if again:
+            again.score = rating_data.score
+            db.commit()
     return {"message": "평점이 등록되었습니다."}
 
 
@@ -2912,8 +2943,15 @@ def send_chat_message(
     is_mention = any(kw in db_msg.content for kw in mention_keywords)
     
     if moderator and is_mention:
-        # 명시적 @사회자 멘션 시에만 백그라운드 태스크로 멘션 답변 처리
-        background_tasks.add_task(trigger_ai_moderator_response, book_id, db_msg.id)
+        # 사용자·방 단위로 호출 빈도를 제한한다. 초과하면 채팅은 그대로 남고
+        # 사회자 응답만 생략한다 (사용자의 글이 사라지지 않게).
+        try:
+            MODERATOR_MENTION_LIMITER.hit(f"{current_user_id}:{book_id}")
+        except HTTPException:
+            print(f"[Moderator] 멘션 빈도 초과 — user {current_user_id}, book {book_id}")
+        else:
+            # 명시적 @사회자 멘션 시에만 백그라운드 태스크로 멘션 답변 처리
+            background_tasks.add_task(trigger_ai_moderator_response, book_id, db_msg.id)
     
     # 3. 부모 대화 인용 정보 조립
     return {
@@ -3123,7 +3161,7 @@ async def _gemini_json(prompt: str, timeout: float = 40.0):
     gemini_key = config.GEMINI_API_KEY
     if not gemini_key:
         return None
-    url = f"https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key={gemini_key}"
+    url = f"https://generativelanguage.googleapis.com/v1beta/models/{config.GEMINI_MODEL}:generateContent?key={gemini_key}"
     payload = {
         "contents": [{"parts": [{"text": prompt}]}],
         # 2.5 Flash는 추론 토큰을 먼저 쓰므로 넉넉히 잡는다
@@ -3424,7 +3462,7 @@ async def translate_moderator_message_to_ja(message_id: int, is_past: bool = Fal
         gemini_key = config.GEMINI_API_KEY
         if not gemini_key:
             return False
-        url = f"https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key={gemini_key}"
+        url = f"https://generativelanguage.googleapis.com/v1beta/models/{config.GEMINI_MODEL}:generateContent?key={gemini_key}"
         payload = {
             "contents": [{"parts": [{"text": prompt}]}],
             "generationConfig": {"temperature": 0.3, "maxOutputTokens": 4096},
@@ -3456,6 +3494,18 @@ async def translate_moderator_message_to_ja(message_id: int, is_past: bool = Fal
         return False
     finally:
         db.close()
+
+
+def seed_account_password() -> str:
+    """시드 독자 계정에 넣을 비밀번호.
+
+    개발 환경에서는 화면 확인을 위해 고정값을 쓴다.
+    운영에서는 아무도 알 필요가 없으므로 매번 무작위로 만든다 —
+    예전에 고정값 'password123'이 그대로 들어가 52개 계정이 로그인 가능했다.
+    """
+    if config.IS_PRODUCTION:
+        return secrets.token_urlsafe(32)
+    return "password123"
 
 
 def find_expiring_book_ids(db: Session) -> list:
@@ -3579,7 +3629,7 @@ async def generate_closing_remark(book_id: int):
         6. 마크다운 기호나 부연설명 없이 본문 텍스트만 출력하세요.
         """
 
-        url = f"https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key={gemini_key}"
+        url = f"https://generativelanguage.googleapis.com/v1beta/models/{config.GEMINI_MODEL}:generateContent?key={gemini_key}"
         payload = {
             "contents": [{"parts": [{"text": prompt}]}],
             # 2.5 Flash는 추론 토큰을 먼저 쓰므로 넉넉히 잡아야 본문이 잘리지 않는다
@@ -3616,20 +3666,26 @@ async def generate_closing_remark(book_id: int):
 async def realtime_archive_loop():
     while True:
         try:
-            db = database.SessionLocal()
-
             # 1) 기한이 끝난 방에는 먼저 사회자가 채팅으로 마지막 인사를 남긴다.
             #    독서방은 채팅방에서 마무리된 뒤에 아카이브로 넘어가야 하고,
             #    이 메시지까지 함께 이관되어야 아카이브 스레드도 닫는 말로 끝난다.
-            expiring = find_expiring_book_ids(db)
-            db.close()
+            #    (세션은 반드시 finally로 닫는다. 60초마다 도는 루프라 한 번 새기 시작하면
+            #     커넥션 풀이 금방 고갈되고 모든 요청이 DB 대기에서 멈춘다)
+            db = database.SessionLocal()
+            try:
+                expiring = find_expiring_book_ids(db)
+            finally:
+                db.close()
+
             for bid in expiring:
                 await post_closing_message(bid)
 
             # 2) 그다음에 이관한다 (폐회 인사 포함)
             db = database.SessionLocal()
-            _auto_archive_expired_books(db)
-            db.close()
+            try:
+                _auto_archive_expired_books(db)
+            finally:
+                db.close()
         except Exception as e:
             print(f"Realtime archive loop error: {e}")
 

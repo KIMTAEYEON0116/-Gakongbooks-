@@ -1,3 +1,4 @@
+import config
 import os
 from pathlib import Path
 from dotenv import load_dotenv
@@ -64,6 +65,12 @@ else:
         conn.close()
         print(f"[DB] MySQL 연결 성공! → {hostname}:{port}/{db_name}\n")
     except Exception as e:
+        # 운영에서는 다른 저장소로 갈아타지 않는다.
+        # 조용히 SQLite로 넘어가면 그 뒤의 가입·채팅·도서가 로컬 파일에 쌓이고,
+        # MySQL이 복구되는 순간 그 데이터는 통째로 사라진다. 기동을 멈추는 편이 낫다.
+        if config.IS_PRODUCTION:
+            raise RuntimeError(f"[치명] 운영 환경에서 데이터베이스에 연결할 수 없습니다: {e}")
+
         print(f"\n[!] MySQL 연결 실패 ({e})")
         print(f"[!] 로컬 SQLite(gakong.db)로 임시 전환합니다.\n")
         DATABASE_URL = "sqlite:///./gakong.db"

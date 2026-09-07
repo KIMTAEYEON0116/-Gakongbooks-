@@ -1639,16 +1639,8 @@ function renderGenreSection() {
         row.innerHTML = '<div style="font-size:13px;color:var(--text-faint);padding:20px 0;">' + t('lib_empty_saved') + '</div>';
       } else {
         row.innerHTML = '';
-        var heights = [90, 110, 100, 85, 105, 95, 115, 88];
-        libBooks.forEach(function (b, i) {
-          var h = heights[i % heights.length];
-          var el = document.createElement('div');
-          el.className = 'book-spine';
-          el.id = 'lb-' + b.id;
-          el.style.cssText = 'height:' + h + 'px;background:' + b.color + ';';
-          el.innerHTML = '<div class="book-spine-txt">' + escHtml(bookField(b, 'title')) + '</div>';
-          el.onclick = function () { pickLibBook(b.id, 'lb'); };
-          row.appendChild(el);
+        libBooks.forEach(function (b) {
+          row.appendChild(buildLibCover(b, 'lb'));
         });
       }
 
@@ -1668,16 +1660,8 @@ function renderGenreSection() {
         myRow.innerHTML = '<div style="font-size:13px;color:var(--text-faint);padding:20px 0;">' + t('lib_empty_writings') + '</div>';
       } else {
         myRow.innerHTML = '';
-        var heights = [90, 110, 100, 85, 105, 95, 115, 88];
-        myCommentedBooks.forEach(function (b, i) {
-          var h = heights[i % heights.length];
-          var el = document.createElement('div');
-          el.className = 'book-spine';
-          el.id = 'mycmt-' + b.id;
-          el.style.cssText = 'height:' + h + 'px;background:' + b.color + ';';
-          el.innerHTML = '<div class="book-spine-txt">' + escHtml(bookField(b, 'title')) + '</div>';
-          el.onclick = function () { pickLibBook(b.id, 'mycmt'); };
-          myRow.appendChild(el);
+        myCommentedBooks.forEach(function (b) {
+          myRow.appendChild(buildLibCover(b, 'mycmt'));
         });
       }
 
@@ -1685,6 +1669,33 @@ function renderGenreSection() {
         document.getElementById('lib-bdp').style.display = 'none';
         selLibBook = null;
       }
+    }
+
+    // 서재 선반에 놓을 책표지 카드를 만든다.
+    // 표지 이미지가 있으면 그것을, 없으면 홈 카드와 같은 색 배경 + 제목으로 대체한다.
+    // 표지 아래 제목은 붙이지 않는다 — 칸이 좁아 두세 글자마다 줄이 바뀌어 오히려 읽기 어렵다.
+    // 제목은 title 속성으로 남겨 마우스를 올리면 보이게 한다.
+    function buildLibCover(book, prefix) {
+      var el = document.createElement('div');
+      el.className = 'lib-cover';
+      el.id = prefix + '-' + book.id;
+      el.setAttribute('role', 'button');
+      el.setAttribute('tabindex', '0');
+      var title = bookField(book, 'title');
+      el.title = title;
+      // 표지 이미지가 있으면 제목을 얹지 않는다 — 그림 위에 글자가 겹쳐 양쪽 다 읽기 어려워진다.
+      // 이미지가 없을 때만 색 배경 위에 제목을 올려 어떤 책인지 알 수 있게 한다.
+      var hasImage = !!book.coverImageUrl;
+      el.innerHTML =
+        '<div class="lib-cover-img" style="' + getCoverCss(book) + '">' +
+        '<div class="lib-cover-spine"></div>' +
+        (hasImage ? '' : '<span class="lib-cover-title">' + escHtml(title) + '</span>') +
+        '</div>';
+      el.onclick = function () { pickLibBook(book.id, prefix); };
+      el.onkeydown = function (e) {
+        if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); pickLibBook(book.id, prefix); }
+      };
+      return el;
     }
 
     var selLibPrefix = 'lb';
@@ -1695,7 +1706,8 @@ function renderGenreSection() {
       if (!book) book = BOOKS.find(function (b) { return b.id === id; });
       if (!book) return;
 
-      document.querySelectorAll('.book-spine').forEach(function (e) { e.classList.remove('sel'); });
+      // 표지 카드로 바뀌었으므로 선택 표시도 .lib-cover 기준으로 지운다
+      document.querySelectorAll('.lib-cover').forEach(function (e) { e.classList.remove('selected'); });
       var el = document.getElementById(prefix + '-' + id);
 
       if (selLibBook === id && selLibPrefix === prefix) {
@@ -1705,7 +1717,7 @@ function renderGenreSection() {
       }
       selLibBook = id;
       selLibPrefix = prefix;
-      if (el) el.classList.add('sel');
+      if (el) el.classList.add('selected');
 
       // 내가 쓴 채팅 메시지
       var myData = myLibraryData.find(function(d) { return d.id === book.id; });

@@ -149,6 +149,18 @@ PASSWORD_RESET_TTL_MINUTES = _get_int("PASSWORD_RESET_TTL_MINUTES", 30)
 # ── 기타 외부 서비스 ──
 GEMINI_API_KEY = _get("GEMINI_API_KEY")
 
+# 사용할 Gemini 모델.
+# 무료 등급의 일일 호출 한도는 '모델별로 따로' 잡히므로(GenerateRequestsPerDayPerProjectPerModel),
+# 한 모델이 소진돼도 다른 모델로 계속 쓸 수 있다. 기본값은 현재 세대의 flash 모델이다.
+GEMINI_MODEL = _get("GEMINI_MODEL", "gemini-3.8-flash")
+# 위 모델이 한도에 걸렸을 때 차례로 시도할 대체 모델들
+GEMINI_FALLBACK_MODELS = [
+    m.strip() for m in _get(
+        "GEMINI_FALLBACK_MODELS",
+        "gemini-3.7-flash,gemini-3.6-flash,gemini-3.5-flash,gemini-2.5-flash"
+    ).split(",") if m.strip()
+]
+
 # ── 리버스 프록시 ──
 # X-Forwarded-For 는 위조가 자유로운 헤더다. 여기에 적힌 IP(프록시)에서 들어온 요청에 한해서만
 # 그 헤더를 클라이언트 IP로 인정한다. 비어 있으면 헤더를 무시하고 소켓 주소를 쓴다.
