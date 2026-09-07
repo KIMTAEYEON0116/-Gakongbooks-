@@ -33,6 +33,7 @@ from fastapi.staticfiles import StaticFiles
 from fastapi.templating import Jinja2Templates
 from pydantic import BaseModel, EmailStr, Field
 from sqlalchemy.orm import Session
+from sqlalchemy.exc import IntegrityError
 from sqlalchemy import func
 
 import config
@@ -474,17 +475,49 @@ def aggregate_reactions(db: Session, book_ids=None) -> dict:
     return totals
 
 
+def room_end_date(book):
+    """독서방의 종료일을 돌려준다. 그날 23:59:59까지는 열려 있다.
+
+    시각이 아니라 날짜로 끊는 이유: 사용자는 '10일간'을 날짜로 인식하고,
+    이렇게 해야 모든 방이 자정에 닫혀 언제 끝나는지 예측할 수 있다.
+    (예전에는 생성 시각 기준이라 방마다 닫히는 시각이 제각각이었다)
+    """
+    if not getattr(book, "created_at", None):
+        return None
+    return (book.created_at + timedelta(days=(book.deadline_days or 10))).date()
+
+
+def is_room_expired(book, now=None) -> bool:
+    """종료일이 지났는지 판정한다. 종료일 당일은 아직 열려 있다."""
+    end = room_end_date(book)
+    if end is None:
+        return False
+    now = now or models.get_kst_now()
+    return now.date() > end
+
+
+def days_left(book, now=None) -> int:
+    """남은 일수. 종료일 당일이면 0(D-DAY), 지났으면 0."""
+    end = room_end_date(book)
+    if end is None:
+        return book.deadline_days or 10
+    now = now or models.get_kst_now()
+    return max(0, (end - now.date()).days)
+
+
 def serialize_book(b: "models.Book", db: Session, rx_totals: dict = None) -> dict:
     """Book 모델을 프론트엔드 응답용 dict로 직렬화합니다 (tags 파싱, 남은 기한, 참여자 수 계산 포함)."""
     book_dict = b.__dict__.copy()
     book_dict["tags"] = b.tags.split(",") if b.tags else []
 
-    if b.created_at:
-        delta = models.get_kst_now() - b.created_at
-        remaining = b.deadline_days - delta.days
-        book_dict["deadline_days"] = max(0, remaining)
-    else:
-        book_dict["deadline_days"] = b.deadline_days or 10
+    # 일본어 번역본을 함께 실어 보낸다. 프론트가 언어에 따라 골라 쓴다.
+    # (서버가 언어를 판단하지 않는 이유: 같은 응답을 캐시해도 언어별로 갈리지 않는다)
+    book_dict["i18n_ja"] = get_book_i18n(b, "ja") or None
+
+    # 남은 일수는 만료 판정과 같은 계산(날짜 기준)을 쓴다 — 표시와 동작이 어긋나지 않게
+    book_dict["deadline_days"] = days_left(b)
+    end = room_end_date(b)
+    book_dict["end_date"] = end.isoformat() if end else None
 
     # AI 사회자 및 관리자 계정은 "참여 중인 독자" 수에 포함하지 않는다.
     participant_count = db.query(func.count(func.distinct(models.ChatMessage.user_id))).join(
@@ -996,6 +1029,7 @@ async def lifespan(app: FastAPI):
     try:
         # 스키마 패치를 가장 먼저 — 아래 시드가 새 컬럼을 쓸 수 있다
         apply_schema_patches()
+        apply_index_patches()
         enforce_roles(db)
         seed_glass_shop_book_if_needed(db)
         seed_lost_voyage_book_if_needed(db)
@@ -2443,9 +2477,7 @@ def _auto_archive_expired_books(db: Session):
     now = models.get_kst_now()
     for book in active_books:
         if book.created_at:
-            deadline = book.deadline_days or 10
-            cutoff = now - timedelta(days=deadline)
-            if book.created_at <= cutoff:
+            if is_room_expired(book, now):
                 # 1. 책을 아카이브(종료) 상태로 변경
                 book.is_archived = True
                 
@@ -2469,6 +2501,7 @@ def _auto_archive_expired_books(db: Session):
                         reply_to_id=chat.reply_to_id,
                         reply_to_user=reply_user,
                         reply_to_content=reply_content,
+                        content_ja=chat.content_ja,
                         reactions=chat.reactions,
                         original_created_at=chat.created_at,
                         archived_at=now
@@ -2656,7 +2689,13 @@ def add_to_library(
         
     db_entry = models.Library(user_id=current_user_id, book_id=book_id)
     db.add(db_entry)
-    db.commit()
+    try:
+        db.commit()
+    except IntegrityError:
+        # 거의 동시에 두 번 담긴 경우. 위 조회에서는 둘 다 '없음'으로 보였지만
+        # DB의 유일 제약이 막았다. 사용자 입장에서는 담긴 것이 맞으므로 성공으로 답한다.
+        db.rollback()
+        return {"message": "이미 서재에 담겨 있습니다."}
     return {"message": "내 서재에 책을 담았습니다. 📚"}
 
 
@@ -2823,6 +2862,8 @@ def get_chat_history(book_id: int, db: Session = Depends(database.get_db)):
             "isBot": bool(m.user.is_bot) if m.user else False,
             "isSample": is_sample_user(m.user),
             "text": m.content or "",
+            # 사회자 시스템 메시지에만 채워진다. 없으면 프론트가 원문을 쓴다.
+            "textJa": getattr(m, "content_ja", None),
             "ts": format_kst_time(m.created_at),
             "date": m.created_at.isoformat() if m.created_at else models.get_kst_now().isoformat(),
             "replyTo": build_reply_to_info(m.reply_to_id, db),
@@ -2882,6 +2923,7 @@ def send_chat_message(
         "isBot": bool(db_msg.user.is_bot),
         "isSample": is_sample_user(db_msg.user),
         "text": db_msg.content,
+        "textJa": getattr(db_msg, "content_ja", None),
         "ts": format_kst_time(db_msg.created_at),
         "date": db_msg.created_at.isoformat(),
         "replyTo": build_reply_to_info(db_msg.reply_to_id, db)
@@ -2978,6 +3020,7 @@ def get_chat_history_archive(book_id: int, db: Session = Depends(database.get_db
                 "isBot": m.user_nickname == MODERATOR_NICKNAME,
                 "isSample": m.user_id in sample_user_ids,
                 "text": m.content,
+                "textJa": getattr(m, "content_ja", None),
                 "ts": format_kst_time(m.original_created_at),
                 "date": m.original_created_at.isoformat(),
                 "replyTo": reply_to_info,
@@ -3002,6 +3045,7 @@ def get_chat_history_archive(book_id: int, db: Session = Depends(database.get_db
             "isBot": bool(m.user.is_bot) if m.user else False,
             "isSample": is_sample_user(m.user),
             "text": m.content,
+            "textJa": getattr(m, "content_ja", None),
             "ts": format_kst_time(m.created_at),
             "date": m.created_at.isoformat(),
             "replyTo": build_reply_to_info(m.reply_to_id, db),
@@ -3042,6 +3086,378 @@ def delete_chat_message(
 
 
 # --- 리얼타임(백그라운드) 아카이브 검사 루프 ---
+# 일본어로 번역할 도서 필드. 화면에 실제로 노출되는 텍스트만 고른다.
+# 번역 결과에 한글이 남아 있는지 확인할 때 쓴다.
+# 일본어 화면에 한국어가 섞이면 안 되므로, 한 글자라도 남으면 저장하지 않는다.
+_HANGUL_RE = re.compile(r"[\uac00-\ud7a3\u1100-\u11ff\u3130-\u318f]")
+
+
+def has_hangul(text: str) -> bool:
+    """문자열에 한글이 들어 있는지 검사한다."""
+    return bool(text) and bool(_HANGUL_RE.search(text))
+
+
+BOOK_TRANSLATABLE_FIELDS = [
+    "title", "author", "synopsis", "opening_line", "memorable_quote",
+    "core_dilemma", "additional_questions", "characters",
+    "endorsement_quote", "endorsement_attr", "publisher_review",
+]
+
+
+def get_book_i18n(book, lang: str = "ja") -> dict:
+    """도서에 저장된 번역본을 dict로 돌려준다. 없거나 깨졌으면 빈 dict."""
+    if lang != "ja":
+        return {}
+    raw = getattr(book, "i18n_ja", None)
+    if not raw:
+        return {}
+    try:
+        data = json.loads(raw)
+        return data if isinstance(data, dict) else {}
+    except (TypeError, ValueError):
+        return {}
+
+
+async def _gemini_json(prompt: str, timeout: float = 40.0):
+    """Gemini에 JSON 응답을 요청하고 파싱해 돌려준다. 실패하면 None."""
+    gemini_key = config.GEMINI_API_KEY
+    if not gemini_key:
+        return None
+    url = f"https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key={gemini_key}"
+    payload = {
+        "contents": [{"parts": [{"text": prompt}]}],
+        # 2.5 Flash는 추론 토큰을 먼저 쓰므로 넉넉히 잡는다
+        "generationConfig": {"temperature": 0.3, "maxOutputTokens": 8192},
+    }
+    try:
+        async with httpx.AsyncClient() as _client:
+            r = await _client.post(url, headers={"Content-Type": "application/json"},
+                                   json=payload, timeout=timeout)
+        if r.status_code != 200:
+            print(f"[i18n] Gemini 응답 오류 {r.status_code}")
+            return None
+        text = r.json()["candidates"][0]["content"]["parts"][0]["text"].strip()
+        # 모델이 코드펜스를 붙이는 경우가 있어 걷어낸다
+        text = re.sub(r"^```(?:json)?|```$", "", text, flags=re.M).strip()
+        return json.loads(text)
+    except Exception as e:
+        print(f"[i18n] 번역 응답 처리 실패: {e}")
+        return None
+
+
+async def translate_book_to_ja(book_id: int, force: bool = False) -> bool:
+    """도서의 노출 텍스트를 일본어로 번역해 books.i18n_ja에 저장한다.
+
+    필드를 하나씩 부르지 않고 한 번의 호출로 책 한 권을 통째로 처리한다.
+    사람 이름은 번역이 아니라 가타카나 음차가 자연스러우므로 그렇게 지시한다.
+    """
+    db = database.SessionLocal()
+    try:
+        book = db.query(models.Book).filter(models.Book.id == book_id).first()
+        if not book:
+            return False
+        if not force and get_book_i18n(book):
+            return False
+
+        source = {}
+        for f in BOOK_TRANSLATABLE_FIELDS:
+            v = getattr(book, f, None)
+            if v:
+                source[f] = v
+        if book.closing_remark:
+            source["closing_remark"] = book.closing_remark
+        if not source:
+            return False
+
+        prompt = f"""
+        당신은 한국 문학을 일본 독자에게 소개해 온 숙련된 문예 번역가입니다.
+        아래는 웹 서비스 '가공독서회'에 실린 가상 도서의 텍스트입니다. 일본어로 옮겨 주세요.
+
+        [원문 JSON]
+        {json.dumps(source, ensure_ascii=False, indent=2)}
+
+        [번역 원칙]
+        1. **직역하지 마세요.** 한국어 문장 구조를 그대로 따라가면 일본어로는 어색합니다.
+           일본 독자가 처음부터 일본어로 쓰인 문학 텍스트라고 느끼도록 다시 쓰세요.
+        2. **동음이의어에 주의하세요.** 한국어 한자어를 같은 한자로 옮기면 일본어에서 뜻이
+           달라지는 경우가 많습니다. 문맥에서 실제로 뜻하는 바를 파악해 일본어에서 그 뜻으로
+           통하는 낱말을 고르세요. 한자 형태가 같다는 이유로 그대로 옮기지 마세요.
+        3. 문학적 어조와 리듬을 살리세요. 시적인 표현은 시적으로, 담백한 문장은 담백하게.
+        4. 사람 이름(author, characters의 인물명)은 번역하지 말고 가타카나로 음차하세요.
+        5. 책 제목(title)은 음차가 아니라 **뜻이 전해지는 일본어 제목**으로 옮기세요.
+        6. **한국어를 한 글자도 남기지 마세요.** 한글이 섞이면 번역 실패로 처리됩니다.
+           고유명사도 예외 없이 일본어 표기로 바꾸세요.
+
+        [형식 조건]
+        7. 입력과 완전히 같은 키를 가진 JSON 객체 하나만 출력하세요. 키를 빼거나 더하지 마세요.
+        8. characters와 additional_questions는 원문의 구분 기호(|, —)를 그대로 유지하세요.
+        9. core_dilemma의 'Q. ' 접두사는 그대로 두세요.
+        10. 이모지를 넣지 마세요.
+        11. 마크다운 코드펜스나 설명 없이 JSON만 출력하세요.
+        """
+
+        data = await _gemini_json(prompt)
+        if not isinstance(data, dict):
+            return False
+
+        # 원문에 있던 키만 남긴다 (모델이 임의로 덧붙인 키는 버린다)
+        cleaned = {k: v for k, v in data.items() if k in source and isinstance(v, str) and v.strip()}
+        if not cleaned:
+            return False
+
+        # 검증 1 — 원문의 모든 키가 번역됐는가
+        missing = [k for k in source if k not in cleaned]
+        if missing:
+            print(f"[i18n] book {book_id} 번역 누락 {missing} — 저장하지 않습니다.")
+            return False
+
+        # 검증 2 — 한글이 한 글자라도 남았는가
+        # 일본어 화면에 한국어가 섞이면 안 되므로, 남으면 저장하지 않고 다음 기회에 다시 시도한다.
+        dirty = [k for k, v in cleaned.items() if has_hangul(v)]
+        if dirty:
+            print(f"[i18n] book {book_id} 번역문에 한글 잔존 {dirty} — 저장하지 않습니다.")
+            return False
+
+        # 검증 3 — 구분 기호가 보존됐는가 (인물 목록·추가 질문이 깨지면 화면이 어긋난다)
+        for k in ("characters", "additional_questions"):
+            if k in source and source[k].count("|") != cleaned.get(k, "").count("|"):
+                print(f"[i18n] book {book_id} {k}의 구분 기호가 어긋남 — 저장하지 않습니다.")
+                return False
+
+        book.i18n_ja = json.dumps(cleaned, ensure_ascii=False)
+        db.commit()
+        print(f"[i18n] book {book_id} 일본어 번역 저장 ({len(cleaned)}개 필드)")
+        return True
+    except Exception as e:
+        print(f"[i18n] book {book_id} 번역 실패: {e}")
+        return False
+    finally:
+        db.close()
+
+
+# 한 번의 호출에 묶을 개수. 출력 토큰 상한(8192) 안에 들어가도록 잡았다.
+JA_BATCH_BOOKS = 2      # 도서는 필드가 11개라 본문이 길다
+JA_BATCH_MESSAGES = 6   # 사회자 메시지는 짧다
+
+
+async def translate_books_batch(book_ids: list) -> int:
+    """여러 도서를 한 번의 호출로 번역한다. 저장에 성공한 권수를 돌려준다.
+
+    무료 등급은 하루 호출 수가 적어(20회) 건당 호출로는 감당이 되지 않는다.
+    묶어 보내되, 검증은 권별로 따로 하고 통과한 것만 저장한다.
+    """
+    if not book_ids:
+        return 0
+
+    db = database.SessionLocal()
+    try:
+        books = db.query(models.Book).filter(models.Book.id.in_(book_ids)).all()
+        payload = {}
+        for b in books:
+            item = {f: getattr(b, f) for f in BOOK_TRANSLATABLE_FIELDS if getattr(b, f, None)}
+            if b.closing_remark:
+                item["closing_remark"] = b.closing_remark
+            if item:
+                payload[str(b.id)] = item
+        if not payload:
+            return 0
+
+        prompt = f"""
+        당신은 한국 문학을 일본 독자에게 소개해 온 숙련된 문예 번역가입니다.
+        아래는 웹 서비스 '가공독서회'에 실린 가상 도서 여러 권의 텍스트입니다.
+        모두 일본어로 옮겨 주세요.
+
+        [원문 JSON] — 바깥 키는 도서 id입니다
+        {json.dumps(payload, ensure_ascii=False, indent=2)}
+
+        [번역 원칙]
+        1. **직역하지 마세요.** 한국어 문장 구조를 그대로 따라가면 일본어로는 어색합니다.
+           일본 독자가 처음부터 일본어로 쓰인 문학 텍스트라고 느끼도록 다시 쓰세요.
+        2. **동음이의어에 주의하세요.** 한국어 한자어를 같은 한자로 옮기면 일본어에서 뜻이
+           달라지는 경우가 많습니다. 문맥에서 실제로 뜻하는 바로 통하는 낱말을 고르세요.
+        3. 문학적 어조와 리듬을 살리세요.
+        4. 사람 이름(author, characters의 인물명)은 가타카나로 음차하세요.
+        5. 책 제목(title)은 뜻이 전해지는 일본어 제목으로 옮기세요.
+        6. **한국어를 한 글자도 남기지 마세요.** 한글이 섞이면 실패로 처리됩니다.
+
+        [형식 조건]
+        7. 입력과 완전히 같은 구조(도서 id → 필드)의 JSON 하나만 출력하세요.
+           도서 id와 필드 키를 빼거나 더하지 마세요.
+        8. characters와 additional_questions는 구분 기호(|, —)를 그대로 유지하세요.
+        9. core_dilemma의 'Q. ' 접두사는 그대로 두세요.
+        10. 이모지를 넣지 마세요.
+        11. 마크다운 코드펜스나 설명 없이 JSON만 출력하세요.
+        """
+
+        data = await _gemini_json(prompt, timeout=90.0)
+        if not isinstance(data, dict):
+            return 0
+
+        saved = 0
+        for b in books:
+            got = data.get(str(b.id))
+            if not isinstance(got, dict):
+                continue
+            source = payload.get(str(b.id), {})
+            cleaned = {k: v for k, v in got.items()
+                       if k in source and isinstance(v, str) and v.strip()}
+
+            missing = [k for k in source if k not in cleaned]
+            if missing:
+                print(f"[i18n] book {b.id} 누락 {missing} — 건너뜀")
+                continue
+            dirty = [k for k, v in cleaned.items() if has_hangul(v)]
+            if dirty:
+                print(f"[i18n] book {b.id} 한글 잔존 {dirty} — 건너뜀")
+                continue
+            broken = [k for k in ("characters", "additional_questions")
+                      if k in source and source[k].count("|") != cleaned.get(k, "").count("|")]
+            if broken:
+                print(f"[i18n] book {b.id} 구분 기호 어긋남 {broken} — 건너뜀")
+                continue
+
+            b.i18n_ja = json.dumps(cleaned, ensure_ascii=False)
+            saved += 1
+        db.commit()
+        print(f"[i18n] 도서 배치 {len(books)}권 중 {saved}권 저장")
+        return saved
+    except Exception as e:
+        print(f"[i18n] 도서 배치 번역 실패: {e}")
+        return 0
+    finally:
+        db.close()
+
+
+async def translate_messages_batch(message_ids: list, is_past: bool = False) -> int:
+    """사회자 시스템 메시지 여러 건을 한 번의 호출로 번역한다."""
+    if not message_ids:
+        return 0
+
+    Model = models.PastChatMessage if is_past else models.ChatMessage
+    db = database.SessionLocal()
+    try:
+        msgs = db.query(Model).filter(Model.id.in_(message_ids)).all()
+        payload = {str(m.id): m.content for m in msgs if m.content}
+        if not payload:
+            return 0
+
+        prompt = f"""
+        당신은 한국 문학을 일본 독자에게 소개해 온 숙련된 문예 번역가입니다.
+        아래는 독서 커뮤니티에서 AI 사회자가 남긴 메시지들입니다. 모두 일본어로 옮겨 주세요.
+
+        [원문 JSON] — 키는 메시지 id입니다
+        {json.dumps(payload, ensure_ascii=False, indent=2)}
+
+        [번역 원칙]
+        1. **직역하지 마세요.** 일본어로 자연스럽게 읽히도록 다시 쓰세요.
+        2. **동음이의어에 주의하세요.** 한자 형태가 같다는 이유로 그대로 옮기지 말고,
+           문맥에서 뜻하는 바로 통하는 일본어 낱말을 고르세요.
+        3. **한국어를 한 글자도 남기지 마세요.**
+        4. 책 제목은 『』 안에 두고 뜻이 전해지는 일본어 제목으로 옮기세요.
+        5. 번호 목록(1. 2. 3.)과 줄바꿈 구조를 그대로 유지하세요.
+        6. 정중한 문어체(です・ます)로, 사회자다운 차분한 어조를 유지하세요.
+
+        [형식 조건]
+        7. 입력과 같은 키를 가진 JSON 하나만 출력하세요.
+        8. 이모지를 넣지 마세요.
+        9. 마크다운 코드펜스나 설명 없이 JSON만 출력하세요.
+        """
+
+        data = await _gemini_json(prompt, timeout=90.0)
+        if not isinstance(data, dict):
+            return 0
+
+        saved = 0
+        for m in msgs:
+            text = data.get(str(m.id))
+            if not isinstance(text, str) or not text.strip():
+                continue
+            text = strip_chat_emoji(text.strip())
+            if has_hangul(text):
+                print(f"[i18n] 메시지 {m.id} 한글 잔존 — 건너뜀")
+                continue
+            if m.content.count("\n") and abs(text.count("\n") - m.content.count("\n")) > 2:
+                print(f"[i18n] 메시지 {m.id} 줄 구조 어긋남 — 건너뜀")
+                continue
+            m.content_ja = text
+            saved += 1
+        db.commit()
+        print(f"[i18n] 메시지 배치 {len(msgs)}건 중 {saved}건 저장")
+        return saved
+    except Exception as e:
+        print(f"[i18n] 메시지 배치 번역 실패: {e}")
+        return 0
+    finally:
+        db.close()
+
+
+async def translate_moderator_message_to_ja(message_id: int, is_past: bool = False) -> bool:
+    """사회자의 시스템 메시지(첫 인사·폐회 인사)를 일본어로 번역해 content_ja에 넣는다."""
+    db = database.SessionLocal()
+    try:
+        Model = models.PastChatMessage if is_past else models.ChatMessage
+        msg = db.query(Model).filter(Model.id == message_id).first()
+        if not msg or getattr(msg, "content_ja", None):
+            return False
+
+        prompt = f"""
+        당신은 한국 문학을 일본 독자에게 소개해 온 숙련된 문예 번역가입니다.
+        아래는 독서 커뮤니티에서 AI 사회자가 남긴 메시지입니다. 일본어로 옮겨 주세요.
+
+        [원문]
+        {msg.content}
+
+        [번역 원칙]
+        1. **직역하지 마세요.** 일본 독자가 처음부터 일본어로 쓰인 글이라고 느끼도록 다시 쓰세요.
+        2. **동음이의어에 주의하세요.** 한국어 한자어를 같은 한자로 옮기면 일본어에서 뜻이
+           달라지는 경우가 많습니다. 문맥상의 뜻으로 통하는 일본어 낱말을 고르세요.
+        3. **한국어를 한 글자도 남기지 마세요.** 한글이 섞이면 번역 실패로 처리됩니다.
+        4. 책 제목은 『』 안에 두고 뜻이 전해지는 일본어 제목으로 옮기세요.
+        5. 번호 목록(1. 2. 3.)과 줄바꿈 구조를 그대로 유지하세요.
+        6. 정중한 문어체(です・ます)로 쓰세요. 사회자다운 차분한 어조를 유지하세요.
+
+        [형식 조건]
+        7. 번역문만 출력하세요. 설명이나 따옴표로 감싸지 마세요.
+        8. 이모지를 넣지 마세요.
+        """
+
+        gemini_key = config.GEMINI_API_KEY
+        if not gemini_key:
+            return False
+        url = f"https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key={gemini_key}"
+        payload = {
+            "contents": [{"parts": [{"text": prompt}]}],
+            "generationConfig": {"temperature": 0.3, "maxOutputTokens": 4096},
+        }
+        async with httpx.AsyncClient() as _client:
+            r = await _client.post(url, headers={"Content-Type": "application/json"},
+                                   json=payload, timeout=30.0)
+        if r.status_code != 200:
+            return False
+        text = strip_chat_emoji(r.json()["candidates"][0]["content"]["parts"][0]["text"].strip())
+        if not text:
+            return False
+
+        # 한글이 남으면 저장하지 않는다 — 일본어 화면에 한국어가 섞이지 않게
+        if has_hangul(text):
+            print(f"[i18n] 메시지 {message_id} 번역문에 한글 잔존 — 저장하지 않습니다.")
+            return False
+
+        # 줄 구조가 무너지면 웰컴 카드의 질문 목록이 뭉개진다
+        if msg.content.count("\n") and abs(text.count("\n") - msg.content.count("\n")) > 2:
+            print(f"[i18n] 메시지 {message_id} 줄 구조가 어긋남 — 저장하지 않습니다.")
+            return False
+
+        msg.content_ja = text
+        db.commit()
+        return True
+    except Exception as e:
+        print(f"[i18n] 메시지 {message_id} 번역 실패: {e}")
+        return False
+    finally:
+        db.close()
+
+
 def find_expiring_book_ids(db: Session) -> list:
     """기한이 지났지만 아직 아카이브되지 않은 도서 id를 돌려준다.
 
@@ -3049,13 +3465,11 @@ def find_expiring_book_ids(db: Session) -> list:
     채팅에 남길 수 있도록 대상만 먼저 알려주는 용도다.
     """
     now = models.get_kst_now()
-    ids = []
-    for book in db.query(models.Book).filter(models.Book.is_archived == False).all():
-        if not book.created_at:
-            continue
-        if book.created_at <= now - timedelta(days=(book.deadline_days or 10)):
-            ids.append(book.id)
-    return ids
+    return [
+        book.id
+        for book in db.query(models.Book).filter(models.Book.is_archived == False).all()
+        if is_room_expired(book, now)
+    ]
 
 
 async def post_closing_message(book_id: int) -> bool:
@@ -3229,7 +3643,59 @@ async def realtime_archive_loop():
 # 기동 시점에 실제 테이블을 확인해 없으면 붙인다. (테이블, 컬럼명, 정의) 형식.
 _SCHEMA_PATCHES = [
     ("books", "closing_remark", "TEXT NULL"),
+    ("books", "i18n_ja", "TEXT NULL"),
+    ("chat_messages", "content_ja", "TEXT NULL"),
+    ("past_chat_messages", "content_ja", "TEXT NULL"),
 ]
+
+
+# ── 인덱스 / 유일 제약 ──
+# (테이블, 인덱스명, 정의) — 없을 때만 만든다.
+# UNIQUE는 데이터 무결성을 DB 차원에서 보장한다. 애플리케이션 검사만으로는
+# 동시 요청이 들어올 때 두 요청이 모두 "중복 없음"을 보고 나란히 삽입할 수 있다.
+_INDEX_PATCHES = [
+    # 같은 사람이 한 책에 평점을 두 번 남기지 못하게 한다 (평균 평점 왜곡 방지)
+    ("ratings", "uq_ratings_book_user", "UNIQUE (book_id, user_id)"),
+    # 같은 책을 서재에 두 번 담지 못하게 한다
+    ("library", "uq_library_user_book", "UNIQUE (user_id, book_id)"),
+    # 닉네임은 서비스 안에서 사람을 가리키는 이름이므로 유일해야 한다
+    ("users", "uq_users_nickname", "UNIQUE (nickname)"),
+    # 홈·아카이브가 매번 거는 조건
+    ("books", "ix_books_is_archived", "(is_archived)"),
+    # 후보 보관함 조회
+    ("candidate_books", "ix_candidate_books_status", "(status)"),
+    # 채팅을 시간순으로 읽는다 (방별 정렬)
+    ("chat_messages", "ix_chat_messages_book_created", "(book_id, created_at)"),
+    ("past_chat_messages", "ix_past_chat_book_created", "(book_id, original_created_at)"),
+    # 봇·관리자를 걸러내는 조회
+    ("users", "ix_users_is_bot", "(is_bot)"),
+]
+
+
+def apply_index_patches():
+    """없는 인덱스와 유일 제약을 만든다.
+
+    UNIQUE 생성은 기존 데이터에 중복이 있으면 실패한다. 그때는 경고만 남기고 넘어간다
+    (기동을 막지 않는다). 중복을 정리한 뒤 다시 기동하면 그때 만들어진다.
+    """
+    from sqlalchemy import text as _sql_text
+    for table, name, definition in _INDEX_PATCHES:
+        try:
+            with database.engine.connect() as conn:
+                rows = conn.execute(_sql_text(
+                    f"SHOW INDEX FROM `{table}` WHERE Key_name = '{name}'"
+                )).fetchall()
+                if rows:
+                    continue
+                kind = "UNIQUE " if definition.startswith("UNIQUE") else ""
+                body = definition[len("UNIQUE "):] if kind else definition
+                conn.execute(_sql_text(
+                    f"CREATE {kind}INDEX `{name}` ON `{table}` {body}"
+                ))
+                conn.commit()
+                print(f"[Schema] 인덱스 {table}.{name} 생성")
+        except Exception as e:
+            print(f"[Schema] 인덱스 {table}.{name} 생성 실패(무시): {e}")
 
 
 def apply_schema_patches():

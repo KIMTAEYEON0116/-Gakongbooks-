@@ -1,6 +1,6 @@
 import datetime
 from datetime import timezone, timedelta
-from sqlalchemy import Column, Integer, String, Text, Boolean, ForeignKey, DateTime
+from sqlalchemy import Column, Integer, String, Text, Boolean, ForeignKey, DateTime, UniqueConstraint
 from sqlalchemy.orm import relationship, backref
 from database import Base
 
@@ -18,7 +18,7 @@ class User(Base):
     # AI 사회자 같은 봇 페르소나 여부. 봇은 로그인할 수 없고 운영 권한도 갖지 않는다.
     is_bot = Column(Boolean, default=False, nullable=False)
     password_hash = Column(String(255), nullable=False)
-    nickname = Column(String(50), nullable=False)
+    nickname = Column(String(50), unique=True, nullable=False)
     created_at = Column(DateTime, default=get_kst_now)
     last_generation_at = Column(DateTime, nullable=True)  # "새 책 생성" 마지막 호출 시각 (1일 1회 제한용)
     # 비밀번호 최종 변경 시각. 이 시각보다 먼저 발급된 JWT는 무효로 처리한다(토큰 탈취 대응).
@@ -61,6 +61,9 @@ class Book(Base):
     # 독서방 종료 시 AI 사회자가 남기는 총평. 아카이브 하단 「기록의 보관을 마치며」에 쓰인다.
     # 비어 있으면 프론트가 기존 고정 문구로 대체하므로 생성 실패가 화면을 깨지 않는다.
     closing_remark = Column(Text, nullable=True)
+    # 일본어 번역본(JSON). 필드마다 컬럼을 두지 않고 한 덩어리로 보관한다.
+    # 예: {"title": "...", "synopsis": "...", "closing_remark": "..."}
+    i18n_ja = Column(Text, nullable=True)
     deadline_days = Column(Integer, default=10)
     is_archived = Column(Boolean, default=False)
     created_at = Column(DateTime, default=get_kst_now)
@@ -113,6 +116,8 @@ class ChatMessage(Base):
     content = Column(Text, nullable=False)  # 대화 본문 (Text 타입으로 문장 잘림 방지)
     reply_to_id = Column(Integer, ForeignKey("chat_messages.id", ondelete="SET NULL"), nullable=True)
     # 반응 카운트를 JSON 문자열로 저장
+    # 사회자 시스템 메시지(첫 인사·폐회 인사)의 일본어 본문. 독자 감상은 비워 둔다.
+    content_ja = Column(Text, nullable=True)
     reactions = Column(String(500), nullable=True, default=None)
     created_at = Column(DateTime, default=get_kst_now)
 
@@ -128,6 +133,8 @@ class ChatMessage(Base):
 # 6. RATINGS 테이블 (도서 별점 정보)
 class Rating(Base):
     __tablename__ = "ratings"
+    # 한 사람은 한 책에 평점을 한 번만 남긴다 (DB 차원에서 강제)
+    __table_args__ = (UniqueConstraint("book_id", "user_id", name="uq_ratings_book_user"),)
 
     id = Column(Integer, primary_key=True, index=True, autoincrement=True)
     book_id = Column(Integer, ForeignKey("books.id", ondelete="CASCADE"), nullable=False)
@@ -142,6 +149,8 @@ class Rating(Base):
 # 7. LIBRARY 테이블 (내 서재 보관함)
 class Library(Base):
     __tablename__ = "library"
+    # 같은 책을 서재에 두 번 담지 않는다
+    __table_args__ = (UniqueConstraint("user_id", "book_id", name="uq_library_user_book"),)
 
     id = Column(Integer, primary_key=True, index=True, autoincrement=True)
     user_id = Column(Integer, ForeignKey("users.id", ondelete="CASCADE"), nullable=False)
@@ -173,6 +182,8 @@ class PastChatMessage(Base):
     reply_to_user = Column(String(50), nullable=True)
     reply_to_content = Column(Text, nullable=True)
 
+    # 사회자 시스템 메시지의 일본어 본문 (보관본에도 함께 옮긴다)
+    content_ja = Column(Text, nullable=True)
     reactions = Column(String(500), nullable=True, default=None)
 
     original_created_at = Column(DateTime, nullable=False)  # 원본 채팅 작성 시각

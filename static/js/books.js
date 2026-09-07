@@ -223,6 +223,27 @@
       '일반소설': { ko: '일반소설', ja: '一般小説' }
     };
 
+    // 도서의 언어별 표시값을 고른다.
+    // 서버가 원문과 함께 실어 준 번역본(i18nJa)이 있고 현재 언어가 일본어면 그것을,
+    // 없으면 원문을 쓴다. 번역이 없다고 화면이 비지 않게 하려는 것.
+    function bookField(book, field) {
+      var lang = (typeof CURRENT_LANG !== 'undefined') ? CURRENT_LANG : 'ko';
+      if (lang === 'ja' && book && book.i18nJa && book.i18nJa[field]) {
+        return book.i18nJa[field];
+      }
+      // camelCase(프론트)와 snake_case(서버 원문) 양쪽을 받아 준다
+      var camel = field.replace(/_([a-z])/g, function (m, c) { return c.toUpperCase(); });
+      return (book && (book[camel] !== undefined ? book[camel] : book[field])) || '';
+    }
+    window.bookField = bookField;
+
+    // 사회자 시스템 메시지(첫 인사·폐회 인사)의 언어별 본문
+    function msgText(msg) {
+      var lang = (typeof CURRENT_LANG !== 'undefined') ? CURRENT_LANG : 'ko';
+      if (lang === 'ja' && msg && msg.textJa) return msg.textJa;
+      return (msg && msg.text) || '';
+    }
+
     function translateGenre(genre) {
       var lang = (typeof CURRENT_LANG !== 'undefined') ? CURRENT_LANG : 'ko';
       if (lang === 'ja' && GENRE_I18N[genre] && GENRE_I18N[genre].ja) {
@@ -274,15 +295,15 @@
     function archiveCardHtml(b) {
       return '<div class="card-cover" style="' + getCoverCss(b) + '">' +
         '<div class="card-spine"></div>' +
-        '<span>' + escHtml(b.title) + '</span>' +
+        '<span>' + escHtml(bookField(b, 'title')) + '</span>' +
         '<div class="arc-card-overlay">' +
         '<span class="arc-card-overlay-badge">' + t('arc_card_overlay') + '</span>' +
         '</div>' +
         '</div>' +
         '<div class="card-body">' +
         '<span class="card-genre" style="background:#eef5eb;color:#4a7a3a;border-color:#b8d9a8;">' + t('archive_badge') + '</span>' +
-        '<div class="card-title">' + escHtml(b.title) + '</div>' +
-        '<div class="card-synopsis">' + escHtml(b.synopsis) + '</div>' +
+        '<div class="card-title">' + escHtml(bookField(b, 'title')) + '</div>' +
+        '<div class="card-synopsis">' + escHtml(bookField(b, 'synopsis')) + '</div>' +
         '<div class="card-footer">' +
         '<span class="card-price" style="color:#4a7a3a;font-size:11px;">' + escHtml(b.archivedDate || '') + t('arc_closed_suffix') + '</span>' +
         '<span class="card-count">👥 ' + b.count + t('people_unit') + '</span>' +
@@ -677,12 +698,12 @@ function renderGenreSection() {
           el.innerHTML =
             '<div class="card-cover" style="' + getCoverCss(b) + '">' +
             '<div class="card-spine"></div>' +
-            '<span>' + escHtml(b.title) + '</span>' +
+            '<span>' + escHtml(bookField(b, 'title')) + '</span>' +
             '</div>' +
             '<div class="card-body">' +
             '<span class="card-genre">' + escHtml(translateGenre(b.genre)) + '</span>' +
-            '<div class="card-title">' + escHtml(b.title) + '</div>' +
-            '<div class="card-synopsis">' + escHtml(b.synopsis) + '</div>' +
+            '<div class="card-title">' + escHtml(bookField(b, 'title')) + '</div>' +
+            '<div class="card-synopsis">' + escHtml(bookField(b, 'synopsis')) + '</div>' +
             '<div class="card-footer">' +
             '<span class="card-price">' + escHtml(b.price) + '</span>' +
             '<span class="card-count">👥 ' + b.count + t('people_unit') + '</span>' +
@@ -726,7 +747,7 @@ function renderGenreSection() {
           '</div>' +
           '<div class="deadline-info">' +
           '<div class="deadline-genre">' + escHtml(translateGenre(b.genre)) + '</div>' +
-          '<div class="deadline-title">' + escHtml(b.title) + '</div>' +
+          '<div class="deadline-title">' + escHtml(bookField(b, 'title')) + '</div>' +
           '<div class="deadline-count' + (isUrgent ? ' deadline-urgent' : '') + '">' +
           (isUrgent ? t('closing_soon') : '') + '👥 ' + b.count + t('participants_joining') +
           '</div>' +
@@ -763,12 +784,12 @@ function renderGenreSection() {
       currentBook = book;
 
       var dcCov = document.getElementById('dc-cover'); if (dcCov) { dcCov.style.cssText = getCoverCss(book); }
-      document.getElementById('dc-title-txt').textContent = book.title;
+      document.getElementById('dc-title-txt').textContent = bookField(book, 'title');
       document.getElementById('dc-genre').textContent = translateGenre(book.genre);
-      document.getElementById('dc-title').textContent = book.title;
-      document.getElementById('dc-author').textContent = book.author;
+      document.getElementById('dc-title').textContent = bookField(book, 'title');
+      document.getElementById('dc-author').textContent = bookField(book, 'author');
       document.getElementById('dc-detail-count').textContent = '👥 ' + book.count + t('people_unit');
-      document.getElementById('dc-synopsis').textContent = book.synopsis;
+      document.getElementById('dc-synopsis').textContent = bookField(book, 'synopsis');
       var pcEl = document.getElementById('dc-page-count');
       if (pcEl) pcEl.textContent = (book.pageCount || 300) + t('page_unit');
       document.getElementById('dc-price').textContent = book.price + t('discount_note');
@@ -776,8 +797,9 @@ function renderGenreSection() {
       var charEl = document.getElementById('dc-characters');
       if (charEl) {
         charEl.innerHTML = '';
-        if (book.characters) {
-          var charList = book.characters.split('|').map(function(c) { return c.trim(); }).filter(Boolean);
+        var charsRaw = bookField(book, 'characters');
+        if (charsRaw) {
+          var charList = charsRaw.split('|').map(function(c) { return c.trim(); }).filter(Boolean);
           charList.forEach(function(c) {
             var p = document.createElement('div');
             p.style.marginBottom = '6px';
@@ -1240,13 +1262,13 @@ function renderGenreSection() {
       var pt = document.getElementById('publisher-txt');
       if (!eq || !ea || !pt) return;
       if (book.endorsement) {
-        eq.textContent = book.endorsement.quote;
-        ea.textContent = book.endorsement.attr;
+        eq.textContent = bookField(book, 'endorsement_quote') || book.endorsement.quote;
+        ea.textContent = bookField(book, 'endorsement_attr') || book.endorsement.attr;
       } else {
         eq.textContent = '추천사가 아직 등록되지 않은 책입니다.';
         ea.textContent = '';
       }
-      pt.textContent = book.publisherReview || '출판사 서평이 등록되지 않았습니다.';
+      pt.textContent = bookField(book, 'publisher_review') || t('detail_no_publisher_review');
     }
 
     /* ── 평점 & 반응 통계 ── */
@@ -1624,7 +1646,7 @@ function renderGenreSection() {
           el.className = 'book-spine';
           el.id = 'lb-' + b.id;
           el.style.cssText = 'height:' + h + 'px;background:' + b.color + ';';
-          el.innerHTML = '<div class="book-spine-txt">' + escHtml(b.title) + '</div>';
+          el.innerHTML = '<div class="book-spine-txt">' + escHtml(bookField(b, 'title')) + '</div>';
           el.onclick = function () { pickLibBook(b.id, 'lb'); };
           row.appendChild(el);
         });
@@ -1653,7 +1675,7 @@ function renderGenreSection() {
           el.className = 'book-spine';
           el.id = 'mycmt-' + b.id;
           el.style.cssText = 'height:' + h + 'px;background:' + b.color + ';';
-          el.innerHTML = '<div class="book-spine-txt">' + escHtml(b.title) + '</div>';
+          el.innerHTML = '<div class="book-spine-txt">' + escHtml(bookField(b, 'title')) + '</div>';
           el.onclick = function () { pickLibBook(b.id, 'mycmt'); };
           myRow.appendChild(el);
         });
@@ -1915,6 +1937,7 @@ function renderGenreSection() {
               // 서버 플래그를 그대로 실어 준다 (사회자 판별 · 가상 독자 '예시' 표시)
               isBot: !!c.isBot,
               isSample: !!c.isSample,
+              textJa: c.textJa || null,   // 사회자 메시지의 일본어 본문
               av: c.user.charAt(0),
               avBg: '#f5d87a',
               avColor: '#7a4a10',
@@ -1954,7 +1977,7 @@ function renderGenreSection() {
           var secDilemma = document.getElementById('chat-topic-sec-dilemma');
           if (secOpening) {
             if (book.openingLine) {
-              if (openingEl) openingEl.textContent = '"' + book.openingLine + '"';
+              if (openingEl) openingEl.textContent = '"' + bookField(book, 'opening_line') + '"';
               secOpening.style.display = '';
             } else {
               secOpening.style.display = 'none';
@@ -1962,7 +1985,7 @@ function renderGenreSection() {
           }
           if (secQuote) {
             if (book.memorableQuote) {
-              if (quoteEl) quoteEl.textContent = '"' + book.memorableQuote + '"';
+              if (quoteEl) quoteEl.textContent = '"' + bookField(book, 'memorable_quote') + '"';
               secQuote.style.display = '';
             } else {
               secQuote.style.display = 'none';
@@ -1970,7 +1993,7 @@ function renderGenreSection() {
           }
           if (secDilemma) {
             if (book.coreDilemma) {
-              if (dilemmaEl) dilemmaEl.textContent = book.coreDilemma;
+              if (dilemmaEl) dilemmaEl.textContent = bookField(book, 'core_dilemma');
               secDilemma.style.display = '';
             } else {
               secDilemma.style.display = 'none';
@@ -1978,8 +2001,9 @@ function renderGenreSection() {
           }
           if (questionsEl) {
             questionsEl.innerHTML = '';
-            if (book.additionalQuestions) {
-              var qs = book.additionalQuestions.split('|').map(function(q){ return q.trim(); }).filter(Boolean).slice(0, 2);
+            var addQs = bookField(book, 'additional_questions');
+            if (addQs) {
+              var qs = addQs.split('|').map(function(q){ return q.trim(); }).filter(Boolean).slice(0, 2);
               if (qs.length > 0) {
                 questionsEl.style.display = '';
                 qs.forEach(function(q) {
@@ -2147,6 +2171,8 @@ function buildMsgEl(msg, bookId) {
       row.id = 'chatrow-' + msg.id;
       row.style.position = 'relative';
 
+      // 사회자 메시지는 언어에 맞는 본문을 고른다(독자 감상은 원문 그대로)
+      var msgBody = msgText(msg);
       var rxParts = !isMod ? rxHtml_parts(msg, bookId) : '';
       var rxBlock = rxParts ? '<div class="chat-reactions"' + (msg.mine ? ' style="justify-content:flex-end"' : '') + '>' + rxParts + '</div>' : '';
       var editedTag = msg.edited ? '<span class="edited-tag">(수정됨)</span>' : '';
@@ -2164,7 +2190,7 @@ function buildMsgEl(msg, bookId) {
       var dblClickAttr = isMod ? '' : (msg.mine ? ' ondblclick="showMsgMenu(\'' + bookId + '\',\'' + msg.id + '\',event)"' : ' ondblclick="showRxPicker(\'' + bookId + '\',\'' + msg.id + '\',event)"');
       var bubbleHtml = '<div class="chat-bubble" id="bubble-' + msg.id + '"' + dblClickAttr + '>' +
         replyQuote +
-        formatMsgText(msg.text) + editedTag +
+        formatMsgText(msgBody) + editedTag +
         '</div>';
 
       var actionToolbar = '';
@@ -3050,7 +3076,7 @@ function buildMsgEl(msg, bookId) {
       html += '  <div class="arc-editorial-title">' + t('arc_editorial_title') + '</div>';
       html += '  <div class="arc-editorial-body">';
       html += '    <p>' + t('arc_ed_p1') + '</p>';
-      html += '    <p>' + t('arc_ed_p2a') + totalUsers + t('arc_ed_p2b') + escHtml(book.title) + t('arc_ed_p2c') + '</p>';
+      html += '    <p>' + t('arc_ed_p2a') + totalUsers + t('arc_ed_p2b') + escHtml(bookField(book, 'title')) + t('arc_ed_p2c') + '</p>';
       html += '    <p>' + t('arc_ed_p3') + '</p>';
       html += '    <p>' + t('arc_ed_p4') + '</p>';
       html += '  </div>';
@@ -3089,7 +3115,7 @@ function buildMsgEl(msg, bookId) {
       html += '<div class="arc-chapter-header">';
       html += '  <div class="arc-chapter-num">' + t('arc_chapter1_num') + '</div>';
       html += '  <div class="arc-chapter-title">' + t('arc_chapter1_title') + '</div>';
-      html += '  <div class="arc-chapter-desc">' + t('arc_chapter1_desc_a') + escHtml(book.title) + t('arc_chapter1_desc_b') + '</div>';
+      html += '  <div class="arc-chapter-desc">' + t('arc_chapter1_desc_a') + escHtml(bookField(book, 'title')) + t('arc_chapter1_desc_b') + '</div>';
       html += '</div>';
 
       html += '<div class="arc-messages-area">';
@@ -3544,7 +3570,7 @@ function buildMsgEl(msg, bookId) {
         el.className = 'arc-book-spine' + (selArcBook === b.id ? ' sel' : '');
         el.id = 'arclb-' + b.id;
         el.style.cssText = 'height:' + h + 'px;background:' + b.color + ';';
-        el.innerHTML = '<div class="arc-book-spine-txt">' + escHtml(b.title) + '</div>';
+        el.innerHTML = '<div class="arc-book-spine-txt">' + escHtml(bookField(b, 'title')) + '</div>';
         el.onclick = (function (bid, blist) { return function () { pickArcLibBook(bid, blist); }; })(b.id, arcParticipated);
         row.appendChild(el);
       });
@@ -3639,6 +3665,7 @@ function adaptDbBookToFrontend(dbBook) {
         publisherReview: dbBook.publisher_review || 'AI와 독자의 상상력이 만들어낸 전례 없는 독서 경험.',
         openingLine: dbBook.opening_line || '',
         closingRemark: dbBook.closing_remark || '',
+        i18nJa: dbBook.i18n_ja || null,   // 일본어 번역본 (없으면 null)
         memorableQuote: dbBook.memorable_quote || '',
         coreDilemma: dbBook.core_dilemma || '',
         additionalQuestions: dbBook.additional_questions || '',
@@ -4082,6 +4109,7 @@ function adaptDbBookToFrontend(dbBook) {
         arc_chapter1_num: "1장",
         arc_chapter2_num: "2장",
         arc_closing_title: "기록의 보관을 마치며",
+        detail_no_publisher_review: "출판사 서평이 등록되지 않았습니다.",
         arc_col_publisher: "발행처",
         arc_col_editor: "기획 및 구성",
         arc_col_class: "서지 분류 번호",
@@ -4386,6 +4414,7 @@ function adaptDbBookToFrontend(dbBook) {
         arc_chapter1_num: "第1章",
         arc_chapter2_num: "第2章",
         arc_closing_title: "記録の保管を終えて",
+        detail_no_publisher_review: "出版社の書評は登録されていません。",
         arc_col_publisher: "発行元",
         arc_col_editor: "企画・構成",
         arc_col_class: "書誌分類番号",
