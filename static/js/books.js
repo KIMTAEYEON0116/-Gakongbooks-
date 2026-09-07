@@ -492,7 +492,7 @@
       var perpetual = days > 365;
       var passed = perpetual ? 0 : Math.max(0, Math.min(total, total - days));
 
-      card.className = 'dday-card ' + (perpetual ? 'active' : days <= 2 ? 'urgent' : days <= 6 ? 'soon' : 'active');
+      card.className = 'dday-card ' + (perpetual ? 'active' : days <= 2 ? 'urgent' : days <= 3 ? 'soon' : 'active');
       numEl.textContent = perpetual ? t('detail_always_open') : (days === 0 ? 'D-DAY' : 'D-' + days);
       unitEl.textContent = perpetual ? '' : t('detail_days_left');
       endEl.textContent = perpetual ? '' : formatEndDate(days);
@@ -698,16 +698,21 @@ function renderGenreSection() {
       list.innerHTML = '';
       sorted.forEach(function (b) {
         var days = b.deadlineDays || 0;
-        // 신호등 기준: D-7 이상=초록, D-6~D-3=주황/노랑(주의), D-2 이하=빨강(마감 임박)
-        var isUrgent = days <= 6;
-        var badgeBg = days <= 2 ? '#e05c3a' : days <= 6 ? '#d97706' : '#3aad6a';
+        // 상시 열림 방(deadline_days=9999)은 남은 일수를 숫자로 보여주면 'D-9961'이 되므로 라벨로 대체한다
+        var perpetual = days > 365;   // 상세 페이지(renderDdayCard)와 같은 기준
+        // '곧 마감'은 실제로 서두를 시점에만 띄운다(D-3 이하). D-6부터 붙이면 절반 넘는 방에 경고가 달려 신호가 무뎌진다
+        var isUrgent = !perpetual && days <= 3;
+        // 신호등 기준: D-4 이상=초록, D-3=주황(주의), D-2 이하=빨강(마감 임박)
+        var badgeBg = perpetual ? '#6b5a3e' : days <= 2 ? '#e05c3a' : days <= 3 ? '#d97706' : '#3aad6a';
         var el = document.createElement('div');
         el.className = 'deadline-card';
         el.onclick = function () { openDetail(b.id); };
         el.innerHTML =
           '<div class="deadline-badge" style="background:' + badgeBg + '">' +
-          '<div class="deadline-days">' + days + '</div>' +
-          '<div class="deadline-lbl">' + t('days_left') + '</div>' +
+          (perpetual
+            ? '<div class="deadline-days deadline-days-sm">' + escHtml(t('detail_always_open')) + '</div>'
+            : '<div class="deadline-days">' + days + '</div>' +
+              '<div class="deadline-lbl">' + t('days_left') + '</div>') +
           '</div>' +
           '<div class="deadline-mini-cover" style="' + getCoverCss(b) + '">' +
           '<div class="deadline-mini-spine"></div>' +
@@ -4070,7 +4075,7 @@ function adaptDbBookToFrontend(dbBook) {
         reset_modal_email_label: "가입 이메일 주소",
         detail_days_left: "일 남음",
         detail_end_suffix: " 종료",
-        detail_always_open: "상시 운영",
+        detail_always_open: "상시 열림",
         detail_ended_label: "종료됨",
         detail_ended_cap: "이 독서방은 종료되어 아카이브로 보관 중입니다.",
         detail_cap_always: "상시 운영되는 독서방입니다. 언제든 참여할 수 있어요.",
