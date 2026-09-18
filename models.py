@@ -125,9 +125,11 @@ class ChatMessage(Base):
     book = relationship("Book", back_populates="chat_messages")
     user = relationship("User", back_populates="chat_messages")
     
-    # Self-referencing relationship for reply quote feature
-    replies = relationship("ChatMessage", cascade="all")
-    parent_reply = relationship("ChatMessage", remote_side=[id], backref=backref("child_replies", overlaps="replies"), overlaps="replies")
+    # 답글 인용. 원글이 지워져도 남의 답글은 지우지 않는다.
+    # (예전에는 cascade="all"인 replies 관계가 있어, 내 글 하나를 지우거나 탈퇴하면
+    #  거기 달린 다른 독자들의 답글까지 연쇄 삭제됐다. DB 외래키의 SET NULL과 정반대였다.)
+    # 기본 cascade만 두면 원글 삭제 시 답글의 reply_to_id가 NULL이 되고 본문은 남는다.
+    parent_reply = relationship("ChatMessage", remote_side=[id], backref=backref("child_replies"))
 
 
 # 6. RATINGS 테이블 (도서 별점 정보)

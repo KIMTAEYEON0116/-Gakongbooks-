@@ -2239,8 +2239,15 @@ async def get_candidate_cover(candidate_id: int, db: Session = Depends(database.
 
 @app.post("/api/books/adopt/{candidate_id}")
 async def adopt_candidate(candidate_id: int, current_user_id: int = Depends(auth.get_current_user_id), db: Session = Depends(database.get_db)):
-    # 채택할 후보 도서 조회
-    candidate = db.query(models.CandidateBook).filter(models.CandidateBook.id == candidate_id, models.CandidateBook.status == 'pending').first()
+    # 채택할 후보 도서 조회 — 본인이 받은 후보만 채택할 수 있다.
+    # 소유자 조건이 없으면 남이 받은 후보 번호를 넣어 가로챌 수 있고, 그 사람의 나머지
+    # 후보까지 pool로 돌아가 하루 1회 생성권을 헛되이 잃게 된다.
+    # 남의 후보인지 없는 후보인지는 구분해 알려주지 않는다(존재 여부 노출 방지).
+    candidate = db.query(models.CandidateBook).filter(
+        models.CandidateBook.id == candidate_id,
+        models.CandidateBook.status == 'pending',
+        models.CandidateBook.created_by == current_user_id,
+    ).first()
     if not candidate:
         raise HTTPException(status_code=404, detail="해당 후보 책을 찾을 수 없거나 이미 채택되었습니다.")
 
@@ -2279,10 +2286,12 @@ async def adopt_candidate(candidate_id: int, current_user_id: int = Depends(auth
     candidate.status = 'adopted'
     db.flush()  # adopted 상태가 DB에 선반영되어야 bulk update에서 제외됨
     # 같은 사용자가 받았던 나머지 후보만 pool로 되돌린다 (다른 사용자의 선택을 빼앗지 않도록)
-    leftovers = db.query(models.CandidateBook).filter(models.CandidateBook.status == 'pending')
-    if candidate.created_by is not None:
-        leftovers = leftovers.filter(models.CandidateBook.created_by == candidate.created_by)
-    leftovers.update({"status": "pool"}, synchronize_session=False)
+    # (위에서 소유자를 확인했으므로 created_by는 항상 현재 사용자다. 예전에는 None이면
+    #  모든 사용자의 pending 후보를 한꺼번에 pool로 돌려버렸다.)
+    db.query(models.CandidateBook).filter(
+        models.CandidateBook.status == 'pending',
+        models.CandidateBook.created_by == current_user_id,
+    ).update({"status": "pool"}, synchronize_session=False)
     
     db.commit()
     db.refresh(new_book)
