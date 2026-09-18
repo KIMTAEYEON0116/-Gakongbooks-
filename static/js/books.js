@@ -1118,6 +1118,17 @@ function renderGenreSection() {
     }
 
     // ── 👑 명예의 전당 (베스트 상상 독자 리뷰) 렌더링 함수 ──
+    // 베스트 리뷰 카드의 순위('🥇 1위 베스트 상상')·공감 수('❤️ 56명 공감') 라벨.
+    // 샘플 데이터에 한국어로 박혀 있어 일본어 화면에서는 형식만 바꿔 보여준다.
+    function localizeReviewLabel(s) {
+      s = s || '';
+      if (CURRENT_LANG !== 'ja') return s;
+      return s
+        .replace(/(\d+)위 베스트 상상/, 'ベスト想像 第$1位')
+        .replace(/(\d+)명 공감/, '$1人が共感')
+        .replace(/(\d+)명 추천/, '$1人がおすすめ');
+    }
+
     function renderBestImaginationReviews(book) {
       var section = document.getElementById('dc-best-imagination-section');
       var listEl = document.getElementById('dc-best-imagination-list');
@@ -1237,10 +1248,10 @@ function renderGenreSection() {
         headerRow.style.cssText = 'display:flex; align-items:center; justify-content:space-between; width:100%;';
         headerRow.innerHTML =
           '<div style="display:flex; align-items:center; gap:8px;">' +
-          '<span style="font-size:13px; font-weight:700; color:#8b4f25; background:#f5e8cf; padding:3px 9px; border-radius:5px;">' + escHtml(r.rank) + '</span>' +
+          '<span style="font-size:13px; font-weight:700; color:#8b4f25; background:#f5e8cf; padding:3px 9px; border-radius:5px;">' + escHtml(localizeReviewLabel(r.rank)) + '</span>' +
           '<strong style="font-size:14.5px; color:#2c2418; font-weight:700;">' + escHtml(r.nickname) + t('reader_honorific') + '</strong>' +
           '</div>' +
-          '<span style="font-size:13px; color:#a36b1d; font-weight:600;">' + escHtml(r.reactions) + '</span>';
+          '<span style="font-size:13px; color:#a36b1d; font-weight:600;">' + escHtml(localizeReviewLabel(r.reactions)) + '</span>';
 
         var commentBody = document.createElement('div');
         commentBody.style.cssText = 'font-size:15px; color:#1a1714; line-height:1.7; font-weight:450; letter-spacing:-0.01em;';
@@ -4174,6 +4185,7 @@ function adaptDbBookToFrontend(dbBook) {
         chat_history_banner: "📜 이 채팅방은 종료된 독서방의 기록입니다. 새 메시지를 남기거나 반응을 남길 수 없습니다.",
         gen_loading: "AI가 새 책을 집필 중입니다...",
         best_pick: "🏆 베스트 상상 픽",
+        hall_of_fame_title: "명예의 전당 · 베스트 상상 독자 리뷰",
         zoom_close_hint: "클릭하면 닫힙니다",
         author_unknown: "작가 미상",
         status_closed: "종료",
@@ -4524,6 +4536,7 @@ function adaptDbBookToFrontend(dbBook) {
         chat_history_banner: "📜 このチャットは終了した読書室の記録です。新しいメッセージやリアクションは残せません。",
         gen_loading: "AIが新しい本を執筆中です…",
         best_pick: "🏆 ベスト想像ピック",
+        hall_of_fame_title: "殿堂入り・ベスト想像読者レビュー",
         zoom_close_hint: "クリックで閉じます",
         author_unknown: "作者不詳",
         status_closed: "終了",
