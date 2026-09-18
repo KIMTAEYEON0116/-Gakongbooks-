@@ -3,27 +3,37 @@ __pycache__/
 *.py[cod]
 *$py.class
 
-# 환경 변수 및 보안 파일 (가장 중요! 절대 공유 금지)
+# 환경 변수 및 로컬 DB 파일 (보안 및 로컬 데이터)
 .env
+*.db
+*.sqlite
+*.sqlite3
 
 # 가상환경 폴더
 .venv/
 venv/
 env/
 
-# 개발 중 생성된 임시 백업 및 로그 파일
+# 개발 중 생성된 임시 백업, 로그 및 기획 문서
 *.bak
 *.tmp
+*.log
 nicknames_pool.json
-
-# 목업 폴더 전체 제외 및 백업 파일 exclusion
-목업/
-index_standalone.html.bak
 FUTURE_ROADMAP.md
 BOOK_I18N_PLAN.md
+bug_report_history.md
 
-# Claude Code 로컬 설정 (머신마다 다르므로 공유하지 않음. launch.json은 커밋 대상)
+# 목업 및 개발용 임시 파일
+목업/
+static/mockups/
+index_standalone.html
+index_standalone.html.bak
+
+# IDE 및 도구 로컬 설정
 .claude/settings.local.json
+.vscode/
+.idea/
 
 # 표지 생성 실험용 임시 이미지
 static/covers/test_*.png
+

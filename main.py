@@ -1027,6 +1027,8 @@ async def lifespan(app: FastAPI):
     # AI 사회자 계정 및 시드 독서방 자동 생성
     db = database.SessionLocal()
     try:
+        # 데이터베이스 테이블 자동 생성 (새 인스턴스 배포 시 필수)
+        models.Base.metadata.create_all(bind=database.engine)
         # 스키마 패치를 가장 먼저 — 아래 시드가 새 컬럼을 쓸 수 있다
         apply_schema_patches()
         apply_index_patches()

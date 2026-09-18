@@ -8,3 +8,5 @@ pyjwt
 httpx
 python-dotenv
 jinja2
+email-validator
+pillow
