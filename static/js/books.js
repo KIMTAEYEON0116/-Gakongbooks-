@@ -247,6 +247,22 @@
     // DB에 저장된 사회자 닉네임. 화면에서는 언어에 맞는 이름으로 바꿔 보여준다.
     var MODERATOR_DISPLAY_KO = '🎙️ AI 사회자';
 
+    // 화면에 보일 작성자 이름. 사회자는 언어에 맞는 이름으로, 비어 있으면 '익명'으로.
+    function displayUser(name) {
+      if (!name) return t('anon_reader');
+      return name === MODERATOR_DISPLAY_KO ? t('moderator_name') : name;
+    }
+
+    // 답장 인용문. 서버는 원문만 주므로, 같은 목록에서 원글을 찾아 번역본이 있으면 쓴다.
+    function replyQuoteText(replyTo, list) {
+      var txt = (replyTo && replyTo.text) || '';
+      if (CURRENT_LANG !== 'ja' || !list) return txt;
+      for (var i = 0; i < list.length; i++) {
+        if (list[i] && list[i].text === txt && list[i].textJa) return list[i].textJa;
+      }
+      return txt;
+    }
+
     function translateGenre(genre) {
       var lang = (typeof CURRENT_LANG !== 'undefined') ? CURRENT_LANG : 'ko';
       if (lang === 'ja' && GENRE_I18N[genre] && GENRE_I18N[genre].ja) {
@@ -850,7 +866,9 @@ function renderGenreSection() {
             row.style.cssText = 'background:#fff; border:1px solid var(--border-light); border-radius:6px; padding:12px 14px; display:flex; flex-direction:column; gap:4px; box-shadow: 0 1px 3px rgba(0,0,0,0.02); transition: transform 0.2s, box-shadow 0.2s;';
             row.className = 'toc-item';
             var titleText = item.title || item.chapter || '';
-            var chNum = item.chapter_number || item.chapter || '챕터';
+            var chNum = item.chapter_number || item.chapter || t('toc_chapter_fallback');
+            // 예비 목차는 '제 N장'으로 만들어진다. 일본어 화면에서는 '第N章'으로 바꾼다.
+            if (CURRENT_LANG === 'ja') chNum = String(chNum).replace(/^제\s*(\d+)\s*장$/, '第$1章');
             var pagesText = item.pages ? 'p.' + item.pages : '';
             var summaryText = item.summary || '';
             row.innerHTML = 
@@ -955,8 +973,8 @@ function renderGenreSection() {
           myStarsEl.innerHTML =
             '<span class="stats-my-locked">' +
             '<span class="stats-my-locked-icon">📦</span>' +
-            '종료된 독서방입니다. 아카이브에서 전체 기록을 확인하세요.' +
-            ' <button class="stats-my-join-btn" onclick="openArchive(' + book.id + ')">아카이브 열람</button>' +
+            t('detail_ended_notice') +
+            ' <button class="stats-my-join-btn" onclick="openArchive(' + book.id + ')">' + t('arc_open_short') + '</button>' +
             '</span>';
         }
 
@@ -1220,7 +1238,7 @@ function renderGenreSection() {
         headerRow.innerHTML =
           '<div style="display:flex; align-items:center; gap:8px;">' +
           '<span style="font-size:13px; font-weight:700; color:#8b4f25; background:#f5e8cf; padding:3px 9px; border-radius:5px;">' + escHtml(r.rank) + '</span>' +
-          '<strong style="font-size:14.5px; color:#2c2418; font-weight:700;">' + escHtml(r.nickname) + ' 독자님</strong>' +
+          '<strong style="font-size:14.5px; color:#2c2418; font-weight:700;">' + escHtml(r.nickname) + t('reader_honorific') + '</strong>' +
           '</div>' +
           '<span style="font-size:13px; color:#a36b1d; font-weight:600;">' + escHtml(r.reactions) + '</span>';
 
@@ -1271,7 +1289,7 @@ function renderGenreSection() {
         }
       } catch (err) {
         console.error('도서 삭제 중 에러:', err);
-        alert('서버와 통신할 수 없습니다.');
+        alert(t('alert_server_error'));
       }
     }
     window.deleteBook = deleteBook;
@@ -1285,7 +1303,7 @@ function renderGenreSection() {
         eq.textContent = bookField(book, 'endorsement_quote') || book.endorsement.quote;
         ea.textContent = bookField(book, 'endorsement_attr') || book.endorsement.attr;
       } else {
-        eq.textContent = '추천사가 아직 등록되지 않은 책입니다.';
+        eq.textContent = t('detail_no_endorsement');
         ea.textContent = '';
       }
       pt.textContent = bookField(book, 'publisher_review') || t('detail_no_publisher_review');
@@ -1293,10 +1311,10 @@ function renderGenreSection() {
 
     /* ── 평점 & 반응 통계 ── */
     var RX_ORDER = [
-      { emoji: '❤️', label: '공감해요', color: '#5B7DB1' },
-      { emoji: '🤔', label: '생각이 달라요', color: '#1A132F' },
-      { emoji: '😄', label: '재밌어요', color: '#97BFB4' },
-      { emoji: '✨', label: '인상 깊어요', color: '#DD4A48' }
+      { emoji: '❤️', key: 'rx_heart', get label() { return t(this.key); }, color: '#5B7DB1' },
+      { emoji: '🤔', key: 'rx_think', get label() { return t(this.key); }, color: '#1A132F' },
+      { emoji: '😄', key: 'rx_laugh', get label() { return t(this.key); }, color: '#97BFB4' },
+      { emoji: '✨', key: 'rx_sparkle', get label() { return t(this.key); }, color: '#DD4A48' }
     ];
 
     function getRxTotals(book) {
@@ -1462,7 +1480,7 @@ function renderGenreSection() {
             '<div class="card-title">' + escHtml(c.title) + '</div>' +
             '<div class="card-author">' + escHtml(c.author) + '</div>' +
             '<div class="card-synopsis">' + escHtml(c.synopsis) + '</div>' +
-            '<div style="margin-top:auto"><button class="btn-adopt" onclick="adoptCandidate(' + c.id + ')">이 책으로 독서방 열기</button></div>' +
+            '<div style="margin-top:auto"><button class="btn-adopt" onclick="adoptCandidate(' + c.id + ')">' + t('cand_select_btn') + '</button></div>' +
           '</div>';
         container.appendChild(card);
 
@@ -1640,7 +1658,7 @@ function renderGenreSection() {
 
       var totalWritings = 0;
       var totalChats = 0;
-      var myName = (typeof currentUser !== 'undefined' && currentUser && currentUser.name) ? currentUser.name : '익명독자';
+      var myName = (typeof currentUser !== 'undefined' && currentUser && currentUser.name) ? currentUser.name : t('anon_reader');
 
       myLibraryData.forEach(function (dataItem) {
         var writingsCount = (dataItem.writings || []).length;
@@ -1753,8 +1771,8 @@ function renderGenreSection() {
           var item = document.createElement('div');
           item.className = 'bdp-writing-item';
           item.innerHTML =
-            '<div class="bdp-writing-type type-chat">💬 채팅 메시지</div>' +
-            '<div class="bdp-writing-txt">' + escHtml(m.text) + (m.edited ? '<span class="edited-tag">(수정됨)</span>' : '') + '</div>' +
+            '<div class="bdp-writing-type type-chat">💬 ' + t('arc_stat_chats') + '</div>' +
+            '<div class="bdp-writing-txt">' + escHtml(m.text) + (m.edited ? '<span class="edited-tag">' + t('chat_edited') + '</span>' : '') + '</div>' +
             '<div class="bdp-writing-date">' + (m.date || m.ts || '') + '</div>';
           writingsEl.appendChild(item);
         });
@@ -1877,7 +1895,7 @@ function renderGenreSection() {
         }
       } catch (err) {
         console.error(err);
-        alert('서버와 통신 중 에러가 발생했습니다.');
+        alert(t('alert_server_error'));
       } finally {
         document.getElementById('loading').style.display = 'none';
       }
@@ -2201,7 +2219,7 @@ function renderGenreSection() {
       var todayKey = dateKey(new Date());
       if (lastDateKey !== todayKey) {
         body.appendChild(makeDateDivider(new Date()));
-        body.appendChild(makeNotice('💬 나 외 ' + Math.max(0, currentBook.count - 1) + '명이 이야기 중이에요.'));
+        body.appendChild(makeNotice(t('chat_others_a') + Math.max(0, currentBook.count - 1) + t('chat_others_b')));
       }
     }
 
@@ -2269,7 +2287,7 @@ function buildMsgEl(msg, bookId) {
       var msgBody = msgText(msg);
       var rxParts = !isMod ? rxHtml_parts(msg, bookId) : '';
       var rxBlock = rxParts ? '<div class="chat-reactions"' + (msg.mine ? ' style="justify-content:flex-end"' : '') + '>' + rxParts + '</div>' : '';
-      var editedTag = msg.edited ? '<span class="edited-tag">(수정됨)</span>' : '';
+      var editedTag = msg.edited ? '<span class="edited-tag">' + t('chat_edited') + '</span>' : '';
 
       // reply quote block
       var replyQuote = '';
@@ -2290,15 +2308,15 @@ function buildMsgEl(msg, bookId) {
       var actionToolbar = '';
       if (msg.mine) {
         actionToolbar = '<div class="chat-action-toolbar mine">' +
-          '<button class="chat-action-btn" onclick="startEdit(\'' + bookId + '\',\'' + msg.id + '\')">수정</button>' +
+          '<button class="chat-action-btn" onclick="startEdit(\'' + bookId + '\',\'' + msg.id + '\')">' + t('edit_btn') + '</button>' +
           '<span class="chat-action-divider">|</span>' +
-          '<button class="chat-action-btn danger" onclick="deleteMsg(\'' + bookId + '\',\'' + msg.id + '\')">삭제</button>' +
+          '<button class="chat-action-btn danger" onclick="deleteMsg(\'' + bookId + '\',\'' + msg.id + '\')">' + t('delete_btn') + '</button>' +
           '</div>';
       } else if (!isMod) {
         actionToolbar = '<div class="chat-action-toolbar other">' +
-          '<button class="chat-action-btn" onclick="startReplyById(\'' + bookId + '\',\'' + msg.id + '\')">↩ 답장</button>' +
+          '<button class="chat-action-btn" onclick="startReplyById(\'' + bookId + '\',\'' + msg.id + '\')">↩ ' + t('reply_short') + '</button>' +
           '<span class="chat-action-divider">|</span>' +
-          '<button class="chat-action-btn" onclick="showRxPicker(\'' + bookId + '\',\'' + msg.id + '\',event)">❤️ 반응</button>' +
+          '<button class="chat-action-btn" onclick="showRxPicker(\'' + bookId + '\',\'' + msg.id + '\',event)">❤️ ' + t('rx_btn') + '</button>' +
           '</div>';
       }
       if (msg.mine) {
@@ -2368,8 +2386,8 @@ function buildMsgEl(msg, bookId) {
       menu.id = 'msgmenu-' + msgId;
       menu.style.cssText = 'position:absolute;right:0;top:-48px;';
       menu.innerHTML =
-        '<div class="msg-menu-item" onclick="startEdit(\'' + bookId + '\',\'' + msgId + '\')">✏️ 수정</div>' +
-        '<div class="msg-menu-item danger" onclick="deleteMsg(\'' + bookId + '\',\'' + msgId + '\')">🗑 삭제</div>';
+        '<div class="msg-menu-item" onclick="startEdit(\'' + bookId + '\',\'' + msgId + '\')">✏️ ' + t('edit_btn') + '</div>' +
+        '<div class="msg-menu-item danger" onclick="deleteMsg(\'' + bookId + '\',\'' + msgId + '\')">🗑 ' + t('delete_btn') + '</div>';
 
       var col = document.getElementById('col-' + msgId);
       if (col) { col.style.position = 'relative'; col.appendChild(menu); }
@@ -2403,8 +2421,8 @@ function buildMsgEl(msg, bookId) {
       wrap.innerHTML =
         '<textarea class="chat-edit-ta" id="edita-' + msgId + '" rows="2">' + escHtml(msg.text) + '</textarea>' +
         '<div class="chat-edit-btns">' +
-        '<button class="chat-edit-cancel" onclick="cancelEdit(\'' + msgId + '\')">취소</button>' +
-        '<button class="chat-edit-save" onclick="saveEdit(\'' + bookId + '\',\'' + msgId + '\')">저장</button>' +
+        '<button class="chat-edit-cancel" onclick="cancelEdit(\'' + msgId + '\')">' + t('cancel_btn') + '</button>' +
+        '<button class="chat-edit-save" onclick="saveEdit(\'' + bookId + '\',\'' + msgId + '\')">' + t('save_btn') + '</button>' +
         '</div>';
 
       col.insertBefore(wrap, bubble.nextSibling);
@@ -2536,7 +2554,7 @@ function buildMsgEl(msg, bookId) {
         body.appendChild(makeDateDivider(now));
       }
 
-      var myName = (typeof currentUser !== 'undefined' && currentUser && currentUser.name) ? currentUser.name : '나';
+      var myName = (typeof currentUser !== 'undefined' && currentUser && currentUser.name) ? currentUser.name : t('me_label');
       var myAv = myName.charAt(0);
 
       var msg = makeMsg({
@@ -2959,7 +2977,7 @@ function buildMsgEl(msg, bookId) {
       if (arcContent) {
         arcContent.classList.remove('arc-horizontal-mode');
         arcContent.style.height = '';
-        arcContent.innerHTML = '<div style="padding: 100px 20px; text-align: center; color: var(--text-faint); font-family: \'Noto Serif KR\', serif; font-size: 16px; letter-spacing: 0.05em; line-height: 2;">아카이브 책장을 넘기는 중... ✦</div>';
+        arcContent.innerHTML = '<div style="padding: 100px 20px; text-align: center; color: var(--text-faint); font-family: \'Noto Serif KR\', serif; font-size: 16px; letter-spacing: 0.05em; line-height: 2;">' + t('arc_loading') + '</div>';
       }
 
       // 실시간 데이터베이스(API)로부터 책 상세, 평점 통계, 댓글 및 채팅 리스트 로드
@@ -2999,6 +3017,8 @@ function buildMsgEl(msg, bookId) {
                 id: ch.id,
                 user: ch.user,
                 text: ch.text,
+                textJa: ch.textJa || null,
+                isBot: !!ch.isBot,
                 ts: ch.ts,
                 date: ch.date,
                 isSample: !!ch.isSample
@@ -3062,7 +3082,7 @@ function buildMsgEl(msg, bookId) {
             id: 'mock-ch-' + idx,
             user: s.user,
             text: s.text,
-            ts: s.ts || ('오후 08:' + (12 + idx * 4)),
+            ts: s.ts || localizeAmPm('오후 08:' + (12 + idx * 4)),
             date: s.date || new Date().toISOString(),
             isSample: true   // 샘플 대화 시드 — 같은 이유로 '예시' 표시
           });
@@ -3275,7 +3295,7 @@ function buildMsgEl(msg, bookId) {
         }
         html += '      <div class="arc-chat-col">';
         if (!isMine) {
-          html += '        <div class="arc-chat-name-sm">' + escHtml(ch.user) + sampleTagHtml(ch) + '</div>';
+          html += '        <div class="arc-chat-name-sm">' + escHtml(displayUser(ch.user)) + sampleTagHtml(ch) + '</div>';
         }
         html += '        <div class="arc-chat-bubble">' + escHtml(msgText(ch)) + '</div>';
         if (!isMine) {
@@ -3502,9 +3522,9 @@ function buildMsgEl(msg, bookId) {
       if (!book) return;
       // 헤더 정보 먼저 업데이트 후 페이지 전환
       var titleEl = document.getElementById('chat-history-title');
-      if (titleEl) titleEl.textContent = book.title + t('chat_history_suffix');
+      if (titleEl) titleEl.textContent = bookField(book, 'title') + t('chat_history_suffix');
       var coverEl = document.getElementById('chat-history-header-book');
-      if (coverEl) { coverEl.style.background = book.color; coverEl.textContent = book.title; }
+      if (coverEl) { coverEl.style.background = book.color; coverEl.textContent = bookField(book, 'title'); }
       var metaEl = document.getElementById('chat-history-meta');
       if (metaEl) metaEl.textContent = t('chat_history_loading');
       // 현재 활성화된 페이지를 저장하여 뒤로가기 시 원래 위치로 돌아가도록 설정
@@ -3515,7 +3535,7 @@ function buildMsgEl(msg, bookId) {
       goPage('chat-history');
       // 로딩 상태 표시
       var body = document.getElementById('chat-history-body');
-      if (body) body.innerHTML = '<div style="padding:60px 20px;text-align:center;color:var(--text-faint);font-size:14px;">채팅 기록을 불러오는 중... 💬</div>';
+      if (body) body.innerHTML = '<div style="padding:60px 20px;text-align:center;color:var(--text-faint);font-size:14px;">' + t('chat_history_loading_full') + '</div>';
       // 백엔드 API에서 채팅 기록 로드
       var chats = [];
       if (window.location.protocol !== 'file:') {
@@ -3561,14 +3581,14 @@ function buildMsgEl(msg, bookId) {
         body.innerHTML =
           '<div style="padding:80px 20px;text-align:center;color:var(--text-faint);">' +
           '<div style="font-size:32px;margin-bottom:16px;">💬</div>' +
-          '<div style="font-size:15px;font-weight:600;margin-bottom:8px;">채팅 기록이 없습니다</div>' +
-          '<div style="font-size:13px;">이 독서방에서는 채팅이 진행되지 않았거나,<br>아직 기록이 이전되지 않았습니다.</div>' +
+          '<div style="font-size:15px;font-weight:600;margin-bottom:8px;">' + t('chat_history_empty_title') + '</div>' +
+          '<div style="font-size:13px;">' + t('chat_history_empty_desc') + '</div>' +
           '</div>';
         return;
       }
       // 독서방 개설 공지
       body.appendChild(makeDivider(t('chat_open_date')));
-      body.appendChild(makeNotice('📚 독서방이 열렸습니다. · 이 기록은 읽기 전용 열람 모드입니다.'));
+      body.appendChild(makeNotice(t('chat_room_opened') + ' · ' + t('chat_history_readonly_mode')));
       // 날짜별 그룹화하여 메시지 렌더링
       var lastDKey = null;
       chats.forEach(function(ch) {
@@ -3578,10 +3598,10 @@ function buildMsgEl(msg, bookId) {
           body.appendChild(makeDateDivider(date));
           lastDKey = dk;
         }
-        body.appendChild(buildReadOnlyMsgEl(ch));
+        body.appendChild(buildReadOnlyMsgEl(ch, chats));
       });
       // 종료 공지
-      body.appendChild(makeNotice('📦 독서방이 종료되었습니다. 아카이브에 보관 중입니다.'));
+      body.appendChild(makeNotice(t('chat_history_closed_notice')));
       // 맨 위로 스크롤
       body.scrollTop = 0;
     }
@@ -3590,7 +3610,7 @@ function buildMsgEl(msg, bookId) {
      * 읽기 전용 채팅 메시지 엘리먼트를 생성합니다.
      * 수정/삭제/반응/답장 버튼이 없는 순수 열람용 버블입니다.
      */
-    function buildReadOnlyMsgEl(ch) {
+    function buildReadOnlyMsgEl(ch, list) {
       // 닉네임 기반 고유 아바타 색상 결정
       var avColors = [
         {bg:'#e8daf8', fg:'#7b5fb8'}, {bg:'#f0e8dc', fg:'#8b4f25'},
@@ -3600,7 +3620,7 @@ function buildMsgEl(msg, bookId) {
         {bg:'#dcf4ec', fg:'#1d7a58'}, {bg:'#f5d87a', fg:'#7a4a10'}
       ];
       var sum = 0;
-      var userName = ch.user || '익명';
+      var userName = displayUser(ch.user);
       for (var i = 0; i < userName.length; i++) sum += userName.charCodeAt(i);
       var clr = avColors[sum % avColors.length];
       var av = userName.charAt(0);
@@ -3609,9 +3629,9 @@ function buildMsgEl(msg, bookId) {
       if (ch.replyTo) {
         replyQuote =
           '<div class="chat-reply-quote">' +
-          '<div class="chat-reply-quote-name">↩ ' + escHtml(ch.replyTo.user || '') + '</div>' +
+          '<div class="chat-reply-quote-name">↩ ' + escHtml(displayUser(ch.replyTo.user)) + '</div>' +
           '<div class="chat-reply-quote-text">' +
-          escHtml((ch.replyTo.text || '').slice(0, 60) + ((ch.replyTo.text || '').length > 60 ? '…' : '')) +
+          escHtml(replyQuoteText(ch.replyTo, list).slice(0, 60) + (replyQuoteText(ch.replyTo, list).length > 60 ? '…' : '')) +
           '</div></div>';
       }
       // 반응 표시 (클릭 불가, 숫자만 표시)
@@ -3633,10 +3653,10 @@ function buildMsgEl(msg, bookId) {
         '<div class="chat-av" style="background:' + clr.bg + ';color:' + clr.fg + '">' + escHtml(av) + '</div>' +
         '<div class="chat-col">' +
         '<div class="chat-name">' + escHtml(userName) + '</div>' +
-        '<div class="chat-bubble">' + replyQuote + escHtml(ch.text || '') + '</div>' +
+        '<div class="chat-bubble">' + replyQuote + escHtml(msgText(ch)) + '</div>' +
         rxHtml +
         '</div>' +
-        '<div class="chat-time-wrap"><span class="chat-time">' + escHtml(ch.ts || '') + '</span></div>';
+        '<div class="chat-time-wrap"><span class="chat-time">' + escHtml(msgTime(ch)) + '</span></div>';
       return row;
     }
 
@@ -3761,14 +3781,14 @@ function adaptDbBookToFrontend(dbBook) {
         color: dbBook.color || '#7b5fb8',
         genre: dbBook.genre || '소설',
         title: dbBook.title,
-        author: dbBook.author || '작가 미상',
+        author: dbBook.author || t('author_unknown'),
         synopsis: dbBook.synopsis || '',
         tags: Array.isArray(dbBook.tags) ? dbBook.tags : (dbBook.tags ? dbBook.tags.split(',') : []),
         price: dbBook.price ? '₩' + parseInt(String(dbBook.price).replace(/[^0-9]/g, '') || 0).toLocaleString() : '₩14,000',
         pageCount: dbBook.page_count || 300,
         deadlineDays: deadlineVal,
         archived: dbBook.is_archived || false,
-        archivedDate: dbBook.created_at ? new Date(new Date(dbBook.created_at).getTime() + deadlineVal * 24 * 60 * 60 * 1000).toISOString().split('T')[0] : '종료',
+        archivedDate: dbBook.created_at ? new Date(new Date(dbBook.created_at).getTime() + deadlineVal * 24 * 60 * 60 * 1000).toISOString().split('T')[0] : t('status_closed'),
         count: dbBook.participant_count !== undefined ? dbBook.participant_count : 0,
         endorsement: {
           quote: dbBook.endorsement_quote || '이 책은 독자의 상상력을 한계까지 밀어붙인다.',
@@ -4131,6 +4151,35 @@ function adaptDbBookToFrontend(dbBook) {
         arc_col_team: "가공독서회 보존기록팀",
         arc_col_editors: "가공 아카이브 에디터 일동",
         moderator_name: "🎙️ AI 사회자",
+        detail_ended_notice: "종료된 독서방입니다. 아카이브에서 전체 기록을 확인하세요.",
+        arc_open_short: "아카이브 열람",
+        toc_chapter_fallback: "챕터",
+        reader_honorific: " 독자님",
+        anon_reader: "익명독자",
+        chat_others_a: "💬 나 외 ",
+        chat_others_b: "명이 이야기 중이에요.",
+        edit_btn: "수정",
+        reply_short: "답장",
+        rx_btn: "반응",
+        cancel_btn: "취소",
+        save_btn: "저장",
+        me_label: "나",
+        arc_loading: "아카이브 책장을 넘기는 중... ✦",
+        chat_history_loading_full: "채팅 기록을 불러오는 중... 💬",
+        chat_history_empty_title: "채팅 기록이 없습니다",
+        chat_history_empty_desc: "이 독서방에서는 채팅이 진행되지 않았거나,<br>아직 기록이 이전되지 않았습니다.",
+        chat_history_readonly_mode: "이 기록은 읽기 전용 열람 모드입니다.",
+        chat_history_closed_notice: "📦 독서방이 종료되었습니다. 아카이브에 보관 중입니다.",
+        chat_history_badge: "📦 보관된 기록",
+        chat_history_banner: "📜 이 채팅방은 종료된 독서방의 기록입니다. 새 메시지를 남기거나 반응을 남길 수 없습니다.",
+        gen_loading: "AI가 새 책을 집필 중입니다...",
+        best_pick: "🏆 베스트 상상 픽",
+        zoom_close_hint: "클릭하면 닫힙니다",
+        author_unknown: "작가 미상",
+        status_closed: "종료",
+        alert_server_error_mid: "서버와 통신하는 도중 오류가 발생했습니다.",
+        alert_email_verify_failed: "이메일 확인에 실패했습니다. 등록 정보를 재확인해 주세요.",
+        alert_server_retry: "서버 통신 중 오류가 발생했습니다. 잠시 후 다시 시도해 주세요.",
         chat_first_line: "📖 첫 문장",
         chat_famous_line: "💬 명대사",
         chat_room_opened: "📚 독서방이 열렸습니다.",
@@ -4452,6 +4501,35 @@ function adaptDbBookToFrontend(dbBook) {
         arc_col_team: "架空読書会 保存記録チーム",
         arc_col_editors: "架空アーカイブ 編集者一同",
         moderator_name: "🎙️ AI司会者",
+        detail_ended_notice: "終了した読書室です。アーカイブで記録の全文をご覧いただけます。",
+        arc_open_short: "アーカイブ閲覧",
+        toc_chapter_fallback: "章",
+        reader_honorific: " さん",
+        anon_reader: "匿名の読者",
+        chat_others_a: "💬 あなた以外に ",
+        chat_others_b: "人が会話中です。",
+        edit_btn: "編集",
+        reply_short: "返信",
+        rx_btn: "リアクション",
+        cancel_btn: "キャンセル",
+        save_btn: "保存",
+        me_label: "わたし",
+        arc_loading: "アーカイブのページをめくっています… ✦",
+        chat_history_loading_full: "チャット記録を読み込み中… 💬",
+        chat_history_empty_title: "チャット記録がありません",
+        chat_history_empty_desc: "この読書室ではチャットが行われなかったか、<br>記録がまだ移されていません。",
+        chat_history_readonly_mode: "この記録は閲覧専用です。",
+        chat_history_closed_notice: "📦 読書室は終了しました。アーカイブに保管されています。",
+        chat_history_badge: "📦 保管された記録",
+        chat_history_banner: "📜 このチャットは終了した読書室の記録です。新しいメッセージやリアクションは残せません。",
+        gen_loading: "AIが新しい本を執筆中です…",
+        best_pick: "🏆 ベスト想像ピック",
+        zoom_close_hint: "クリックで閉じます",
+        author_unknown: "作者不詳",
+        status_closed: "終了",
+        alert_server_error_mid: "サーバーとの通信中にエラーが発生しました。",
+        alert_email_verify_failed: "メールアドレスの確認に失敗しました。登録情報をもう一度ご確認ください。",
+        alert_server_retry: "サーバーとの通信中にエラーが発生しました。しばらくしてから再度お試しください。",
         chat_first_line: "📖 冒頭の一文",
         chat_famous_line: "💬 名セリフ",
         chat_room_opened: "📚 読書室が開かれました。",

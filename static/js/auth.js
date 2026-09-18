@@ -128,7 +128,7 @@
         }
       } catch (err) {
         console.error('로그인 에러:', err);
-        alert('서버와 통신할 수 없습니다.');
+        alert(t('alert_server_error'));
       }
     }
     async function submitSignup() {
@@ -172,7 +172,7 @@
         }
       } catch (err) {
         console.error('회원가입 에러:', err);
-        alert('서버와 통신할 수 없습니다.');
+        alert(t('alert_server_error'));
       }
     }
     function logout() {
@@ -263,7 +263,7 @@
         }
       } catch (err) {
         console.error(err);
-        alert('서버와 통신하는 도중 오류가 발생했습니다.');
+        alert(t('alert_server_error_mid'));
       }
     }
 
@@ -274,7 +274,7 @@
         alert(t('alert_pw_required_withdraw'));
         return;
       }
-      if (!confirm('정말로 가공독서회를 탈퇴하시겠습니까?\n탈퇴 시 모든 데이터는 영구 파기되며 절대 복구할 수 없습니다.')) {
+      if (!confirm(t('confirm_withdraw') + '\n' + t('confirm_withdraw_sub'))) {
         return;
       }
 
@@ -314,7 +314,7 @@
         }
       } catch (err) {
         console.error(err);
-        alert('서버와 통신하는 도중 오류가 발생했습니다.');
+        alert(t('alert_server_error_mid'));
       }
     }
 
@@ -400,11 +400,11 @@
           alert(data.message || t('reset_sent'));
           closeFindPasswordModal();
         } else {
-          alert(data.detail || '이메일 확인에 실패했습니다. 등록 정보를 재확인해 주세요.');
+          alert(data.detail || t('alert_email_verify_failed'));
         }
       } catch (err) {
         console.error(err);
-        alert('서버 통신 중 오류가 발생했습니다. 잠시 후 다시 시도해 주세요.');
+        alert(t('alert_server_retry'));
       } finally {
         submitBtn.disabled = false;
         submitBtn.textContent = t('reset_send_btn');

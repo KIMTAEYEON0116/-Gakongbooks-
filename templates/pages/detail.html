@@ -24,7 +24,7 @@
 
           <div class="detail-action-row">
             <button class="btn-join" id="dc-main-btn" onclick="openChat()">독서방 참여하기</button>
-            <button class="btn-chat-history" id="dc-chat-history-btn" style="display:none;">💬 채팅 열람하기</button>
+            <button class="btn-chat-history" id="dc-chat-history-btn" style="display:none;" data-i18n="detail_chat_history">💬 채팅 열람하기</button>
             <button class="btn-wish" id="dc-wish-btn" onclick="addToLib()">+ 내 서재에 담기</button>
           </div>
 
@@ -33,7 +33,7 @@
             <span class="detail-genre-badge" id="dc-genre">심리소설</span>
             <span class="detail-meta-dot">·</span>
             <span id="dc-detail-count">0명</span>
-            <button id="dc-delete-btn" class="btn-delete" style="display: none;" onclick="deleteBook()">삭제</button>
+            <button id="dc-delete-btn" class="btn-delete" style="display: none;" onclick="deleteBook()" data-i18n="delete_btn">삭제</button>
           </div>
         </div>
 
@@ -84,7 +84,7 @@
         <div style="font-family: var(--serif); font-size: 17px; font-weight: 700; color: #7a5016; display: flex; align-items: center; gap: 8px;">
           <span style="font-size: 20px;">👑</span> 명예의 전당 · 베스트 상상 독자 리뷰
         </div>
-        <span style="font-size: 13px; font-weight: 700; color: #a36b1d; background: #f3e5c8; padding: 4px 12px; border-radius: 12px;">🏆 베스트 상상 픽</span>
+        <span style="font-size: 13px; font-weight: 700; color: #a36b1d; background: #f3e5c8; padding: 4px 12px; border-radius: 12px;" data-i18n="best_pick">🏆 베스트 상상 픽</span>
       </div>
       <div id="dc-best-imagination-list" style="display: flex; flex-direction: column; gap: 14px;">
         <!-- JS에서 동적 렌더링 -->
@@ -139,7 +139,7 @@
             <span class="stats-my-lbl" data-i18n="detail_my_rating">내 평점</span>
             <div class="stats-my-stars" id="stats-my-stars"><span class="stats-my-locked"><span
                   class="stats-my-locked-icon">🔒</span>독서방에 참여하면 평점을 남길 수 있어요 <button class="stats-my-join-btn"
-                  onclick="openChat()">참여하기</button></span></div>
+                  onclick="openChat()" data-i18n="detail_join_short">참여하기</button></span></div>
           </div>
         </div>
 
@@ -154,25 +154,25 @@
               <div class="rx-stat-top-pct">38%</div>
               <div class="rx-stat-top-lbl">공감해요</div>
             </div>
-            <div style="margin-left:auto;font-size:11px;color:var(--text-muted)">가장 많은 반응</div>
+            <div style="margin-left:auto;font-size:11px;color:var(--text-muted)" data-i18n="detail_rx_top">가장 많은 반응</div>
           </div>
           <div class="rx-stat-list" id="stats-rx-list">
-            <div class="rx-stat-row"><span class="rx-stat-emoji">❤️</span><span class="rx-stat-name">공감해요</span>
+            <div class="rx-stat-row"><span class="rx-stat-emoji">❤️</span><span class="rx-stat-name" data-i18n="rx_heart">공감해요</span>
               <div class="rx-stat-track">
                 <div class="rx-stat-fill" style="width:38%;background:#e05c7a"></div>
               </div><span class="rx-stat-pct">38%</span>
             </div>
-            <div class="rx-stat-row"><span class="rx-stat-emoji">🤔</span><span class="rx-stat-name">생각이 달라요</span>
+            <div class="rx-stat-row"><span class="rx-stat-emoji">🤔</span><span class="rx-stat-name" data-i18n="rx_think">생각이 달라요</span>
               <div class="rx-stat-track">
                 <div class="rx-stat-fill" style="width:10%;background:#7b8fcc"></div>
               </div><span class="rx-stat-pct">10%</span>
             </div>
-            <div class="rx-stat-row"><span class="rx-stat-emoji">😄</span><span class="rx-stat-name">재밌어요</span>
+            <div class="rx-stat-row"><span class="rx-stat-emoji">😄</span><span class="rx-stat-name" data-i18n="rx_laugh">재밌어요</span>
               <div class="rx-stat-track">
                 <div class="rx-stat-fill" style="width:21%;background:#e8a030"></div>
               </div><span class="rx-stat-pct">21%</span>
             </div>
-            <div class="rx-stat-row"><span class="rx-stat-emoji">✨</span><span class="rx-stat-name">인상 깊어요</span>
+            <div class="rx-stat-row"><span class="rx-stat-emoji">✨</span><span class="rx-stat-name" data-i18n="rx_sparkle">인상 깊어요</span>
               <div class="rx-stat-track">
                 <div class="rx-stat-fill" style="width:31%;background:#7b5fb8"></div>
               </div><span class="rx-stat-pct">31%</span>
@@ -197,7 +197,7 @@
             <div id="dc-toc-list" style="display: flex; flex-direction: column; gap: 12px;">
               <!-- JS에서 동적 렌더링 -->
             </div>
-            <div id="dc-toc-empty" style="display: none; text-align: center; color: var(--text-muted); font-size: 13px; padding: 20px 0;">상세 목차 데이터가 없습니다.</div>
+            <div id="dc-toc-empty" style="display: none; text-align: center; color: var(--text-muted); font-size: 13px; padding: 20px 0;" data-i18n="detail_toc_empty">상세 목차 데이터가 없습니다.</div>
           </div>
         </div>
       </div>
@@ -205,7 +205,7 @@
     <!-- ── 표지 확대 뷰어 오버레이 ── -->
     <div class="cover-zoom-overlay" id="cover-zoom-overlay" onclick="closeCoverZoom()">
       <div class="cover-zoom-bg" id="cover-zoom-bg" onclick="event.stopPropagation()">
-        <span class="cover-zoom-close-hint">클릭하면 닫힙니다</span>
+        <span class="cover-zoom-close-hint" data-i18n="zoom_close_hint">클릭하면 닫힙니다</span>
       </div>
     </div>
 
