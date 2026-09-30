@@ -122,6 +122,23 @@ def get_current_user_id(user: "models.User" = Depends(get_current_user)) -> int:
     return user.id
 
 
+def get_current_user_id_optional(
+    token: Optional[str] = Depends(oauth2_scheme),
+    db: Session = Depends(database.get_db),
+) -> Optional[int]:
+    """로그인했으면 id를, 아니면 None을 돌려준다.
+
+    누구나 볼 수 있는 조회에서 "이 반응을 내가 눌렀는지"만 알아내는 용도다.
+    토큰이 잘못됐어도 화면은 보여야 하므로 예외를 던지지 않는다.
+    """
+    if not token:
+        return None
+    try:
+        return get_current_user(token=token, db=db).id
+    except HTTPException:
+        return None
+
+
 # ── 비밀번호 재설정 토큰 ──
 # 규칙: 원문 토큰은 메일로만 나가고, DB에는 해시만 저장한다. 1회 사용 후 즉시 폐기한다.
 

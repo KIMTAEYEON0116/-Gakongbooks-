@@ -193,3 +193,21 @@ class PastChatMessage(Base):
 
     # 책 정보 참조 (책이 삭제되면 CASCADE로 함께 삭제)
     book = relationship("Book", backref="past_chat_messages")
+
+
+# 8. CHAT_REACTIONS 테이블 (채팅 반응 기록)
+class ChatReaction(Base):
+    """누가 어떤 메시지에 어떤 반응을 눌렀는지 한 줄씩 남긴다.
+
+    예전에는 chat_messages.reactions에 숫자만 저장해 누가 눌렀는지 알 수 없었다.
+    그래서 한 사람이 같은 반응을 무한히 올리거나, 취소를 반복해 남이 누른
+    반응까지 깎을 수 있었다. 유일 제약으로 한 사람당 한 번만 남도록 막는다.
+    """
+    __tablename__ = "chat_reactions"
+    __table_args__ = (UniqueConstraint("message_id", "user_id", "emoji", name="uq_chat_reactions"),)
+
+    id = Column(Integer, primary_key=True, index=True, autoincrement=True)
+    message_id = Column(Integer, ForeignKey("chat_messages.id", ondelete="CASCADE"), nullable=False, index=True)
+    user_id = Column(Integer, ForeignKey("users.id", ondelete="CASCADE"), nullable=False, index=True)
+    emoji = Column(String(16), nullable=False)
+    created_at = Column(DateTime, default=get_kst_now)

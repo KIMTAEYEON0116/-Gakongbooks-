@@ -2034,13 +2034,15 @@ function renderGenreSection() {
               text: c.text,
               date: new Date(c.date),
               ts: c.ts,
-              reactions: (function(rx) {
+              reactions: (function(rx, mineList) {
+                // 내가 누른 반응은 서버가 알려준다. 예전에는 항상 false로 두어
+                // 새로고침하면 누른 표시가 사라지고 같은 반응을 다시 누를 수 있었다.
                 var mapped = {};
                 for (var k in rx) {
-                  mapped[k] = { count: rx[k], mine: false };
+                  mapped[k] = { count: rx[k], mine: (mineList || []).indexOf(k) !== -1 };
                 }
                 return mapped;
-              })(c.reactions || {}),
+              })(c.reactions || {}, c.myReactions),
               replyTo: c.replyTo || null,
               edited: c.edited || false
             });

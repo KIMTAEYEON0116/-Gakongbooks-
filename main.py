@@ -425,6 +425,49 @@ def parse_reactions(raw) -> dict:
         return {}
 
 
+def reaction_state(db: Session, message_ids, viewer_id=None) -> dict:
+    """메시지별 반응 수와, 그중 내가 누른 이모지를 함께 돌려준다.
+
+    표본 대화에 남아 있는 예전 반응은 숫자만 있고 누가 눌렀는지 모른다.
+    그 값은 기준선으로 두고, 이후 반응은 chat_reactions의 행 수로 센다.
+    목록 화면에서도 한 번의 질의로 끝나도록 id를 모아서 조회한다.
+    """
+    ids = [int(i) for i in message_ids]
+    if not ids:
+        return {}
+
+    counts = {}
+    for mid, raw in db.query(models.ChatMessage.id, models.ChatMessage.reactions).filter(
+        models.ChatMessage.id.in_(ids)
+    ).all():
+        base = {}
+        for emoji, cnt in parse_reactions(raw).items():
+            if emoji in RX_EMOJIS and isinstance(cnt, int) and cnt > 0:
+                base[emoji] = cnt
+        counts[mid] = base
+
+    rows = db.query(
+        models.ChatReaction.message_id, models.ChatReaction.emoji, func.count().label("n")
+    ).filter(models.ChatReaction.message_id.in_(ids)).group_by(
+        models.ChatReaction.message_id, models.ChatReaction.emoji
+    ).all()
+    for mid, emoji, n in rows:
+        bucket = counts.setdefault(mid, {})
+        bucket[emoji] = bucket.get(emoji, 0) + int(n)
+
+    mine = {}
+    if viewer_id:
+        for mid, emoji in db.query(
+            models.ChatReaction.message_id, models.ChatReaction.emoji
+        ).filter(
+            models.ChatReaction.message_id.in_(ids),
+            models.ChatReaction.user_id == viewer_id,
+        ).all():
+            mine.setdefault(mid, []).append(emoji)
+
+    return {mid: {"counts": counts.get(mid, {}), "mine": mine.get(mid, [])} for mid in ids}
+
+
 def build_reply_to_info(reply_to_id: int, db: Session):
     """reply_to_id로 부모 채팅 메시지를 조회하여 {user, text} 형태로 조립합니다."""
     if not reply_to_id:
@@ -472,6 +515,17 @@ def aggregate_reactions(db: Session, book_ids=None) -> dict:
             # 서비스가 쓰는 4종 이모지만 집계한다.
             if emoji in bucket and isinstance(count, int) and count > 0:
                 bucket[emoji] += count
+
+    # 새로 쌓인 반응(chat_reactions)은 한 사람당 한 줄이므로 행 수를 센다.
+    q2 = db.query(
+        models.ChatMessage.book_id, models.ChatReaction.emoji, func.count().label("n")
+    ).join(models.ChatReaction, models.ChatReaction.message_id == models.ChatMessage.id)
+    if book_ids is not None:
+        q2 = q2.filter(models.ChatMessage.book_id.in_(book_ids))
+    for book_id, emoji, n in q2.group_by(models.ChatMessage.book_id, models.ChatReaction.emoji).all():
+        bucket = totals.setdefault(book_id, {e: 0 for e in RX_EMOJIS})
+        if emoji in bucket:
+            bucket[emoji] += int(n)
     return totals
 
 
@@ -1383,6 +1437,11 @@ PASSWORD_RESET_LIMITER = security.RateLimiter(
 MODERATOR_MENTION_LIMITER = security.RateLimiter(
     max_attempts=3, window_seconds=5 * 60,
     message="AI 사회자는 잠시 후에 다시 불러주세요. {minutes}분 후 다시 응답합니다.",
+)
+
+CHAT_SEND_LIMITER = security.RateLimiter(
+    max_attempts=10, window_seconds=60,
+    message="대화를 너무 빠르게 보내고 있습니다. 잠시 후 다시 시도해주세요.",
 )
 
 PASSWORD_SUBMIT_LIMITER = security.RateLimiter(
@@ -2823,7 +2882,11 @@ class ReactRequest(BaseModel):
 
 
 @app.get("/api/books/{book_id}/chats")
-def get_chat_history(book_id: int, db: Session = Depends(database.get_db)):
+def get_chat_history(
+    book_id: int,
+    db: Session = Depends(database.get_db),
+    viewer_id: Optional[int] = Depends(auth.get_current_user_id_optional),
+):
     """
     해당 독서방의 모든 대화 기록(댓글 리스트)을 시간순으로 조회합니다.
     """
@@ -2894,6 +2957,9 @@ def get_chat_history(book_id: int, db: Session = Depends(database.get_db)):
                 models.ChatMessage.book_id == target_bid
             ).order_by(models.ChatMessage.created_at.asc(), models.ChatMessage.id.asc()).all()
 
+    # 반응 수와 '내가 누른 반응'을 한 번의 질의로 모아 온다 (메시지마다 조회하지 않는다)
+    rx_state = reaction_state(db, [m.id for m in messages], viewer_id)
+
     history = []
     for m in messages:
         user_nick = m.user.nickname if (m.user and m.user.nickname) else "독자"
@@ -2909,7 +2975,8 @@ def get_chat_history(book_id: int, db: Session = Depends(database.get_db)):
             "ts": format_kst_time(m.created_at),
             "date": m.created_at.isoformat() if m.created_at else models.get_kst_now().isoformat(),
             "replyTo": build_reply_to_info(m.reply_to_id, db),
-            "reactions": parse_reactions(m.reactions)
+            "reactions": rx_state.get(m.id, {}).get("counts", {}),
+            "myReactions": rx_state.get(m.id, {}).get("mine", []),
         })
     return history
 
@@ -2925,6 +2992,14 @@ def send_chat_message(
     """
     독서방에 한 마디 대화(댓글)를 등록합니다. (인증 필요)
     """
+    # 0. 도배 차단 — 한 사람이 한 방에 1분 10건까지.
+    #    제한이 없으면 계정 하나로 방을 가득 채울 수 있고, 지우는 것은 한 건씩뿐이다.
+    CHAT_SEND_LIMITER.hit(f"{current_user_id}:{book_id}")
+
+    text = (chat_data.text or "").strip()
+    if not text:
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="빈 메시지는 보낼 수 없습니다.")
+
     # 1. 독서방 존재 유무 확인
     book = db.query(models.Book).filter(models.Book.id == book_id).first()
     if not book:
@@ -2939,7 +3014,7 @@ def send_chat_message(
     db_msg = models.ChatMessage(
         book_id=book_id,
         user_id=current_user_id,
-        content=chat_data.text.strip(),
+        content=text,
         reply_to_id=chat_data.reply_to_id
     )
     db.add(db_msg)
@@ -2998,13 +3073,18 @@ def react_to_chat(
     msg = db.query(models.ChatMessage).filter(models.ChatMessage.id == chat_id).first()
     if not msg:
         raise HTTPException(status_code=404, detail="존재하지 않는 메시지입니다.")
+    if msg.user_id == current_user_id:
+        raise HTTPException(status_code=400, detail="자신의 메시지에는 반응할 수 없습니다.")
 
-    rx = parse_reactions(msg.reactions)
-    rx[req.emoji] = rx.get(req.emoji, 0) + 1
-    msg.reactions = json.dumps(rx, ensure_ascii=False)
-    db.commit()
+    # 한 사람이 같은 반응을 두 번 누르면 아무 일도 일어나지 않는다(유일 제약).
+    db.add(models.ChatReaction(message_id=chat_id, user_id=current_user_id, emoji=req.emoji))
+    try:
+        db.commit()
+    except IntegrityError:
+        db.rollback()
 
-    return {"reactions": rx}
+    state = reaction_state(db, [chat_id], current_user_id)[chat_id]
+    return {"reactions": state["counts"], "mine": state["mine"]}
 
 
 @app.delete("/api/chats/{chat_id}/react")
@@ -3022,15 +3102,16 @@ def unreact_to_chat(
     if not msg:
         raise HTTPException(status_code=404, detail="존재하지 않는 메시지입니다.")
 
-    rx = parse_reactions(msg.reactions)
-    if rx.get(emoji, 0) > 0:
-        rx[emoji] -= 1
-        if rx[emoji] <= 0:
-            del rx[emoji]
-        msg.reactions = json.dumps(rx, ensure_ascii=False)
-        db.commit()
+    # 지울 수 있는 것은 내 기록뿐이다. 남이 누른 반응은 건드리지 않는다.
+    db.query(models.ChatReaction).filter(
+        models.ChatReaction.message_id == chat_id,
+        models.ChatReaction.user_id == current_user_id,
+        models.ChatReaction.emoji == emoji,
+    ).delete(synchronize_session=False)
+    db.commit()
 
-    return {"reactions": rx}
+    state = reaction_state(db, [chat_id], current_user_id)[chat_id]
+    return {"reactions": state["counts"], "mine": state["mine"]}
 
 
 @app.get("/api/books/{book_id}/chat-history")
