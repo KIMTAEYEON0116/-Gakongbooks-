@@ -1523,11 +1523,21 @@ nav {
   word-break: keep-all;
   word-wrap: break-word;
   overflow: hidden;
-  display: -webkit-box;
-  -webkit-line-clamp: 3;
-  -webkit-box-orient: vertical;
   border-left: 4px solid rgba(0, 0, 0, 0.25);
   text-shadow: 0 1px 2px rgba(0, 0, 0, 0.3);
+}
+
+/* 미니 표지 안의 제목.
+   바깥(.chat-header-book)은 가운데 정렬을, 안쪽은 줄 제한을 맡는다.
+   한 요소에 flex 정렬과 -webkit-box 줄 제한을 같이 주면 말줄임이 동작하지 않아
+   제목이 잘린 채 그대로 보였다. */
+.chat-header-book-title {
+  display: -webkit-box;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 3;
+  overflow: hidden;
+  word-break: keep-all;
+  overflow-wrap: break-word;
 }
 
 /* /  HOME FOOTER  / */

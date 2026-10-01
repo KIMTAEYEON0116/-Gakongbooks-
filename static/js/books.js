@@ -3723,7 +3723,11 @@ function buildMsgEl(msg, bookId) {
       var titleEl = document.getElementById('chat-history-title');
       if (titleEl) titleEl.textContent = bookField(book, 'title') + t('chat_history_suffix');
       var coverEl = document.getElementById('chat-history-header-book');
-      if (coverEl) { coverEl.style.background = book.color; coverEl.textContent = bookField(book, 'title'); }
+      if (coverEl) {
+        coverEl.style.background = safeCssColor(book.color);
+        // 제목은 안쪽 요소에 담는다. 바깥은 가운데 정렬, 안쪽은 줄 제한을 맡는다.
+        coverEl.innerHTML = '<span class="chat-header-book-title">' + escHtml(bookField(book, 'title')) + '</span>';
+      }
       var metaEl = document.getElementById('chat-history-meta');
       if (metaEl) metaEl.textContent = t('chat_history_loading');
       // 현재 활성화된 페이지를 저장하여 뒤로가기 시 원래 위치로 돌아가도록 설정
