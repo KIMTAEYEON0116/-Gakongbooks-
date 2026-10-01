@@ -417,6 +417,21 @@ def _delete_cover_file_if_exists(cover_image_url: Optional[str]):
 
 
 
+def ko_particle(word: str, with_batchim: str, without_batchim: str) -> str:
+    """받침 유무에 따라 알맞은 조사를 고른다.
+
+    예전에는 템플릿에 '을(를)'처럼 괄호로 적어 두어 화면에 그대로 나왔다.
+    한글이 아닌 글자로 끝나면 읽는 소리를 알 수 없으므로 받침 없는 쪽을 쓴다.
+    """
+    w = (word or "").strip()
+    if not w:
+        return without_batchim
+    last = w[-1]
+    if "가" <= last <= "힣":
+        return with_batchim if (ord(last) - 0xAC00) % 28 else without_batchim
+    return without_batchim
+
+
 def parse_reactions(raw) -> dict:
     """reactions 컬럼(JSON 문자열)을 dict로 안전하게 파싱합니다."""
     try:
@@ -2239,9 +2254,9 @@ async def _produce_candidate_books(db: Session, background_tasks: BackgroundTask
 
         fallback_immersion = {
             "table_of_contents": [
-                {"chapter_number": "제 1장", "title": f"{k2}의 그림자", "pages": f"{p1} - {p2}", "summary": f"주인공이 일상 속에서 {k2}을(를) 매개로 기묘한 {k1}의 징후를 마주하고, 감춰진 진실을 추적하기 시작합니다."},
+                {"chapter_number": "제 1장", "title": f"{k2}의 그림자", "pages": f"{p1} - {p2}", "summary": f"주인공이 일상 속에서 {k2}{ko_particle(k2, '을', '를')} 매개로 기묘한 {k1}의 징후를 마주하고, 감춰진 진실을 추적하기 시작합니다."},
                 {"chapter_number": "제 2장", "title": f"되돌릴 수 없는 {k1}", "pages": f"{p2+1} - {p3}", "summary": f"추적 끝에 마주한 진실은 예상보다 깊은 슬픔을 품고 있었고, {k2}에 얽힌 비밀이 한 꺼풀 벗겨지며 갈등은 깊어집니다."},
-                {"chapter_number": "제 3장", "title": "선택의 문턱", "pages": f"{p3+1} - {p4}", "summary": f"주인공은 {k1}을(를) 영원히 묻어둘 것인지, 아니면 비극을 감수하고 세상에 알릴 것인지 인생을 건 결단을 내려야 하는 상태에 놓입니다."}
+                {"chapter_number": "제 3장", "title": "선택의 문턱", "pages": f"{p3+1} - {p4}", "summary": f"주인공은 {k1}{ko_particle(k1, '을', '를')} 영원히 묻어둘 것인지, 아니면 비극을 감수하고 세상에 알릴 것인지 인생을 건 결단을 내려야 하는 상태에 놓입니다."}
             ]
         }
 
@@ -2255,10 +2270,10 @@ async def _produce_candidate_books(db: Session, background_tasks: BackgroundTask
             "endorsement_quote": chosen_quote,
             "endorsement_attr": chosen_attr,
             "publisher_review": chosen_review,
-            "opening_line": f"그날 밤, {k2}이(가) 내는 소리만이 세상에 남아 있었다.",
+            "opening_line": f"그날 밤, {k2}{ko_particle(k2, '이', '가')} 내는 소리만이 세상에 남아 있었다.",
             "core_dilemma": f"Q. 당신이라면 {k1}의 진실을 마주할 것인가, 아니면 영원한 평온을 선택할 것인가?",
             "additional_questions": [
-                f"Q. 작가가 이 소설에서 {k2}을(를) 중요한 상징으로 설정한 이유는 무엇일까요?",
+                f"Q. 작가가 이 소설에서 {k2}{ko_particle(k2, '을', '를')} 중요한 상징으로 설정한 이유는 무엇일까요?",
                 f"Q. 주인공이 {k1}에 대한 진실을 깨닫는 순간에 느꼈을 감정은 어땠을까요?"
             ],
             "characters": "에단 — 비밀을 파헤치는 주인공|서연 — 주인공을 돕는 조력자",
