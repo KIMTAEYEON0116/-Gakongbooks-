@@ -481,6 +481,37 @@ def build_reply_to_info(reply_to_id: int, db: Session):
 RX_EMOJIS = ("❤️", "🤔", "😄", "✨")
 
 
+async def gemini_request(payload: dict, timeout: float, label: str = "Gemini"):
+    """Gemini를 호출한다. 기본 모델이 붐비거나(503) 한도를 넘으면(429) 대체 모델로 넘어간다.
+
+    예전에는 모델 하나만 불렀다. 그 모델이 잠시 과부하면 곧바로 템플릿으로 떨어져,
+    AI가 만든 책 대신 비슷한 템플릿 책이 반복해서 나왔다.
+    키는 URL이 아니라 헤더로 보낸다. URL은 접근 로그와 예외 문자열에 남기 때문이다.
+    돌려주는 값은 마지막 응답이며, 한 번도 보내지 못했으면 None이다.
+    """
+    key = config.GEMINI_API_KEY
+    if not key or key == "YOUR_GEMINI_API_KEY_HERE":
+        return None
+    headers = {"Content-Type": "application/json", "x-goog-api-key": key}
+    last = None
+    for model in [config.GEMINI_MODEL] + list(config.GEMINI_FALLBACK_MODELS):
+        url = f"https://generativelanguage.googleapis.com/v1beta/models/{model}:generateContent"
+        try:
+            async with httpx.AsyncClient() as _client:
+                r = await _client.post(url, headers=headers, json=payload, timeout=timeout)
+        except Exception as e:
+            print(f"[{label}] {model} 호출 실패: {type(e).__name__}")
+            continue
+        if r.status_code == 200:
+            return r
+        last = r
+        print(f"[{label}] {model} 응답 {r.status_code}")
+        # 요청 자체가 잘못된 경우(4xx)는 모델을 바꿔도 결과가 같다. 일시적 오류만 넘어간다.
+        if r.status_code not in (429, 500, 502, 503, 504):
+            break
+    return last
+
+
 def aggregate_reactions(db: Session, book_ids=None) -> dict:
     """도서별 채팅 반응 총합을 계산합니다.
 
@@ -1013,8 +1044,6 @@ async def trigger_ai_moderator_response(book_id: int, user_message_id: int = Non
                 5. [필수] 이모지와 이모티콘을 절대 사용하지 마세요. 감정은 문장으로만 표현합니다.
                 """
             
-            url = f"https://generativelanguage.googleapis.com/v1beta/models/{config.GEMINI_MODEL}:generateContent?key={gemini_key}"
-            headers = {"Content-Type": "application/json"}
             payload = {
                 "contents": [{"parts": [{"text": prompt}]}],
                 "generationConfig": {
@@ -1025,9 +1054,8 @@ async def trigger_ai_moderator_response(book_id: int, user_message_id: int = Non
             
             moderator_content = None
             try:
-                async with httpx.AsyncClient() as _client:
-                    response = await _client.post(url, headers=headers, json=payload, timeout=20.0)
-                if response.status_code == 200:
+                response = await gemini_request(payload, 20.0, "AI 사회자")
+                if response is not None and response.status_code == 200:
                     result = response.json()
                     moderator_content = result['candidates'][0]['content']['parts'][0]['text'].strip()
             except Exception as e:
@@ -1290,16 +1318,13 @@ async def generate_new_nicknames_via_gemini() -> List[str]:
     """
     
     if gemini_key and gemini_key != "YOUR_GEMINI_API_KEY_HERE":
-        url = f"https://generativelanguage.googleapis.com/v1beta/models/{config.GEMINI_MODEL}:generateContent?key={gemini_key}"
-        headers = {"Content-Type": "application/json"}
         payload = {
             "contents": [{"parts": [{"text": prompt}]}],
             "generationConfig": {"responseMimeType": "application/json"}
         }
         try:
-            async with httpx.AsyncClient() as client:
-                response = await client.post(url, headers=headers, json=payload, timeout=20.0)
-                if response.status_code == 200:
+            response = await gemini_request(payload, 20.0, "닉네임 생성")
+            if response is not None and response.status_code == 200:
                     result = response.json()
                     raw_text = result['candidates'][0]['content']['parts'][0]['text']
                     nicks = json.loads(raw_text.strip())
@@ -2048,16 +2073,13 @@ async def _produce_candidate_books(db: Session, background_tasks: BackgroundTask
     generated_books_data = []
     
     if gemini_key and gemini_key != "YOUR_GEMINI_API_KEY_HERE" and needed_count > 0:
-        url = f"https://generativelanguage.googleapis.com/v1beta/models/{config.GEMINI_MODEL}:generateContent?key={gemini_key}"
-        headers = {"Content-Type": "application/json"}
         payload = {
             "contents": [{"parts": [{"text": prompt}]}],
             "generationConfig": {"responseMimeType": "application/json"}
         }
         try:
-            async with httpx.AsyncClient() as client:
-                response = await client.post(url, headers=headers, json=payload, timeout=30.0)
-                if response.status_code == 200:
+            response = await gemini_request(payload, 30.0, "도서 생성")
+            if response is not None and response.status_code == 200:
                     result = response.json()
                     raw_text = result['candidates'][0]['content']['parts'][0]['text']
                     data = json.loads(raw_text.strip())
@@ -2069,7 +2091,14 @@ async def _produce_candidate_books(db: Session, background_tasks: BackgroundTask
             print(f"Gemini API 호출 중 오류 발생: {e}. Fallback 로직으로 전환합니다.")
             
     while len(generated_books_data) < needed_count:
-        fallback_genre_data = GENRE_FALLBACKS.get(selected_genre, GENRE_FALLBACKS['철학적 에세이'])
+        # 후보마다 소재와 템플릿을 새로 고른다.
+        # 예전에는 배치 전체가 같은 k1/k2를 공유해 같은 소재의 쌍둥이 책이 만들어졌고,
+        # 생성용 장르 목록과 템플릿의 키가 하나도 겹치지 않아 항상 같은 템플릿만 쓰였다.
+        k1 = random.choice(kw_abstract)
+        k2 = random.choice(kw_concrete)
+        fallback_genre_data = GENRE_FALLBACKS.get(
+            selected_genre, GENRE_FALLBACKS[random.choice(list(GENRE_FALLBACKS))]
+        )
         for _ in range(15):
             raw_title = random.choice(fallback_genre_data['title_templates'])
             chosen_title = raw_title.format(abstract=k1, concrete=k2)
@@ -2297,7 +2326,12 @@ async def get_candidate_cover(candidate_id: int, db: Session = Depends(database.
     return {"cover_image_url": cand.cover_image_url}
 
 @app.post("/api/books/adopt/{candidate_id}")
-async def adopt_candidate(candidate_id: int, current_user_id: int = Depends(auth.get_current_user_id), db: Session = Depends(database.get_db)):
+async def adopt_candidate(
+    candidate_id: int,
+    background_tasks: BackgroundTasks,
+    current_user_id: int = Depends(auth.get_current_user_id),
+    db: Session = Depends(database.get_db),
+):
     # 채택할 후보 도서 조회 — 본인이 받은 후보만 채택할 수 있다.
     # 소유자 조건이 없으면 남이 받은 후보 번호를 넣어 가로챌 수 있고, 그 사람의 나머지
     # 후보까지 pool로 돌아가 하루 1회 생성권을 헛되이 잃게 된다.
@@ -2354,6 +2388,9 @@ async def adopt_candidate(candidate_id: int, current_user_id: int = Depends(auth
     
     db.commit()
     db.refresh(new_book)
+
+    # 일본어 화면에서도 보여야 하므로 채택 직후 번역해 둔다(응답을 막지 않도록 백그라운드).
+    background_tasks.add_task(translate_book_to_ja, new_book.id)
     return new_book
 
 
@@ -3253,18 +3290,14 @@ async def _gemini_json(prompt: str, timeout: float = 40.0):
     gemini_key = config.GEMINI_API_KEY
     if not gemini_key:
         return None
-    url = f"https://generativelanguage.googleapis.com/v1beta/models/{config.GEMINI_MODEL}:generateContent?key={gemini_key}"
     payload = {
         "contents": [{"parts": [{"text": prompt}]}],
         # 2.5 Flash는 추론 토큰을 먼저 쓰므로 넉넉히 잡는다
         "generationConfig": {"temperature": 0.3, "maxOutputTokens": 8192},
     }
     try:
-        async with httpx.AsyncClient() as _client:
-            r = await _client.post(url, headers={"Content-Type": "application/json"},
-                                   json=payload, timeout=timeout)
-        if r.status_code != 200:
-            print(f"[i18n] Gemini 응답 오류 {r.status_code}")
+        r = await gemini_request(payload, timeout, "i18n")
+        if r is None or r.status_code != 200:
             return None
         text = r.json()["candidates"][0]["content"]["parts"][0]["text"].strip()
         # 모델이 코드펜스를 붙이는 경우가 있어 걷어낸다
@@ -3554,15 +3587,12 @@ async def translate_moderator_message_to_ja(message_id: int, is_past: bool = Fal
         gemini_key = config.GEMINI_API_KEY
         if not gemini_key:
             return False
-        url = f"https://generativelanguage.googleapis.com/v1beta/models/{config.GEMINI_MODEL}:generateContent?key={gemini_key}"
         payload = {
             "contents": [{"parts": [{"text": prompt}]}],
             "generationConfig": {"temperature": 0.3, "maxOutputTokens": 4096},
         }
-        async with httpx.AsyncClient() as _client:
-            r = await _client.post(url, headers={"Content-Type": "application/json"},
-                                   json=payload, timeout=30.0)
-        if r.status_code != 200:
+        r = await gemini_request(payload, 30.0, "i18n")
+        if r is None or r.status_code != 200:
             return False
         text = strip_chat_emoji(r.json()["candidates"][0]["content"]["parts"][0]["text"].strip())
         if not text:
@@ -3721,17 +3751,13 @@ async def generate_closing_remark(book_id: int):
         6. 마크다운 기호나 부연설명 없이 본문 텍스트만 출력하세요.
         """
 
-        url = f"https://generativelanguage.googleapis.com/v1beta/models/{config.GEMINI_MODEL}:generateContent?key={gemini_key}"
         payload = {
             "contents": [{"parts": [{"text": prompt}]}],
             # 2.5 Flash는 추론 토큰을 먼저 쓰므로 넉넉히 잡아야 본문이 잘리지 않는다
             "generationConfig": {"temperature": 0.7, "maxOutputTokens": 4096},
         }
-        async with httpx.AsyncClient() as _client:
-            response = await _client.post(
-                url, headers={"Content-Type": "application/json"}, json=payload, timeout=25.0
-            )
-        if response.status_code != 200:
+        response = await gemini_request(payload, 25.0, "Closing")
+        if response is None or response.status_code != 200:
             print(f"[Closing] Gemini 응답 오류 {response.status_code} (book {book_id})")
             return
 
@@ -3924,6 +3950,13 @@ async def _auto_refill_active_books_if_needed():
 
         db.commit()
         print(f"[Auto Refill] {len(candidates)}권 자동 채택 완료.")
+
+        # 자동으로 채운 책도 일본어본을 만들어 둔다.
+        for _b in db.query(models.Book).order_by(models.Book.id.desc()).limit(len(candidates)).all():
+            try:
+                await translate_book_to_ja(_b.id)
+            except Exception as e:
+                print(f"[Auto Refill] 번역 실패 (book {_b.id}): {type(e).__name__}")
     except Exception as e:
         print(f"[Auto Refill] 오류: {e}")
     finally:

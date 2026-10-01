@@ -38,6 +38,15 @@ main.app.dependency_overrides[database.get_db] = get_test_db
 who = {"id": None}
 main.app.dependency_overrides[auth.get_current_user_id] = lambda: who["id"]
 
+
+# 채택 후 일본어 번역이 백그라운드로 돈다. 테스트에서는 실제 DB와 외부 API를
+# 건드리면 안 되므로 아무것도 하지 않는 함수로 바꿔 둔다.
+async def _no_translate(book_id, force=False):
+    return False
+
+
+main.translate_book_to_ja = _no_translate
+
 db = Session()
 a = models.User(email="a@test.com", nickname="A", password_hash="x")
 b = models.User(email="b@test.com", nickname="B", password_hash="x")
