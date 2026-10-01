@@ -1091,6 +1091,12 @@ async def trigger_ai_moderator_response(book_id: int, user_message_id: int = Non
         db.add(db_msg)
         db.commit()
         print(f"AI Moderator message posted in book {book_id}: {moderator_content}")
+
+        # 사회자 발언은 화면에 그대로 노출되므로 일본어본도 만들어 둔다.
+        try:
+            await translate_moderator_message_to_ja(db_msg.id)
+        except Exception as e:
+            print(f"[i18n] 사회자 답변 번역 실패 (msg {db_msg.id}): {type(e).__name__}")
     except Exception as e:
         print(f"Error in trigger_ai_moderator_response background task: {e}")
     finally:
@@ -2921,6 +2927,7 @@ class ReactRequest(BaseModel):
 @app.get("/api/books/{book_id}/chats")
 def get_chat_history(
     book_id: int,
+    background_tasks: BackgroundTasks,
     db: Session = Depends(database.get_db),
     viewer_id: Optional[int] = Depends(auth.get_current_user_id_optional),
 ):
@@ -2988,6 +2995,8 @@ def get_chat_history(
             )
             db.add(welcome_msg)
             db.commit()
+            # 환영 인사도 일본어 화면에서 보여야 한다(응답을 막지 않도록 백그라운드).
+            background_tasks.add_task(translate_moderator_message_to_ja, welcome_msg.id)
             
             # 시간순 및 ID 순으로 다시 정렬 조회
             messages = db.query(models.ChatMessage).filter(
@@ -3674,14 +3683,20 @@ async def post_closing_message(book_id: int) -> bool:
         ).order_by(models.ChatMessage.created_at.desc()).first()
         ts = (last.created_at + timedelta(seconds=10)) if last and last.created_at else models.get_kst_now()
 
-        db.add(models.ChatMessage(
+        closing_msg = models.ChatMessage(
             book_id=book_id,
             user_id=moderator.id,
             content=book.closing_remark,
             created_at=ts,
-        ))
+        )
+        db.add(closing_msg)
         db.commit()
         print(f"[Closing] book {book_id} 폐회 인사를 채팅에 남겼습니다.")
+
+        try:
+            await translate_moderator_message_to_ja(closing_msg.id)
+        except Exception as e:
+            print(f"[i18n] 폐회 인사 번역 실패 (msg {closing_msg.id}): {type(e).__name__}")
         return True
     except Exception as e:
         print(f"[Closing] 폐회 인사 게시 실패 (book {book_id}): {e}")

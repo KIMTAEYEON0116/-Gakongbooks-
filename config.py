@@ -157,7 +157,7 @@ GEMINI_MODEL = _get("GEMINI_MODEL", "gemini-3.8-flash")
 GEMINI_FALLBACK_MODELS = [
     m.strip() for m in _get(
         "GEMINI_FALLBACK_MODELS",
-        "gemini-3.7-flash,gemini-3.6-flash,gemini-3.5-flash,gemini-2.5-flash"
+        "gemini-flash-latest,gemini-3.7-flash,gemini-3.6-flash,gemini-3.5-flash,gemini-2.5-flash"
     ).split(",") if m.strip()
 ]
 
