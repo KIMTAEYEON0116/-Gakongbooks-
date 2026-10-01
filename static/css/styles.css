@@ -1540,6 +1540,16 @@ nav {
   overflow-wrap: break-word;
 }
 
+/* 일본어는 낱말 사이에 공백이 없어 keep-all이면 줄이 바뀌지 않는다.
+   keep-all을 쓰는 자리들은 일본어에서 기본 규칙으로 되돌린다. */
+html[lang="ja"] .hero-desc,
+html[lang="ja"] .card-cover span,
+html[lang="ja"] .detail-cover span,
+html[lang="ja"] .chat-header-book,
+html[lang="ja"] .chat-header-book-title {
+  word-break: normal;
+}
+
 /* /  HOME FOOTER  / */
 .home-footer {
   border-top: 1px solid var(--border);
