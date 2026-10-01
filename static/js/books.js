@@ -407,6 +407,18 @@
     };
 
     // 화면에 보일 작성자 이름. 사회자는 언어에 맞는 이름으로, 비어 있으면 '익명'으로.
+    // 서버가 들고 있는 닉네임 표기를 받아 위 사전에 합친다.
+    // 새로 가입한 사람의 이름도 일본어 화면에서 일본어로 보이게 하기 위해서다.
+    // 실패하면 코드에 든 사전만 쓰고, 없는 이름은 원문 그대로 보인다.
+    async function loadNickI18n() {
+      try {
+        var res = await fetch('/api/nicknames/i18n');
+        if (!res.ok) return;
+        var map = await res.json();
+        for (var k in map) { if (map[k]) NICK_I18N[k] = map[k]; }
+      } catch (e) { /* 네트워크 실패는 화면을 막지 않는다 */ }
+    }
+
     function displayUser(name) {
       if (!name) return t('anon_reader');
       if (name === MODERATOR_DISPLAY_KO) return t('moderator_name');
@@ -4957,7 +4969,10 @@ function adaptDbBookToFrontend(dbBook) {
     // (이 호출이 없으면 새로고침했을 때 정적 텍스트만 한국어로 되돌아가고,
     //  <html lang>이 갱신되지 않아 일본어 폰트도 적용되지 않는다)
     if (document.readyState === 'loading') {
-      document.addEventListener('DOMContentLoaded', function () { setLanguage(CURRENT_LANG); });
+      document.addEventListener('DOMContentLoaded', function () {
+        setLanguage(CURRENT_LANG);
+        loadNickI18n();
+      });
     } else {
       setLanguage(CURRENT_LANG);
     }

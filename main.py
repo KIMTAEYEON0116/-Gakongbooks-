@@ -481,6 +481,79 @@ def build_reply_to_info(reply_to_id: int, db: Session):
 RX_EMOJIS = ("❤️", "🤔", "😄", "✨")
 
 
+NICKNAME_JA_SEED_FILE = os.path.join(os.path.dirname(os.path.abspath(__file__)), "data", "nicknames_ja.json")
+
+
+def seed_nickname_i18n(db: Session) -> int:
+    """저장소에 넣어 둔 닉네임 사전을 표에 채운다. 이미 있는 것은 건드리지 않는다."""
+    try:
+        with io.open(NICKNAME_JA_SEED_FILE, encoding="utf-8") as f:
+            seed = json.load(f)
+    except Exception as e:
+        print(f"[Nickname] 사전 파일을 읽지 못했습니다: {type(e).__name__}")
+        return 0
+    have = {row[0] for row in db.query(models.NicknameI18n.nickname).all()}
+    added = 0
+    for ko, ja in seed.items():
+        if ko not in have and ja:
+            db.add(models.NicknameI18n(nickname=ko, nickname_ja=ja))
+            added += 1
+    if added:
+        db.commit()
+    return added
+
+
+def _valid_nickname_ja(value: str) -> bool:
+    """일본어 닉네임으로 쓸 수 있는 값인지 본다.
+
+    한글이 남았거나, 공백이 있거나, 경칭이 붙었거나, 지나치게 길면 쓰지 않는다.
+    화면에서 '○○さん'처럼 경칭을 따로 붙이기 때문이다.
+    """
+    v = (value or "").strip()
+    if not v or len(v) > 14:
+        return False
+    if has_hangul(v) or " " in v or "\u3000" in v:
+        return False
+    return not re.search(r"(さん|様|ちゃん|君|殿)$", v)
+
+
+async def ensure_nickname_ja(nickname: str) -> str:
+    """닉네임의 일본어 표기를 표에서 찾고, 없으면 만들어 저장한다."""
+    if not nickname:
+        return ""
+    db = database.SessionLocal()
+    try:
+        row = db.query(models.NicknameI18n).filter(models.NicknameI18n.nickname == nickname).first()
+        if row:
+            return row.nickname_ja
+
+        prompt = (
+            "다음은 한국어 독서 커뮤니티의 익명 닉네임입니다. 일본 커뮤니티에서 쓰일 법한\n"
+            "핸들네임으로 옮겨 주세요.\n\n"
+            f"닉네임: {nickname}\n\n"
+            "조건\n"
+            "1. 뜻을 살리되 직역이 어색하면 일본에서 실제로 쓰는 표현으로 바꾸세요.\n"
+            "2. 띄어쓰기 없이 14자 이내로 짧게 쓰세요.\n"
+            "3. 경칭(さん·様)을 붙이지 마세요. 화면에서 따로 붙습니다.\n"
+            "4. 성+이름 형태의 실명처럼 보이지 않게 하세요. 익명 닉네임입니다.\n"
+            "5. 한글을 한 글자도 남기지 마세요.\n"
+            '6. {"nickname_ja": "..."} 형태의 JSON만 출력하세요.'
+        )
+        data = await _gemini_json(prompt, timeout=20.0)
+        value = (data or {}).get("nickname_ja", "") if isinstance(data, dict) else ""
+        if not _valid_nickname_ja(value):
+            print(f"[Nickname] '{nickname}' 일본어 표기를 만들지 못했습니다 — 원문을 그대로 씁니다.")
+            return ""
+        db.add(models.NicknameI18n(nickname=nickname, nickname_ja=value.strip()))
+        try:
+            db.commit()
+        except IntegrityError:
+            db.rollback()
+        return value.strip()
+    finally:
+        db.close()
+
+
 async def gemini_request(payload: dict, timeout: float, label: str = "Gemini"):
     """Gemini를 호출한다. 기본 모델이 붐비거나(503) 한도를 넘으면(429) 대체 모델로 넘어간다.
 
@@ -1117,6 +1190,13 @@ async def lifespan(app: FastAPI):
     try:
         # 데이터베이스 테이블 자동 생성 (새 인스턴스 배포 시 필수)
         models.Base.metadata.create_all(bind=database.engine)
+        _seed_db = database.SessionLocal()
+        try:
+            _n = seed_nickname_i18n(_seed_db)
+            if _n:
+                print(f"[Nickname] 일본어 표기 {_n}건을 표에 채웠습니다.")
+        finally:
+            _seed_db.close()
         # 스키마 패치를 가장 먼저 — 아래 시드가 새 컬럼을 쓸 수 있다
         apply_schema_patches()
         apply_index_patches()
@@ -1401,7 +1481,12 @@ async def api_generate_unique_nickname(db: Session = Depends(database.get_db)):
     return {"nickname": chosen}
 
 @app.post("/api/auth/signup", status_code=status.HTTP_201_CREATED)
-def signup(user_data: UserSignup, request: Request, db: Session = Depends(database.get_db)):
+def signup(
+    user_data: UserSignup,
+    request: Request,
+    background_tasks: BackgroundTasks,
+    db: Session = Depends(database.get_db),
+):
     # 0. 동일 IP에서의 대량 계정 생성 차단
     if (user_data.email or "").strip().lower().endswith(SAMPLE_EMAIL_DOMAIN):
         # 시드 독자 도메인은 서비스 소개용 계정 전용이다.
@@ -1434,6 +1519,10 @@ def signup(user_data: UserSignup, request: Request, db: Session = Depends(databa
     db.add(db_user)
     db.commit()
     db.refresh(db_user)
+
+    # 일본어 화면에서도 이름이 보여야 한다. 응답을 막지 않도록 가입 직후 백그라운드로 만든다.
+    # 실패해도 가입은 그대로 끝나고, 그때는 원문 닉네임이 쓰인다.
+    background_tasks.add_task(ensure_nickname_ja, db_user.nickname)
     return {"message": "회원가입이 완료되었습니다. 환영합니다!", "nickname": db_user.nickname}
 
 
@@ -2330,6 +2419,15 @@ async def get_candidate_cover(candidate_id: int, db: Session = Depends(database.
     if not cand:
         raise HTTPException(status_code=404, detail="후보 도서를 찾을 수 없습니다.")
     return {"cover_image_url": cand.cover_image_url}
+
+@app.get("/api/nicknames/i18n")
+def get_nickname_i18n(db: Session = Depends(database.get_db)):
+    """닉네임의 일본어 표기 표. 화면이 시작할 때 한 번 받아 간다.
+
+    닉네임은 사용자 데이터라 DB에는 원문을 그대로 두고, 보여줄 때만 이 표로 바꾼다.
+    """
+    return {row.nickname: row.nickname_ja for row in db.query(models.NicknameI18n).all()}
+
 
 @app.post("/api/books/adopt/{candidate_id}")
 async def adopt_candidate(

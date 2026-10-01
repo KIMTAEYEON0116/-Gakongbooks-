@@ -195,6 +195,20 @@ class PastChatMessage(Base):
     book = relationship("Book", backref="past_chat_messages")
 
 
+# 8-1. NICKNAME_I18N 테이블 (닉네임의 언어별 표기)
+class NicknameI18n(Base):
+    """닉네임 원문과 일본어 표기의 짝.
+
+    닉네임은 사용자가 고른 이름이라 번역해서 저장하지 않고 원문을 그대로 둔다.
+    대신 화면에 보일 일본어 표기만 여기에 따로 모아 둔다.
+    """
+    __tablename__ = "nickname_i18n"
+
+    nickname = Column(String(50), primary_key=True)
+    nickname_ja = Column(String(60), nullable=False)
+    created_at = Column(DateTime, default=get_kst_now)
+
+
 # 8. CHAT_REACTIONS 테이블 (채팅 반응 기록)
 class ChatReaction(Base):
     """누가 어떤 메시지에 어떤 반응을 눌렀는지 한 줄씩 남긴다.
