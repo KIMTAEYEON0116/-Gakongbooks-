@@ -3973,12 +3973,16 @@ nav {
 
 .arc-participants-grid {
   display: grid;
-  grid-template-columns: repeat(5, 1fr);
+  /* 칸 수를 5개로 고정하면 이름이 길어질 때(일본어 표기 등) 칸이 내용만큼 늘어나
+     오른쪽 열이 카드 밖으로 잘렸다. 폭에 맞춰 칸 수를 정하고,
+     그래도 긴 이름은 칩 안에서 말줄임으로 처리한다. */
+  grid-template-columns: repeat(auto-fill, minmax(150px, 1fr));
   gap: 10px;
 }
 
 .arc-p-chip {
   display: flex;
+  min-width: 0;   /* 이름이 길어도 칸을 밀어내지 않도록 */
   align-items: center;
   gap: 8px;
   padding: 9px 12px;

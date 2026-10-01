@@ -39,7 +39,7 @@
 
   /* 참여자 5열 → 3열 */
   .arc-participants-grid {
-    grid-template-columns: repeat(3, 1fr);
+    grid-template-columns: repeat(auto-fill, minmax(120px, 1fr));
   }
 
   /* 아카이브 매거진 여백 축소 */
@@ -436,7 +436,7 @@
   }
 
   .arc-participants-grid {
-    grid-template-columns: repeat(2, 1fr);
+    grid-template-columns: repeat(auto-fill, minmax(110px, 1fr));
   }
 
   .arc-rx-grid {
