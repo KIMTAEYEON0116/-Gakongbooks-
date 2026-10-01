@@ -3274,7 +3274,7 @@ def has_hangul(text: str) -> bool:
 
 
 BOOK_TRANSLATABLE_FIELDS = [
-    "title", "author", "synopsis", "opening_line", "memorable_quote",
+    "title", "author", "synopsis", "tags", "opening_line", "memorable_quote",
     "core_dilemma", "additional_questions", "characters",
     "endorsement_quote", "endorsement_attr", "publisher_review",
 ]
@@ -3338,6 +3338,23 @@ async def translate_book_to_ja(book_id: int, force: bool = False) -> bool:
                 source[f] = v
         if book.closing_remark:
             source["closing_remark"] = book.closing_remark
+
+        # 목차는 immersion_data 안에 JSON으로 들어 있다. 화면에 그대로 보이므로 함께 옮긴다.
+        # 한 항목씩 따로 부르지 않고 평평한 키로 펼쳐 한 번의 호출에 묶는다.
+        toc_src = []
+        try:
+            _imm = json.loads(book.immersion_data) if book.immersion_data else {}
+            toc_src = _imm.get("table_of_contents") or []
+        except Exception:
+            toc_src = []
+        for _i, _item in enumerate(toc_src, 1):
+            if not isinstance(_item, dict):
+                continue
+            if _item.get("title"):
+                source[f"toc{_i}_title"] = _item["title"]
+            if _item.get("summary"):
+                source[f"toc{_i}_summary"] = _item["summary"]
+
         if not source:
             return False
 
@@ -3362,8 +3379,12 @@ async def translate_book_to_ja(book_id: int, force: bool = False) -> bool:
 
         [형식 조건]
         7. 입력과 완전히 같은 키를 가진 JSON 객체 하나만 출력하세요. 키를 빼거나 더하지 마세요.
+        7-1. toc로 시작하는 키는 목차의 장 제목(_title)과 줄거리 요약(_summary)입니다.
+            제목은 짧고 문학적으로, 요약은 원문의 길이에 맞춰 옮기세요.
         8. characters와 additional_questions는 원문의 구분 기호(|, —)를 그대로 유지하세요.
         9. core_dilemma의 'Q. ' 접두사는 그대로 두세요.
+        9-1. tags는 '#'로 시작하는 항목을 쉼표로 이은 목록입니다. 항목 수와 '#', ',' 구조를
+            그대로 유지하고 각 항목의 낱말만 일본어로 바꾸세요.
         10. 이모지를 넣지 마세요.
         11. 마크다운 코드펜스나 설명 없이 JSON만 출력하세요.
         """
@@ -3390,11 +3411,29 @@ async def translate_book_to_ja(book_id: int, force: bool = False) -> bool:
             print(f"[i18n] book {book_id} 번역문에 한글 잔존 {dirty} — 저장하지 않습니다.")
             return False
 
-        # 검증 3 — 구분 기호가 보존됐는가 (인물 목록·추가 질문이 깨지면 화면이 어긋난다)
+        # 검증 3 — 구분 기호가 보존됐는가 (인물 목록·추가 질문·태그가 깨지면 화면이 어긋난다)
         for k in ("characters", "additional_questions"):
             if k in source and source[k].count("|") != cleaned.get(k, "").count("|"):
                 print(f"[i18n] book {book_id} {k}의 구분 기호가 어긋남 — 저장하지 않습니다.")
                 return False
+        if "tags" in source and source["tags"].count(",") != cleaned.get("tags", "").count(","):
+            print(f"[i18n] book {book_id} 태그 개수가 어긋남 — 저장하지 않습니다.")
+            return False
+
+        # 펼쳐 두었던 목차를 원래 구조로 되돌린다. 쪽수·장 번호는 원문 값을 그대로 쓴다.
+        if toc_src:
+            toc_ja = []
+            for _i, _item in enumerate(toc_src, 1):
+                if not isinstance(_item, dict):
+                    continue
+                _new = dict(_item)
+                if f"toc{_i}_title" in cleaned:
+                    _new["title"] = cleaned.pop(f"toc{_i}_title")
+                if f"toc{_i}_summary" in cleaned:
+                    _new["summary"] = cleaned.pop(f"toc{_i}_summary")
+                toc_ja.append(_new)
+            if toc_ja:
+                cleaned["immersion_data"] = json.dumps({"table_of_contents": toc_ja}, ensure_ascii=False)
 
         book.i18n_ja = json.dumps(cleaned, ensure_ascii=False)
         db.commit()
@@ -3457,6 +3496,8 @@ async def translate_books_batch(book_ids: list) -> int:
            도서 id와 필드 키를 빼거나 더하지 마세요.
         8. characters와 additional_questions는 구분 기호(|, —)를 그대로 유지하세요.
         9. core_dilemma의 'Q. ' 접두사는 그대로 두세요.
+        9-1. tags는 '#'로 시작하는 항목을 쉼표로 이은 목록입니다. 항목 수와 '#', ',' 구조를
+            그대로 유지하고 각 항목의 낱말만 일본어로 바꾸세요.
         10. 이모지를 넣지 마세요.
         11. 마크다운 코드펜스나 설명 없이 JSON만 출력하세요.
         """
