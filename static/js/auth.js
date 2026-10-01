@@ -56,7 +56,10 @@
         if (res.ok) {
           var data = await res.json();
           assignedNick = data.nickname;
-          if (display) display.textContent = assignedNick;
+          // 화면에는 언어에 맞는 표기를 보여준다. 계정에 저장되는 이름은 원문 그대로다.
+          var shownNick = (typeof CURRENT_LANG !== 'undefined' && CURRENT_LANG === 'ja' && data.nickname_ja)
+            ? data.nickname_ja : assignedNick;
+          if (display) display.textContent = shownNick;
         } else {
           assignedNick = '가공의독서가' + Math.floor(Math.random() * 1000);
           if (display) display.textContent = assignedNick;
@@ -342,7 +345,9 @@
         || '';
 
       if (isLoggedIn) {
-        if (profName) profName.textContent = userNick;
+        // 내 이름도 언어에 맞는 표기로 보여준다 (저장된 값은 원문 그대로).
+        if (profName) profName.textContent =
+          (typeof displayUser === 'function') ? displayUser(userNick) : userNick;
         if (profAvatar) profAvatar.textContent = userNick.charAt(0);
         if (profEmail) profEmail.textContent = userEmail;
       }

@@ -1492,8 +1492,16 @@ async def api_generate_unique_nickname(db: Session = Depends(database.get_db)):
         chosen = f"가공의독서가{random.randint(100, 999)}"
     else:
         chosen = random.choice(available)
-        
-    return {"nickname": chosen}
+
+    # 일본어 표기도 함께 내려준다. 가입 화면에서 배정된 이름을 바로 보여줘야 하는데,
+    # 표에 없는 새 이름이면 한국어로 보이기 때문이다. 표에 있으면 조회만 하고 끝난다.
+    chosen_ja = ""
+    try:
+        chosen_ja = await ensure_nickname_ja(chosen)
+    except Exception as e:
+        print(f"[Nickname] '{chosen}' 일본어 표기 준비 실패: {type(e).__name__}")
+
+    return {"nickname": chosen, "nickname_ja": chosen_ja}
 
 @app.post("/api/auth/signup", status_code=status.HTTP_201_CREATED)
 def signup(
