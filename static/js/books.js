@@ -4235,6 +4235,9 @@ function adaptDbBookToFrontend(dbBook) {
 
     var I18N_DICT = {
       ko: {
+        demo_title: "체험 계정",
+        demo_desc: "가입하지 않고 바로 둘러볼 수 있습니다.",
+        demo_btn: "체험 계정으로 로그인",
         page_title: "가공독서회",
         meta_desc: "존재하지 않는 책을 함께 읽습니다. AI가 만든 가상의 한 권을 두고 열흘 동안 이야기를 나누는 온라인 독서 모임입니다.",
         logo_text: "<em>가공</em>독서회",
@@ -4588,6 +4591,9 @@ function adaptDbBookToFrontend(dbBook) {
         arc_participants_unit: "인",
       },
       ja: {
+        demo_title: "体験アカウント",
+        demo_desc: "登録せずに、そのままお試しいただけます。",
+        demo_btn: "体験アカウントでログイン",
         page_title: "架空読書会",
         meta_desc: "実在しない本を、共に読む。AIが生み出した架空の一冊をめぐって十日間語り合う、オンライン読書会です。",
         logo_text: "<em>架空</em>読書会",

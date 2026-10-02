@@ -69,6 +69,18 @@
         if (display) display.textContent = assignedNick;
       }
     }
+    // 체험 계정 정보를 채워 넣고 바로 로그인한다. 보여주기용 계정이라
+    // 아이디와 비밀번호를 화면에 그대로 적어 둔다.
+    function loginAsDemo() {
+      var e = document.getElementById('login-email');
+      var p = document.getElementById('login-pw');
+      if (!e || !p) return;
+      e.value = 'test@example.com';
+      p.value = 'test1234';
+      submitLogin();
+    }
+    window.loginAsDemo = loginAsDemo;
+
     async function submitLogin() {
       var email = document.getElementById('login-email').value.trim();
       var pw = document.getElementById('login-pw').value;

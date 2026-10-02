@@ -2965,6 +2965,59 @@ html[lang="ja"] .chat-header-book-title {
   background: #a8692f;
 }
 
+/* 체험 계정 안내. 가입하지 않은 방문자가 바로 들어와 볼 수 있게 둔다.
+   본 로그인 버튼보다 조용해야 하므로 테두리만 쓰고 배경은 비운다. */
+.auth-demo {
+  margin-top: 18px;
+  padding: 16px 18px;
+  border: 1px dashed var(--accent-border, #e8c89a);
+  border-radius: 10px;
+  background: var(--accent-bg, #fdf0e4);
+  text-align: center;
+}
+
+.auth-demo-title {
+  font-size: 13px;
+  font-weight: 700;
+  color: var(--accent, #c17b3f);
+  letter-spacing: 0.04em;
+}
+
+.auth-demo-desc {
+  margin-top: 5px;
+  font-size: 12.5px;
+  color: var(--text-muted);
+  line-height: 1.6;
+}
+
+.auth-demo-cred {
+  margin-top: 9px;
+  font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+  font-size: 12.5px;
+  color: #6b6255;
+  word-break: break-all;
+}
+
+.auth-demo-btn {
+  margin-top: 12px;
+  width: 100%;
+  padding: 10px;
+  border: 1px solid var(--accent, #c17b3f);
+  border-radius: 7px;
+  background: transparent;
+  color: var(--accent, #c17b3f);
+  font-family: inherit;
+  font-size: 13.5px;
+  font-weight: 700;
+  cursor: pointer;
+  transition: background 0.18s ease, color 0.18s ease;
+}
+
+.auth-demo-btn:hover {
+  background: var(--accent, #c17b3f);
+  color: #fff;
+}
+
 .auth-switch {
   text-align: center;
   margin-top: 22px;
