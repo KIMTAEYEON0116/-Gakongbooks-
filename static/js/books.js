@@ -639,6 +639,23 @@
          · 반응 집계 → 한 줄로 공개 (채팅에서 이미 메시지별로 보이던 값이라 가릴 이유가 없다)
          · 평균 평점 → 접어서 봉인 (진행 중 평균이 보이면 서로의 점수에 끌려간다)
        종료 후에는 기존 통계 패널을 그대로 펼친다. */
+    // 통계 영역에서 '내 평점'을 뺀 나머지(평균·분포·반응 집계)를 접고 편다.
+    // 진행 중에도 평점은 남길 수 있어야 하므로 통째로 숨기지 않는다.
+    function setAggregatesVisible(on) {
+      var panel = document.getElementById('stats-rating-panel');
+      if (panel) {
+        ['.stats-panel-label', '.stats-avg-row', '#stats-avg-stars', '#stats-bars']
+          .forEach(function (sel) {
+            var el = panel.querySelector(sel);
+            if (el) el.style.display = on ? '' : 'none';
+          });
+      }
+      var rx = document.getElementById('stats-rx-panel');
+      if (rx) rx.style.display = on ? '' : 'none';
+      var divider = document.querySelector('#pg-detail .stats-divider');
+      if (divider) divider.style.display = on ? '' : 'none';
+    }
+
     function renderLiveStats(book) {
       var section = document.querySelector('#pg-detail .stats-section');
       var inner = document.querySelector('#pg-detail .stats-inner');
@@ -652,10 +669,14 @@
 
       if (book.archived) {
         inner.style.display = '';          // 종료 후에는 전체 통계를 그대로 보여준다
+        setAggregatesVisible(true);
         return;
       }
 
-      inner.style.display = 'none';
+      // 진행 중에는 평균과 반응 집계만 접는다. 예전에는 통계 영역을 통째로
+      // 숨겨서 '내 평점'까지 사라졌고, 참여자가 평점을 남길 수 없었다.
+      inner.style.display = '';
+      setAggregatesVisible(false);
 
       // ① 반응 집계 한 줄
       var totals = getRxTotals(book);
