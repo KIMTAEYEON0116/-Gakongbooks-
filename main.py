@@ -29,7 +29,7 @@ from contextlib import asynccontextmanager
 from contextvars import ContextVar
 from fastapi import FastAPI, Depends, HTTPException, status, BackgroundTasks, Path, Request
 from fastapi.middleware.cors import CORSMiddleware
-from fastapi.responses import FileResponse, HTMLResponse
+from fastapi.responses import HTMLResponse
 from fastapi.staticfiles import StaticFiles
 from fastapi.templating import Jinja2Templates
 from pydantic import BaseModel, EmailStr, Field
@@ -1385,27 +1385,6 @@ class RatingCreate(BaseModel):
 
 # ── 기본 정적 페이지 라우팅 ──
 
-HTML_FILE_PATH = os.path.join(os.path.dirname(__file__), "index_standalone.html")
-
-
-
-def _serve_standalone_html():
-    """스탠드얼론 HTML 파일을 서빙하는 공통 로직 (여러 경로 별칭에서 재사용)."""
-    if os.path.exists(HTML_FILE_PATH):
-        return FileResponse(HTML_FILE_PATH)
-    return {"message": m("가공독서회 프론트엔드 파일(gakong_v8_standalone.html)을 찾을 수 없습니다.", "架空読書会のフロントエンドファイル（gakong_v8_standalone.html）が見つかりません。")}
-
-
-@app.get("/gakong_v8", include_in_schema=False)
-@app.get("/standalone", include_in_schema=False)
-@app.get("/gakong_v8_standalone", include_in_schema=False)
-@app.get("/gakong_v8_standalone.html", include_in_schema=False)
-@app.get("/static/gakong_v8_standalone.html", include_in_schema=False)
-async def get_standalone_html():
-    """
-    가공독서회/스탠드얼론 관련 모든 경로 별칭에서 동일한 HTML 파일을 서빙합니다.
-    """
-    return _serve_standalone_html()
 
 
 # ── 인증 및 계정 관리 APIs (Authentication) ──
