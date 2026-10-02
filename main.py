@@ -3202,7 +3202,9 @@ def send_chat_message(
     
     # ── AI 사회자 멘션 검사 (독자 대화 우선 모드: 자동 개입 완전 차단) ──
     # 독자가 명시적으로 '@사회자' 태그를 입력한 경우에만 1회 응답
-    mention_keywords = ["@사회자", "@moderator", "@AI사회자", "@AI 사회자"]
+    # 일본어 화면은 "@司会者"로 부르라고 안내한다. 한국어만 보면 그 부름에 답하지 못한다.
+    mention_keywords = ["@사회자", "@moderator", "@AI사회자", "@AI 사회자",
+                        "@司会者", "@AI司会者", "@AI 司会者"]
     is_mention = any(kw in db_msg.content for kw in mention_keywords)
     
     if moderator and is_mention:
