@@ -26,6 +26,7 @@ from typing import List, Optional
 import httpx
 from datetime import datetime, timedelta
 from contextlib import asynccontextmanager
+from contextvars import ContextVar
 from fastapi import FastAPI, Depends, HTTPException, status, BackgroundTasks, Path, Request
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import FileResponse, HTMLResponse
@@ -727,15 +728,20 @@ def calc_page_count(genre: str) -> int:
         return random.randint(28, 38) * 10
 
 
+# 위 문구에 끼워 넣을 동작 이름. 한국어 인자를 그대로 두고 표기만 옮긴다.
+ACTION_JA = {"수정": "編集", "삭제": "削除"}
+
+
 def get_owned_chat_message(chat_id: int, current_user_id: int, db: Session, action: str = "수정") -> "models.ChatMessage":
     """본인이 작성한 채팅 메시지를 조회합니다. 없거나 본인 것이 아니면 예외를 발생시킵니다."""
     msg = db.query(models.ChatMessage).filter(models.ChatMessage.id == chat_id).first()
     if not msg:
-        raise HTTPException(status_code=404, detail="존재하지 않는 메시지입니다.")
+        raise HTTPException(status_code=404, detail=m("존재하지 않는 메시지입니다.", "存在しないメッセージです。"))
     if msg.user_id != current_user_id:
         raise HTTPException(
             status_code=status.HTTP_403_FORBIDDEN,
-            detail=f"본인이 작성한 메시지만 {action}할 수 있습니다."
+            detail=m(f"본인이 작성한 메시지만 {action}할 수 있습니다.",
+                     f"ご自身が書いたメッセージのみ{ACTION_JA.get(action, '編集')}できます。")
         )
     return msg
 
@@ -1262,6 +1268,16 @@ async def lifespan(app: FastAPI):
     yield  # 앱 실행 중
     # 앱 종료 시 필요한 정리 작업이 있다면 여기에 추가
 
+# 응답 문구의 언어. 아래 미들웨어가 요청마다 채워 넣는다.
+# 기본값을 일본어로 두어, 헤더가 없는 요청(직접 호출·크롤러)도 일본어를 받는다.
+_REQ_LANG: ContextVar = ContextVar("req_lang", default="ja")
+
+
+def m(ko: str, ja: str) -> str:
+    """사용자에게 보일 문구를 요청 언어에 맞춰 고른다."""
+    return ko if _REQ_LANG.get() == "ko" else ja
+
+
 app = FastAPI(
     title="가공독서회 (Gakong) API Server",
     description="FastAPI + MySQL + WebSockets + Gemini API 기반 백엔드 서비스",
@@ -1276,6 +1292,21 @@ app = FastAPI(
 # 모든 응답에 CSP 등 공통 보안 헤더를 부착한다 (security.py에서 정책 일괄 관리).
 app.add_middleware(security.SecurityHeadersMiddleware, is_production=config.IS_PRODUCTION)
 
+
+@app.middleware("http")
+async def set_response_language(request: Request, call_next):
+    """요청마다 응답 문구의 언어를 정한다.
+
+    화면에서 고른 언어가 X-App-Lang 헤더로 온다. 값이 없거나 모르는 값이면
+    일본어로 둔다. ContextVar라 요청끼리 값이 섞이지 않는다.
+    """
+    lang = request.headers.get("X-App-Lang", "").lower()
+    token = _REQ_LANG.set("ko" if lang == "ko" else "ja")
+    try:
+        return await call_next(request)
+    finally:
+        _REQ_LANG.reset(token)
+
 # CORS: 허용 출처는 config.ALLOW_ORIGINS(.env의 ALLOW_ORIGINS)로만 지정한다.
 # 프론트엔드를 이 서버가 직접 서빙하므로 기본값은 로컬 개발 출처뿐이며 와일드카드는 금지된다.
 app.add_middleware(
@@ -1285,7 +1316,7 @@ app.add_middleware(
     # 인증은 쿠키가 아닌 Authorization 헤더(Bearer 토큰)로만 이루어지므로 자격증명 허용은 불필요하다.
     allow_credentials=False,
     allow_methods=["GET", "POST", "PATCH", "DELETE", "OPTIONS"],
-    allow_headers=["Authorization", "Content-Type"],
+    allow_headers=["Authorization", "Content-Type", "X-App-Lang"],
 )
 
 
@@ -1362,7 +1393,7 @@ def _serve_standalone_html():
     """스탠드얼론 HTML 파일을 서빙하는 공통 로직 (여러 경로 별칭에서 재사용)."""
     if os.path.exists(HTML_FILE_PATH):
         return FileResponse(HTML_FILE_PATH)
-    return {"message": "가공독서회 프론트엔드 파일(gakong_v8_standalone.html)을 찾을 수 없습니다."}
+    return {"message": m("가공독서회 프론트엔드 파일(gakong_v8_standalone.html)을 찾을 수 없습니다.", "架空読書会のフロントエンドファイル（gakong_v8_standalone.html）が見つかりません。")}
 
 
 @app.get("/gakong_v8", include_in_schema=False)
@@ -1513,7 +1544,7 @@ def signup(
     # 0. 동일 IP에서의 대량 계정 생성 차단
     if (user_data.email or "").strip().lower().endswith(SAMPLE_EMAIL_DOMAIN):
         # 시드 독자 도메인은 서비스 소개용 계정 전용이다.
-        raise HTTPException(status_code=400, detail="사용할 수 없는 이메일 도메인입니다.")
+        raise HTTPException(status_code=400, detail=m("사용할 수 없는 이메일 도메인입니다.", "ご利用いただけないメールドメインです。"))
     SIGNUP_LIMITER.hit(security.client_ip(request))
 
     # 1. 이메일 중복 체크
@@ -1521,7 +1552,7 @@ def signup(
     if existing_user:
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
-            detail="이미 가입된 이메일 주소입니다."
+            detail=m("이미 가입된 이메일 주소입니다.", "すでに登録されているメールアドレスです。")
         )
     
     # 2. 닉네임 중복 체크 (안전 가드)
@@ -1529,7 +1560,7 @@ def signup(
     if existing_nickname:
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
-            detail="이미 사용 중인 닉네임입니다. 새로고침하여 다른 닉네임을 할당받으십시오."
+            detail=m("이미 사용 중인 닉네임입니다. 새로고침하여 다른 닉네임을 할당받으십시오.", "すでに使われているニックネームです。ページを再読み込みして、別のニックネームをお受け取りください。")
         )
     
     # 3. 비밀번호 암호화 및 신규 유저 인서트
@@ -1546,7 +1577,7 @@ def signup(
     # 일본어 화면에서도 이름이 보여야 한다. 응답을 막지 않도록 가입 직후 백그라운드로 만든다.
     # 실패해도 가입은 그대로 끝나고, 그때는 원문 닉네임이 쓰인다.
     background_tasks.add_task(ensure_nickname_ja, db_user.nickname)
-    return {"message": "회원가입이 완료되었습니다. 환영합니다!", "nickname": db_user.nickname}
+    return {"message": m("회원가입이 완료되었습니다. 환영합니다!", "会員登録が完了しました。ようこそ！"), "nickname": db_user.nickname}
 
 
 # ── 인증 관련 레이트리밋 정책 ──
@@ -1608,7 +1639,7 @@ def login(login_data: UserLogin, request: Request, db: Session = Depends(databas
         LOGIN_ACCOUNT_LIMITER.record(email_key)
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
-            detail="이메일 또는 비밀번호가 올바르지 않습니다."
+            detail=m("이메일 또는 비밀번호가 올바르지 않습니다.", "メールアドレスまたはパスワードが正しくありません。")
         )
 
     # 서비스 소개용 시드 독자 계정은 운영에서 로그인 대상이 아니다.
@@ -1618,14 +1649,14 @@ def login(login_data: UserLogin, request: Request, db: Session = Depends(databas
     if config.IS_PRODUCTION and (user.email or "").strip().lower().endswith(SAMPLE_EMAIL_DOMAIN):
         raise HTTPException(
             status_code=status.HTTP_403_FORBIDDEN,
-            detail="이 계정으로는 로그인할 수 없습니다."
+            detail=m("이 계정으로는 로그인할 수 없습니다.", "このアカウントではログインできません。")
         )
 
     # 봇 계정(AI 사회자)은 사람이 로그인할 수 없다 — 공식 계정 사칭 차단
     if user.is_bot:
         raise HTTPException(
             status_code=status.HTTP_403_FORBIDDEN,
-            detail="이 계정으로는 로그인할 수 없습니다."
+            detail=m("이 계정으로는 로그인할 수 없습니다.", "このアカウントではログインできません。")
         )
 
     # 로그인 성공 시 실패 기록 초기화
@@ -1650,7 +1681,7 @@ def get_my_profile(
 ):
     user = db.query(models.User).filter(models.User.id == current_user_id).first()
     if not user:
-        raise HTTPException(status_code=404, detail="사용자 정보를 찾을 수 없습니다.")
+        raise HTTPException(status_code=404, detail=m("사용자 정보를 찾을 수 없습니다.", "ユーザー情報が見つかりません。"))
     return user
 
 @app.post("/api/auth/change-password")
@@ -1664,16 +1695,16 @@ def change_password(
     """
     user = db.query(models.User).filter(models.User.id == current_user_id).first()
     if not user:
-        raise HTTPException(status_code=404, detail="사용자를 찾을 수 없습니다.")
+        raise HTTPException(status_code=404, detail=m("사용자를 찾을 수 없습니다.", "ユーザーが見つかりません。"))
         
     # 1. 현재 비밀번호 검증
     if not auth.verify_password(req.current_password, user.password_hash):
-        raise HTTPException(status_code=400, detail="현재 비밀번호가 올바르지 않습니다.")
+        raise HTTPException(status_code=400, detail=m("현재 비밀번호가 올바르지 않습니다.", "現在のパスワードが正しくありません。"))
         
     # 2. 새 비밀번호 적용 (기존에 발급된 토큰은 auth.set_password가 무효화 처리)
     auth.set_password(user, req.new_password)
     db.commit()
-    return {"message": "비밀번호가 성공적으로 변경되었습니다. 다시 로그인해 주세요. 🔒"}
+    return {"message": m("비밀번호가 성공적으로 변경되었습니다. 다시 로그인해 주세요. 🔒", "パスワードを変更しました。もう一度ログインしてください。🔒")}
 
 
 @app.post("/api/auth/withdraw")
@@ -1687,16 +1718,16 @@ def withdraw_account(
     """
     user = db.query(models.User).filter(models.User.id == current_user_id).first()
     if not user:
-        raise HTTPException(status_code=404, detail="사용자를 찾을 수 없습니다.")
+        raise HTTPException(status_code=404, detail=m("사용자를 찾을 수 없습니다.", "ユーザーが見つかりません。"))
         
     # 1. 본인 확인용 비밀번호 재검증
     if not auth.verify_password(req.password, user.password_hash):
-        raise HTTPException(status_code=400, detail="비밀번호가 올바르지 않습니다. 탈퇴 처리에 실패했습니다.")
+        raise HTTPException(status_code=400, detail=m("비밀번호가 올바르지 않습니다. 탈퇴 처리에 실패했습니다.", "パスワードが正しくありません。退会の手続きを完了できませんでした。"))
         
     # 2. 유저 계정 삭제 (SQLAlchemy cascade 설정에 의해 외래키 데이터 일괄 연쇄 삭제)
     db.delete(user)
     db.commit()
-    return {"message": "회원 탈퇴 및 계정 영구 삭제가 완료되었습니다. 그동안 이용해 주셔서 감사합니다. 🌲"}
+    return {"message": m("회원 탈퇴 및 계정 영구 삭제가 완료되었습니다. 그동안 이용해 주셔서 감사합니다. 🌲", "退会とアカウントの完全削除が完了しました。これまでご利用いただき、ありがとうございました。🌲")}
 
 
 BR = chr(10)  # 메일 본문 줄바꿈
@@ -1808,7 +1839,7 @@ def reset_password(
     auth.clear_reset_token(user)               # 재설정 토큰은 1회용
     db.commit()
     PASSWORD_SUBMIT_LIMITER.reset(ip)          # 정상 처리됐으면 시도 기록을 비운다
-    return {"message": "비밀번호가 변경되었습니다. 새 비밀번호로 로그인해 주세요. 🔒"}
+    return {"message": m("비밀번호가 변경되었습니다. 새 비밀번호로 로그인해 주세요. 🔒", "パスワードを変更しました。新しいパスワードでログインしてください。🔒")}
 
 
 @app.get("/reset-password", response_class=HTMLResponse, include_in_schema=False)
@@ -1999,7 +2030,7 @@ async def generate_candidates(
     """
     user = db.query(models.User).filter(models.User.id == current_user_id).first()
     if not user:
-        raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="로그인이 필요한 서비스입니다.")
+        raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail=m("로그인이 필요한 서비스입니다.", "ログインが必要です。"))
 
     # 아직 고르지 않은 후보가 있으면 새로 만들지 않고 그대로 돌려준다.
     # (고르지 않은 채 화면을 벗어났다가 다시 들어온 경우 — 하루 제한도 소모하지 않는다)
@@ -2014,7 +2045,7 @@ async def generate_candidates(
     if user.last_generation_at and user.last_generation_at.date() == now_kst.date():
         raise HTTPException(
             status_code=status.HTTP_429_TOO_MANY_REQUESTS,
-            detail="새 책 생성은 하루에 한 번만 가능합니다. 내일 다시 시도해 주세요! 📖"
+            detail=m("새 책 생성은 하루에 한 번만 가능합니다. 내일 다시 시도해 주세요! 📖", "新しい本の生成は一日に一度までです。明日またお試しください。📖")
         )
 
     final_candidates = await _produce_candidate_books(db, background_tasks, owner_user_id=current_user_id)
@@ -2440,7 +2471,7 @@ async def get_candidate_cover(candidate_id: int, db: Session = Depends(database.
     """후보 도서 표지 생성 완료 여부를 폴링하는 엔드포인트."""
     cand = db.query(models.CandidateBook).filter(models.CandidateBook.id == candidate_id).first()
     if not cand:
-        raise HTTPException(status_code=404, detail="후보 도서를 찾을 수 없습니다.")
+        raise HTTPException(status_code=404, detail=m("후보 도서를 찾을 수 없습니다.", "候補の本が見つかりません。"))
     return {"cover_image_url": cand.cover_image_url}
 
 @app.get("/api/nicknames/i18n")
@@ -2469,7 +2500,7 @@ async def adopt_candidate(
         models.CandidateBook.created_by == current_user_id,
     ).first()
     if not candidate:
-        raise HTTPException(status_code=404, detail="해당 후보 책을 찾을 수 없거나 이미 채택되었습니다.")
+        raise HTTPException(status_code=404, detail=m("해당 후보 책을 찾을 수 없거나 이미 채택되었습니다.", "その候補の本が見つからないか、すでに採用されています。"))
 
     # 표지 없으면 채택 직전 생성
     if not candidate.cover_image_url:
@@ -2819,7 +2850,7 @@ def get_book_details(book_id: int, db: Session = Depends(database.get_db)):
     """
     book = db.query(models.Book).filter(models.Book.id == book_id).first()
     if not book:
-        raise HTTPException(status_code=404, detail="도서 정보를 찾을 수 없습니다.")
+        raise HTTPException(status_code=404, detail=m("도서 정보를 찾을 수 없습니다.", "本の情報が見つかりません。"))
         
     # 별점 평균 통계 계산
     ratings = db.query(models.Rating).filter(models.Rating.book_id == book_id).all()
@@ -2857,11 +2888,11 @@ def rate_book(
     # 도서 확인
     book = db.query(models.Book).filter(models.Book.id == book_id).first()
     if not book:
-        raise HTTPException(status_code=404, detail="존재하지 않는 독서방입니다.")
+        raise HTTPException(status_code=404, detail=m("존재하지 않는 독서방입니다.", "存在しない読書室です。"))
     if book.is_archived:
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
-            detail="종료되어 아카이브된 독서방에는 평점을 등록하거나 변경할 수 없습니다."
+            detail=m("종료되어 아카이브된 독서방에는 평점을 등록하거나 변경할 수 없습니다.", "終了してアーカイブされた読書室では、評価の登録や変更はできません。")
         )
         
     # 기존 등록 평점 확인
@@ -2873,7 +2904,7 @@ def rate_book(
     if existing_rating:
         existing_rating.score = rating_data.score
         db.commit()
-        return {"message": "평점이 성공적으로 수정되었습니다."}
+        return {"message": m("평점이 성공적으로 수정되었습니다.", "評価を変更しました。")}
     
     db_rating = models.Rating(
         book_id=book_id,
@@ -2895,7 +2926,7 @@ def rate_book(
         if again:
             again.score = rating_data.score
             db.commit()
-    return {"message": "평점이 등록되었습니다."}
+    return {"message": m("평점이 등록되었습니다.", "評価を登録しました。")}
 
 
 @app.delete("/api/books/{book_id}/rate")
@@ -2912,10 +2943,10 @@ def delete_rating(
         models.Rating.user_id == current_user_id
     ).first()
     if not existing_rating:
-        raise HTTPException(status_code=404, detail="등록된 평점이 없습니다.")
+        raise HTTPException(status_code=404, detail=m("등록된 평점이 없습니다.", "登録された評価がありません。"))
     db.delete(existing_rating)
     db.commit()
-    return {"message": "평점이 취소되었습니다."}
+    return {"message": m("평점이 취소되었습니다.", "評価を取り消しました。")}
 
 
 @app.delete("/api/books/{book_id}")
@@ -2929,12 +2960,12 @@ def delete_book(
     """
     book = db.query(models.Book).filter(models.Book.id == book_id).first()
     if not book:
-        raise HTTPException(status_code=404, detail="해당 도서를 찾을 수 없습니다.")
+        raise HTTPException(status_code=404, detail=m("해당 도서를 찾을 수 없습니다.", "その本が見つかりません。"))
 
     _delete_cover_file_if_exists(book.cover_image_url)
     db.delete(book)
     db.commit()
-    return {"message": "도서가 성공적으로 삭제되었습니다."}
+    return {"message": m("도서가 성공적으로 삭제되었습니다.", "本を削除しました。")}
 
 
 # ── 내 서재 담기(Library) 관리 APIs ──
@@ -2950,7 +2981,7 @@ def add_to_library(
         models.Library.book_id == book_id
     ).first()
     if existing:
-        return {"message": "이미 서재에 담겨 있습니다."}
+        return {"message": m("이미 서재에 담겨 있습니다.", "すでに書斎に入っています。")}
         
     db_entry = models.Library(user_id=current_user_id, book_id=book_id)
     db.add(db_entry)
@@ -2960,8 +2991,8 @@ def add_to_library(
         # 거의 동시에 두 번 담긴 경우. 위 조회에서는 둘 다 '없음'으로 보였지만
         # DB의 유일 제약이 막았다. 사용자 입장에서는 담긴 것이 맞으므로 성공으로 답한다.
         db.rollback()
-        return {"message": "이미 서재에 담겨 있습니다."}
-    return {"message": "내 서재에 책을 담았습니다. 📚"}
+        return {"message": m("이미 서재에 담겨 있습니다.", "すでに書斎に入っています。")}
+    return {"message": m("내 서재에 책을 담았습니다. 📚", "私の書斎に本を入れました。📚")}
 
 
 @app.post("/api/library/remove/{book_id}")
@@ -2975,11 +3006,11 @@ def remove_from_library(
         models.Library.book_id == book_id
     ).first()
     if not entry:
-        raise HTTPException(status_code=404, detail="서재에 저장되지 않은 책입니다.")
+        raise HTTPException(status_code=404, detail=m("서재에 저장되지 않은 책입니다.", "書斎に入っていない本です。"))
         
     db.delete(entry)
     db.commit()
-    return {"message": "내 서재에서 제외했습니다."}
+    return {"message": m("내 서재에서 제외했습니다.", "私の書斎から外しました。")}
 
 
 @app.get("/api/library")
@@ -3165,16 +3196,16 @@ def send_chat_message(
 
     text = (chat_data.text or "").strip()
     if not text:
-        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="빈 메시지는 보낼 수 없습니다.")
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=m("빈 메시지는 보낼 수 없습니다.", "空のメッセージは送れません。"))
 
     # 1. 독서방 존재 유무 확인
     book = db.query(models.Book).filter(models.Book.id == book_id).first()
     if not book:
-        raise HTTPException(status_code=404, detail="존재하지 않는 독서방입니다.")
+        raise HTTPException(status_code=404, detail=m("존재하지 않는 독서방입니다.", "存在しない読書室です。"))
     if book.is_archived:
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
-            detail="종료되어 아카이브된 독서방에는 채팅을 전송할 수 없습니다."
+            detail=m("종료되어 아카이브된 독서방에는 채팅을 전송할 수 없습니다.", "終了してアーカイブされた読書室には、メッセージを送れません。")
         )
         
     # 2. 대화 메시지 DB 저장
@@ -3235,13 +3266,13 @@ def react_to_chat(
 ):
     """채팅 메시지에 이모지 반응을 1개 추가합니다."""
     if req.emoji not in VALID_REACTION_EMOJIS:
-        raise HTTPException(status_code=400, detail="지원하지 않는 이모지입니다. ❤️ 🤔 😄 ✨ 중 하나를 사용하세요.")
+        raise HTTPException(status_code=400, detail=m("지원하지 않는 이모지입니다. ❤️ 🤔 😄 ✨ 중 하나를 사용하세요.", "対応していない絵文字です。❤️ 🤔 😄 ✨ のいずれかをお使いください。"))
 
     msg = db.query(models.ChatMessage).filter(models.ChatMessage.id == chat_id).first()
     if not msg:
-        raise HTTPException(status_code=404, detail="존재하지 않는 메시지입니다.")
+        raise HTTPException(status_code=404, detail=m("존재하지 않는 메시지입니다.", "存在しないメッセージです。"))
     if msg.user_id == current_user_id:
-        raise HTTPException(status_code=400, detail="자신의 메시지에는 반응할 수 없습니다.")
+        raise HTTPException(status_code=400, detail=m("자신의 메시지에는 반응할 수 없습니다.", "ご自身のメッセージには反応できません。"))
 
     # 한 사람이 같은 반응을 두 번 누르면 아무 일도 일어나지 않는다(유일 제약).
     db.add(models.ChatReaction(message_id=chat_id, user_id=current_user_id, emoji=req.emoji))
@@ -3263,11 +3294,11 @@ def unreact_to_chat(
 ):
     """채팅 메시지에서 이모지 반응을 1개 취소(감소)합니다. (프론트엔드 반응 토글의 '끄기' 동작 대응)"""
     if emoji not in VALID_REACTION_EMOJIS:
-        raise HTTPException(status_code=400, detail="지원하지 않는 이모지입니다. ❤️ 🤔 😄 ✨ 중 하나를 사용하세요.")
+        raise HTTPException(status_code=400, detail=m("지원하지 않는 이모지입니다. ❤️ 🤔 😄 ✨ 중 하나를 사용하세요.", "対応していない絵文字です。❤️ 🤔 😄 ✨ のいずれかをお使いください。"))
 
     msg = db.query(models.ChatMessage).filter(models.ChatMessage.id == chat_id).first()
     if not msg:
-        raise HTTPException(status_code=404, detail="존재하지 않는 메시지입니다.")
+        raise HTTPException(status_code=404, detail=m("존재하지 않는 메시지입니다.", "存在しないメッセージです。"))
 
     # 지울 수 있는 것은 내 기록뿐이다. 남이 누른 반응은 건드리지 않는다.
     db.query(models.ChatReaction).filter(
@@ -3364,7 +3395,7 @@ def update_chat_message(
     msg = get_owned_chat_message(chat_id, current_user_id, db)
     msg.content = update_data.text.strip()
     db.commit()
-    return {"message": "메시지가 수정되었습니다.", "id": chat_id, "text": msg.content}
+    return {"message": m("메시지가 수정되었습니다.", "メッセージを編集しました。"), "id": chat_id, "text": msg.content}
 
 
 @app.delete("/api/chats/{chat_id}")
@@ -3379,7 +3410,7 @@ def delete_chat_message(
     msg = get_owned_chat_message(chat_id, current_user_id, db, action="삭제")
     db.delete(msg)
     db.commit()
-    return {"message": "메시지가 삭제되었습니다."}
+    return {"message": m("메시지가 삭제되었습니다.", "メッセージを削除しました。")}
 
 
 # --- 리얼타임(백그라운드) 아카이브 검사 루프 ---

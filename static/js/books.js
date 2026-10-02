@@ -4184,10 +4184,13 @@ function adaptDbBookToFrontend(dbBook) {
 
     
     // ── 다국어 (한국어 / 일본어) i18n 딕셔너리 및 상태 제어 ──
-    var CURRENT_LANG = localStorage.getItem('app_lang') || 'ko';
+    // 일본어권 방문자를 먼저 상정한다. 한 번이라도 한국어를 고르면 그 선택이 남는다.
+    var CURRENT_LANG = localStorage.getItem('app_lang') || 'ja';
 
     var I18N_DICT = {
       ko: {
+        page_title: "가공독서회",
+        meta_desc: "존재하지 않는 책을 함께 읽습니다. AI가 만든 가상의 한 권을 두고 열흘 동안 이야기를 나누는 온라인 독서 모임입니다.",
         logo_text: "<em>가공</em>독서회",
         footer_copy: "© 2026 가공독서회. All rights reserved.",
         nav_home: "독서방 목록",
@@ -4539,6 +4542,8 @@ function adaptDbBookToFrontend(dbBook) {
         arc_participants_unit: "인",
       },
       ja: {
+        page_title: "架空読書会",
+        meta_desc: "実在しない本を、共に読む。AIが生み出した架空の一冊をめぐって十日間語り合う、オンライン読書会です。",
         logo_text: "<em>架空</em>読書会",
         footer_copy: "© 2026 架空読書会. All rights reserved.",
         nav_home: "読書室一覧",
@@ -4903,12 +4908,52 @@ function adaptDbBookToFrontend(dbBook) {
     }
     window.t = t;
 
+    // 서버가 보내는 안내 문구도 화면과 같은 언어라야 한다.
+    // fetch 호출이 서른 군데가 넘어 하나씩 넣으면 빠뜨리므로, 한 번 감싼다.
+    // 같은 서버로 가는 요청에만 붙인다(외부 주소에 우리 상태를 흘리지 않는다).
+    (function wrapFetchWithLang() {
+      var origFetch = window.fetch.bind(window);
+      window.fetch = function (input, init) {
+        var url = typeof input === 'string' ? input : (input && input.url) || '';
+        var sameOrigin = url.indexOf('//') === -1 || url.indexOf(window.location.origin) === 0;
+        if (!sameOrigin) return origFetch(input, init);
+
+        init = init || {};
+        var headers = new Headers(init.headers || (typeof input === 'object' && input.headers) || {});
+        headers.set('X-App-Lang', CURRENT_LANG);
+        return origFetch(input, Object.assign({}, init, { headers: headers }));
+      };
+    })();
+
+    // <head>의 메타 태그를 갈아끼운다. 없으면 만든다.
+    function setMeta(name, content, isProperty) {
+      var attr = isProperty ? 'property' : 'name';
+      var el = document.head.querySelector('meta[' + attr + '="' + name + '"]');
+      if (!el) {
+        el = document.createElement('meta');
+        el.setAttribute(attr, name);
+        document.head.appendChild(el);
+      }
+      el.setAttribute('content', content || '');
+    }
+
+    function dictTitle(lang) {
+      return (I18N_DICT[lang] || I18N_DICT.ja).page_title;
+    }
+
     function setLanguage(lang) {
       if (lang !== 'ko' && lang !== 'ja') lang = 'ko';
       CURRENT_LANG = lang;
       localStorage.setItem('app_lang', lang);
       // <html lang>을 바꿔야 언어별 폰트 스택(styles.css의 html[lang="ja"])이 적용된다.
       document.documentElement.setAttribute('lang', lang);
+
+      // 탭 제목·북마크·링크 미리보기도 언어를 따라가야 한다.
+      document.title = dictTitle(lang);
+      setMeta('description', I18N_DICT[lang].meta_desc);
+      setMeta('og:title', dictTitle(lang), true);
+      setMeta('og:description', I18N_DICT[lang].meta_desc, true);
+      setMeta('og:locale', lang === 'ja' ? 'ja_JP' : 'ko_KR', true);
 
       var btnKo = document.getElementById('lang-btn-ko');
       var btnJa = document.getElementById('lang-btn-ja');
