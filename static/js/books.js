@@ -2248,7 +2248,9 @@ function renderGenreSection() {
               isBot: !!c.isBot,
               isSample: !!c.isSample,
               textJa: c.textJa || null,   // 사회자 메시지의 일본어 본문
-              av: c.user.charAt(0),
+              // 아바타 글자도 보이는 이름에서 따온다. 원문에서 따면 일본어 화면에
+              // 이름은 일본어인데 동그라미 안만 한글로 남는다.
+              av: displayUser(c.user).charAt(0),
               avBg: '#f5d87a',
               avColor: '#7a4a10',
               text: c.text,
@@ -2787,7 +2789,7 @@ function buildMsgEl(msg, bookId) {
         body.appendChild(makeDateDivider(now));
       }
 
-      var myName = (typeof currentUser !== 'undefined' && currentUser && currentUser.name) ? currentUser.name : t('me_label');
+      var myName = (typeof currentUser !== 'undefined' && currentUser && currentUser.name) ? displayUser(currentUser.name) : t('me_label');
       var myAv = myName.charAt(0);
 
       var msg = makeMsg({

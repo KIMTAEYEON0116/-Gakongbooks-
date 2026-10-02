@@ -358,9 +358,11 @@
 
       if (isLoggedIn) {
         // 내 이름도 언어에 맞는 표기로 보여준다 (저장된 값은 원문 그대로).
-        if (profName) profName.textContent =
-          (typeof displayUser === 'function') ? displayUser(userNick) : userNick;
-        if (profAvatar) profAvatar.textContent = userNick.charAt(0);
+        var shownNick = (typeof displayUser === 'function') ? displayUser(userNick) : userNick;
+        if (profName) profName.textContent = shownNick;
+        // 아바타 글자도 보이는 이름에서 따와야 한다. 저장된 원문에서 따면
+        // 일본어 화면인데 동그라미 안에만 한글이 남는다.
+        if (profAvatar) profAvatar.textContent = shownNick.charAt(0);
         if (profEmail) profEmail.textContent = userEmail;
       }
     }
