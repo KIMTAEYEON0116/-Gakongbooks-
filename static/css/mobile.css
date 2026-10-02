@@ -442,6 +442,20 @@
     height: 168px;
   }
 
+  /* 통계 5칸을 한 줄에 두면 좁은 화면에서 420px가 필요해 본문을 밀어냈다. */
+  .arc-stats-bar {
+    flex-wrap: wrap;
+    justify-content: center;
+    row-gap: 18px;
+  }
+
+  .arc-stat-item {
+    flex: 1 1 33%;
+    min-width: 0;
+    padding: 0 8px;
+    border-right: none;
+  }
+
   .arc-participants-grid {
     grid-template-columns: repeat(auto-fill, minmax(110px, 1fr));
   }
