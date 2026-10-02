@@ -3474,7 +3474,7 @@ function buildMsgEl(msg, bookId) {
         var rxStars = c.reactions && c.reactions["✨"] || (14 + idx * 5);
 
         html += '      <span class="arc-rx-tag hot">❤️ ' + t('rx_heart') + ' ' + rxHearts + '</span>';
-        html += '      <span class="arc-rx-tag hot">✨ ' + t('rx_spark') + ' ' + rxStars + '</span>';
+        html += '      <span class="arc-rx-tag hot">✨ ' + t('rx_sparkle') + ' ' + rxStars + '</span>';
         html += '      <div class="arc-rx-total">' + t('arc_rx_total_a') + '<strong>' + (rxHearts + rxStars) + '</strong>' + t('arc_rx_total_b') + '</div>';
         html += '    </div>';
         html += '  </div>';
