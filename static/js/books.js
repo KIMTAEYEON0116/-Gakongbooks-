@@ -952,6 +952,9 @@ function renderGenreSection() {
       });
     }
 
+    // 책별 '내가 대화에 참여했는지'. 채팅 캐시가 비어 있어도 판단할 수 있게 따로 둔다.
+    var PARTICIPATED = {};
+
     async function openDetail(id) {
       // ── 온디맨드 단일 도서 상세 엔드포인트 호출 (/api/books/{id}) ──
       if (window.location.protocol !== 'file:') {
@@ -973,6 +976,21 @@ function renderGenreSection() {
         } catch (e) {
           console.error('도서 상세 로딩 오류:', e);
         }
+      }
+
+      // 상세만 열면 채팅 캐시가 비어 있어, 이미 대화한 사람도 평점이 잠겨 보였다.
+      // 로그인했고 캐시가 비었을 때만 참여 여부를 따로 확인한다.
+      var _tk = localStorage.getItem('token');
+      if (_tk && !(chatMsgs[id] || []).length && PARTICIPATED[id] === undefined) {
+        try {
+          var cres = await fetch('/api/books/' + id + '/chats', {
+            headers: { 'Authorization': 'Bearer ' + _tk }
+          });
+          if (cres.ok) {
+            var cs = await cres.json();
+            PARTICIPATED[id] = cs.some(function (c) { return c.userId == CURRENT_USER_ID; });
+          }
+        } catch (e) { /* 확인에 실패하면 기존대로 잠긴 상태로 둔다 */ }
       }
 
       var book = BOOKS.find(function (b) { return b.id === id; });
@@ -1628,7 +1646,7 @@ function renderGenreSection() {
       // DB에서 온 채팅은 userId가 실제 숫자 ID이므로 CURRENT_USER_ID와 느슨한 비교(==)
       var hasChatted = (chatMsgs[book.id] || []).some(function (m) {
         return m.userId == CURRENT_USER_ID;
-      });
+      }) || PARTICIPATED[book.id] === true;
       // 토큰이 있고 채팅에 참여한 경우 활성화
       var canRate = localStorage.getItem('token') && hasChatted;
 
