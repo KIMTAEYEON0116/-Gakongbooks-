@@ -30,7 +30,7 @@ from datetime import datetime, timedelta
 from contextlib import asynccontextmanager
 from fastapi import FastAPI, Depends, HTTPException, status, BackgroundTasks, Path, Request
 from fastapi.middleware.cors import CORSMiddleware
-from fastapi.responses import HTMLResponse
+from fastapi.responses import HTMLResponse, Response
 from fastapi.staticfiles import StaticFiles
 from fastapi.templating import Jinja2Templates
 from pydantic import BaseModel, EmailStr, Field
@@ -1210,6 +1210,21 @@ async def trigger_ai_moderator_response(book_id: int, user_message_id: int = Non
     finally:
         db.close()
 
+def ja_missing_fields(book) -> list:
+    """책의 일본어본에서 빠진 칸을 돌려준다.
+
+    후보에서 물려받은 몇 칸만 들어 있는 경우를 '번역됨'으로 보면 안 된다.
+    원문에 값이 있는데 번역본에 없는 칸을 모은다.
+    """
+    have = get_book_i18n(book, "ja")
+    missing = []
+    for f in BOOK_TRANSLATABLE_FIELDS:
+        src = getattr(book, f, None)
+        if isinstance(src, str) and src.strip() and not str(have.get(f) or "").strip():
+            missing.append(f)
+    return missing
+
+
 async def ja_backfill_loop():
     """일본어본이 빠진 책을 천천히 채운다.
 
@@ -1220,27 +1235,47 @@ async def ja_backfill_loop():
     30분마다 한 권씩만 처리한다. 한꺼번에 돌리면 남은 한도를 다 써버려
     정작 새 책 생성이 막힌다.
     """
+    # 배포 직후에도 밀린 것이 있으면 곧 채우도록 첫 바퀴는 일찍 돈다.
+    wait = 60
     while True:
-        await asyncio.sleep(1800)
+        await asyncio.sleep(wait)
+        wait = 1800
+        book_id = None
+        msg_id = None
         db = database.SessionLocal()
         try:
-            target = db.query(models.Book).filter(
-                (models.Book.i18n_ja.is_(None)) | (models.Book.i18n_ja == "")
-            ).order_by(models.Book.id.desc()).first()
-            if not target:
-                continue
-            book_id = target.id
+            # 비어 있는 책뿐 아니라 '반만 번역된' 책도 대상이다.
+            for b in db.query(models.Book).order_by(models.Book.id.desc()).all():
+                if ja_missing_fields(b):
+                    book_id = b.id
+                    break
+            # 사회자 메시지도 번역 없이 남을 수 있다(결과에 한글이 섞여 거부된 경우).
+            bot_ids = [u.id for u in db.query(models.User).filter(models.User.is_bot.is_(True)).all()]
+            if bot_ids:
+                m = db.query(models.ChatMessage).filter(
+                    models.ChatMessage.user_id.in_(bot_ids),
+                    (models.ChatMessage.content_ja.is_(None)) | (models.ChatMessage.content_ja == "")
+                ).order_by(models.ChatMessage.id.desc()).first()
+                if m:
+                    msg_id = m.id
         except Exception as e:
             print(f"[i18n backfill] 조회 실패: {type(e).__name__}")
-            continue
         finally:
             db.close()
 
-        try:
-            ok = await translate_book_to_ja(book_id)
-            print(f"[i18n backfill] book {book_id} 번역 {'성공' if ok else '실패'}")
-        except Exception as e:
-            print(f"[i18n backfill] book {book_id} 오류: {type(e).__name__}")
+        if book_id is not None:
+            try:
+                ok = await translate_book_to_ja(book_id, force=True)
+                print(f"[i18n backfill] book {book_id} 번역 {'성공' if ok else '실패'}")
+            except Exception as e:
+                print(f"[i18n backfill] book {book_id} 오류: {type(e).__name__}")
+
+        if msg_id is not None:
+            try:
+                ok = await translate_moderator_message_to_ja(msg_id)
+                print(f"[i18n backfill] 사회자 메시지 {msg_id} 번역 {'성공' if ok else '실패'}")
+            except Exception as e:
+                print(f"[i18n backfill] 메시지 {msg_id} 오류: {type(e).__name__}")
 
 
 @asynccontextmanager
@@ -2586,6 +2621,20 @@ def serialize_candidate(c: models.CandidateBook) -> dict:
         # 후보 카드도 화면 언어를 따라가야 한다.
         "i18n_ja": c.i18n_ja,
     }
+
+
+FAVICON_SVG = "<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'><rect width='32' height='32' rx='6' fill='#c17b3f'/><path d='M8 8h7a2 2 0 0 1 2 2v14a2 2 0 0 0-2-2H8z' fill='#fff'/><path d='M24 8h-7a2 2 0 0 0-2 2v14a2 2 0 0 1 2-2h7z' fill='#fdf0e4'/></svg>"
+
+
+@app.get("/favicon.ico", include_in_schema=False)
+def favicon():
+    """탭 아이콘.
+
+    HTML에 아이콘을 심어 두었지만 브라우저는 /favicon.ico도 따로 찾는다.
+    없으면 접속마다 404가 로그에 쌓여 진짜 문제를 가린다.
+    """
+    return Response(content=FAVICON_SVG, media_type="image/svg+xml",
+                    headers={"Cache-Control": "public, max-age=604800"})
 
 
 @app.get("/api/books/candidates/pending")
