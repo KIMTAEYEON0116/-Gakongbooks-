@@ -3776,26 +3776,30 @@ async def translate_book_to_ja(book_id: int, force: bool = False) -> bool:
         if not cleaned:
             return False
 
-        # 검증 1 — 원문의 모든 키가 번역됐는가
-        missing = [k for k in source if k not in cleaned]
-        if missing:
-            print(f"[i18n] book {book_id} 번역 누락 {missing} — 저장하지 않습니다.")
-            return False
+        # 검증은 칸 단위로 한다. 예전에는 하나라도 걸리면 번역 전체를 버렸는데,
+        # 그러면 늘 같은 칸에서 넘어지는 책은 영영 번역되지 않는다.
+        # 통과한 칸만 저장하고, 빠진 칸은 되채우기 루프가 다음 바퀴에 다시 맡는다.
+        rejected = {}
 
-        # 검증 2 — 한글이 한 글자라도 남았는가
-        # 일본어 화면에 한국어가 섞이면 안 되므로, 남으면 저장하지 않고 다음 기회에 다시 시도한다.
-        dirty = [k for k, v in cleaned.items() if has_hangul(v)]
-        if dirty:
-            print(f"[i18n] book {book_id} 번역문에 한글 잔존 {dirty} — 저장하지 않습니다.")
-            return False
+        # 한글이 남은 칸 — 일본어 화면에 한국어가 섞이면 안 된다.
+        for k in [k for k, v in cleaned.items() if has_hangul(v)]:
+            rejected[k] = "한글 잔존"
+            cleaned.pop(k, None)
 
-        # 검증 3 — 구분 기호가 보존됐는가 (인물 목록·추가 질문·태그가 깨지면 화면이 어긋난다)
+        # 구분 기호가 깨진 칸 — 인물 목록·추가 질문·태그가 어긋나면 화면이 깨진다.
         for k in ("characters", "additional_questions"):
-            if k in source and source[k].count("|") != cleaned.get(k, "").count("|"):
-                print(f"[i18n] book {book_id} {k}의 구분 기호가 어긋남 — 저장하지 않습니다.")
-                return False
-        if "tags" in source and source["tags"].count(",") != cleaned.get("tags", "").count(","):
-            print(f"[i18n] book {book_id} 태그 개수가 어긋남 — 저장하지 않습니다.")
+            if k in cleaned and source.get(k, "").count("|") != cleaned[k].count("|"):
+                rejected[k] = "구분 기호 어긋남"
+                cleaned.pop(k, None)
+        if "tags" in cleaned and source.get("tags", "").count(",") != cleaned["tags"].count(","):
+            rejected["tags"] = "태그 개수 어긋남"
+            cleaned.pop("tags", None)
+
+        still_missing = [k for k in source if k not in cleaned]
+        if rejected or still_missing:
+            print(f"[i18n] book {book_id} 일부만 저장 — 거른 칸 {rejected}, 남은 칸 {still_missing}")
+
+        if not cleaned:
             return False
 
         # 펼쳐 두었던 목차를 원래 구조로 되돌린다. 쪽수는 원문 그대로,
@@ -3816,7 +3820,11 @@ async def translate_book_to_ja(book_id: int, force: bool = False) -> bool:
             if toc_ja:
                 cleaned["immersion_data"] = json.dumps({"table_of_contents": toc_ja}, ensure_ascii=False)
 
-        book.i18n_ja = json.dumps(cleaned, ensure_ascii=False)
+        # 이번에 통과한 칸만 들어 있으므로, 전에 저장해 둔 것 위에 덮어쓴다.
+        # 통째로 바꾸면 후보에서 물려받은 칸이나 지난번에 성공한 칸이 사라진다.
+        merged = get_book_i18n(book, "ja")
+        merged.update(cleaned)
+        book.i18n_ja = json.dumps(merged, ensure_ascii=False)
         db.commit()
         print(f"[i18n] book {book_id} 일본어 번역 저장 ({len(cleaned)}개 필드)")
         return True
