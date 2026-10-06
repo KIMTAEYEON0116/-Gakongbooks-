@@ -3450,6 +3450,26 @@ async def _gemini_json(prompt: str, timeout: float = 40.0):
         return None
 
 
+def chapter_label_ja(value: str) -> str:
+    """장 번호를 일본어 표기로 옮긴다.
+
+    '제 1장' → '第1章'처럼 규칙이 분명해 AI를 거칠 필요가 없다. 번역 호출은
+    제목·요약에만 쓰고, 번호는 여기서 바꾼다. 이미 일본어이거나 규칙에
+    없는 값이면 원문을 그대로 돌려준다.
+    """
+    v = (value or "").strip()
+    if not v:
+        return value
+    fixed = {"프롤로그": "プロローグ", "에필로그": "エピローグ",
+             "서장": "序章", "종장": "終章"}
+    if v in fixed:
+        return fixed[v]
+    m = re.match(r"^제\s*(\d+)\s*장$", v)
+    if m:
+        return "第%s章" % m.group(1)
+    return value
+
+
 async def translate_book_to_ja(book_id: int, force: bool = False) -> bool:
     """도서의 노출 텍스트를 일본어로 번역해 books.i18n_ja에 저장한다.
 
@@ -3553,13 +3573,16 @@ async def translate_book_to_ja(book_id: int, force: bool = False) -> bool:
             print(f"[i18n] book {book_id} 태그 개수가 어긋남 — 저장하지 않습니다.")
             return False
 
-        # 펼쳐 두었던 목차를 원래 구조로 되돌린다. 쪽수·장 번호는 원문 값을 그대로 쓴다.
+        # 펼쳐 두었던 목차를 원래 구조로 되돌린다. 쪽수는 원문 그대로,
+        # 장 번호는 규칙대로 일본어 표기로 바꾼다.
         if toc_src:
             toc_ja = []
             for _i, _item in enumerate(toc_src, 1):
                 if not isinstance(_item, dict):
                     continue
                 _new = dict(_item)
+                if _new.get("chapter_number"):
+                    _new["chapter_number"] = chapter_label_ja(_new["chapter_number"])
                 if f"toc{_i}_title" in cleaned:
                     _new["title"] = cleaned.pop(f"toc{_i}_title")
                 if f"toc{_i}_summary" in cleaned:
