@@ -2160,6 +2160,14 @@ async def _produce_candidate_books(db: Session, background_tasks: BackgroundTask
     - 외국인 작가(일본, 미국)의 경우에도 author 필드는 라틴 문자 대신 반드시 '하나 모리', '엘라라 보스', '사키 쿠라타', '소렌 렌'과 같이 **한국어(한글) 음독**으로만 표기하세요.
     - tags 태그 규칙: 외국인 작가인 경우 태그 배열에 반드시 국적 태그('#일본', '#미국')를 1개 포함하세요. 한국인 작가인 경우 '#국내소설' 또는 '#AI가공' 태그를 포함하세요.
 
+    [일본어본(ja) 작성 지침]
+    - 이 서비스에는 일본어 화면이 있습니다. ja 블록은 한국어를 옮긴 것이 아니라,
+      처음부터 일본어로 쓴 글처럼 읽혀야 합니다. 한국어 문장 구조를 따라가지 마세요.
+    - 제목은 음차하지 말고 뜻이 전해지는 일본어 제목으로 지으세요.
+    - 작가 이름은 가타카나로 적으세요.
+    - tags는 한국어 태그와 개수를 맞추고 '#'를 유지하세요.
+    - 한글을 한 글자도 섞지 마세요.
+
     [서사 및 스타일 조건]
     1. 제목은 은유와 상징이 빛나는 시적인 제목이어야 합니다.
     2. 줄거리(synopsis) 작성 규칙: [주인공 소개], [주요 등장인물], [핵심 사건 및 갈등 요약]을 포함한 150자 내외 문장.
@@ -2184,6 +2192,12 @@ async def _produce_candidate_books(db: Session, background_tasks: BackgroundTask
         "core_dilemma": "핵심 토론 질문 (예: Q. 고통스러운 진실을 기억할 것인가?)",
         "additional_questions": ["추가 토론 질문 1", "추가 토론 질문 2"],
         "characters": "이름 — 한 줄 인상|이름 — 한 줄 인상",
+        "ja": {{
+          "title": "일본어 제목 (음차가 아니라 뜻이 전해지는 제목)",
+          "author": "작가 이름의 가타카나 표기",
+          "synopsis": "줄거리 요약 (일본어, 150자 내외)",
+          "tags": ["#태그1", "#태그2", "#태그3", "#태그4"]
+        }},
         "immersion_data": {{
           "table_of_contents": [
             {{"chapter_number": "제 1장", "title": "1장 시적 제목", "pages": "9 - 68", "summary": "1장 요약 (문학적 감정 묘사 포함 1문장)"}},
@@ -2365,6 +2379,24 @@ async def _produce_candidate_books(db: Session, background_tasks: BackgroundTask
         cand_color = random.choice(BOOK_COLORS)
         cand_title = b_data.get('title', '무제')
         cand_synopsis = b_data.get('synopsis', '')
+
+        # 생성 단계에서 함께 받은 일본어본. 번역을 거치지 않았으므로 번역투가 아니다.
+        # 모델이 빠뜨렸거나 폴백 템플릿으로 떨어졌으면 비워 두고, 아래에서 번역으로 메운다.
+        cand_ja = b_data.get('ja')
+        if isinstance(cand_ja, dict):
+            picked = {}
+            for _f in ("title", "author", "synopsis"):
+                _v = cand_ja.get(_f)
+                if isinstance(_v, str) and _v.strip():
+                    picked[_f] = _v.strip()
+            _tags = cand_ja.get("tags")
+            if isinstance(_tags, list) and _tags:
+                picked["tags"] = ",".join(str(x) for x in _tags)
+            elif isinstance(_tags, str) and _tags.strip():
+                picked["tags"] = _tags.strip()
+            cand_i18n_ja = json.dumps(picked, ensure_ascii=False) if picked else None
+        else:
+            cand_i18n_ja = None
         
         db_cand = models.CandidateBook(
             title=cand_title,
@@ -2385,6 +2417,7 @@ async def _produce_candidate_books(db: Session, background_tasks: BackgroundTask
             additional_questions=additional_qs_str,
             characters=b_data.get('characters', ''),
             immersion_data=immersion_data_str,
+            i18n_ja=cand_i18n_ja,
             status='pending',
             created_by=owner_user_id
         )
@@ -2431,8 +2464,9 @@ async def _produce_candidate_books(db: Session, background_tasks: BackgroundTask
 
     background_tasks.add_task(_generate_covers_background)
 
-    # 표지는 나중에 붙어도 되지만 글자는 아니다. 한국어 카드가 한 번이라도
-    # 보이면 일본어 화면의 흐름이 끊기므로, 번역까지 마치고 돌려준다.
+    # 대부분은 생성 단계에서 일본어본을 함께 받으므로 여기서 할 일이 없다.
+    # 모델이 ja를 빠뜨렸거나 폴백 템플릿으로 떨어진 후보만 번역으로 메운다.
+    # 표지는 나중에 붙어도 되지만 글자는 아니다 — 돌려주기 전에 끝낸다.
     try:
         await translate_candidates_to_ja(final_candidates)
         db.commit()
