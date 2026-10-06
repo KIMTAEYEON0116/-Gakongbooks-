@@ -571,6 +571,12 @@ async def ensure_nickname_ja(nickname: str) -> str:
         db.close()
 
 
+# 모델 체인 전체에 허용할 시간. 이 값을 넘기면 남은 모델은 시도하지 않는다.
+# Nginx가 90초에서 끊으므로 그보다 넉넉히 앞에서 멈춰, 호출한 쪽이 폴백을
+# 준비하고 응답까지 마칠 틈을 남긴다.
+GEMINI_CHAIN_BUDGET = 45.0
+
+
 async def gemini_request(payload: dict, timeout: float, label: str = "Gemini"):
     """Gemini를 호출한다. 기본 모델이 붐비거나(503) 한도를 넘으면(429) 대체 모델로 넘어간다.
 
@@ -584,11 +590,18 @@ async def gemini_request(payload: dict, timeout: float, label: str = "Gemini"):
         return None
     headers = {"Content-Type": "application/json", "x-goog-api-key": key}
     last = None
+    started = time.monotonic()
     for model in [config.GEMINI_MODEL] + list(config.GEMINI_FALLBACK_MODELS):
+        spent = time.monotonic() - started
+        if spent >= GEMINI_CHAIN_BUDGET:
+            print(f"[{label}] {spent:.0f}초 소진 — 남은 모델은 건너뛴다")
+            break
+        # 남은 예산보다 긴 대기는 의미가 없다.
+        step_timeout = min(timeout, GEMINI_CHAIN_BUDGET - spent)
         url = f"https://generativelanguage.googleapis.com/v1beta/models/{model}:generateContent"
         try:
             async with httpx.AsyncClient() as _client:
-                r = await _client.post(url, headers=headers, json=payload, timeout=timeout)
+                r = await _client.post(url, headers=headers, json=payload, timeout=step_timeout)
         except Exception as e:
             print(f"[{label}] {model} 호출 실패: {type(e).__name__}")
             continue
