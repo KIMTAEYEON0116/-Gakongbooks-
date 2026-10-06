@@ -2477,16 +2477,32 @@ async def _produce_candidate_books(db: Session, background_tasks: BackgroundTask
 
     background_tasks.add_task(_generate_covers_background)
 
-    # 대부분은 생성 단계에서 일본어본을 함께 받으므로 여기서 할 일이 없다.
-    # 모델이 ja를 빠뜨렸거나 폴백 템플릿으로 떨어진 후보만 번역으로 메운다.
-    # 표지는 나중에 붙어도 되지만 글자는 아니다 — 돌려주기 전에 끝낸다.
-    try:
-        await translate_candidates_to_ja(final_candidates)
-        db.commit()
-    except Exception as e:
-        print(f"[i18n] 후보 번역 건너뜀: {type(e).__name__}")
+    # 대부분은 생성 단계에서 일본어본을 함께 받는다. 모델이 ja를 빠뜨렸거나
+    # 폴백 템플릿으로 떨어진 후보만 번역으로 메우는데, 그 번역을 응답 전에
+    # 끝내려 하면 모델이 붐빌 때 요청이 Nginx 제한(90초)에 걸린다.
+    # 표지와 같은 길로 보낸다 — 뒤에서 채우고 화면이 받아 간다.
+    missing_ja = [c.id for c in final_candidates if not (c.i18n_ja or "").strip()]
+    if missing_ja:
+        background_tasks.add_task(_fill_candidate_ja_background, missing_ja)
 
     return final_candidates
+
+
+async def _fill_candidate_ja_background(candidate_ids: list) -> None:
+    """일본어본이 빠진 후보를 뒤에서 채운다."""
+    db = database.SessionLocal()
+    try:
+        cands = db.query(models.CandidateBook).filter(
+            models.CandidateBook.id.in_(candidate_ids)
+        ).all()
+        await translate_candidates_to_ja(cands)
+        db.commit()
+        done = sum(1 for c in cands if (c.i18n_ja or "").strip())
+        print(f"[i18n] 후보 번역 완료 {done}/{len(cands)}건")
+    except Exception as e:
+        print(f"[i18n] 후보 번역 실패: {type(e).__name__}")
+    finally:
+        db.close()
 
 async def translate_candidates_to_ja(cands: list) -> None:
     """후보 도서 여러 권을 한 번의 호출로 번역해 각 레코드에 담는다.

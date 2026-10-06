@@ -4921,6 +4921,19 @@ html[lang="ja"] .chat-header-book-title {
   scroll-snap-type: x mandatory;
 }
 
+/* 번역이 아직 오지 않은 후보 카드. 글자가 비어 보이지 않도록 자리만 지킨다.
+   원문(한국어)을 대신 띄우지는 않는다 — 일본어 화면의 흐름이 끊긴다. */
+.candidate-card.is-waiting .card-title,
+.candidate-card.is-waiting .card-synopsis {
+  color: var(--text-muted);
+  font-style: italic;
+}
+
+.candidate-card.is-waiting .btn-adopt {
+  opacity: 0.55;
+  pointer-events: none;
+}
+
 .candidate-card {
   flex: 1 1 340px;
   max-width: 370px;

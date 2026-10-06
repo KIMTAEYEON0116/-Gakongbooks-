@@ -1750,19 +1750,22 @@ function renderGenreSection() {
     }
 
     function renderCandidates(candidates) {
+      window.__lastCandidates = candidates || [];
       var container = document.getElementById('candidates-container');
       if (!container) return;
       container.innerHTML = '';
       candidates.forEach(function(c) {
+        // 일본어 화면인데 번역이 아직 안 왔으면 원문을 보여주지 않고 기다린다.
+        var waiting = (CURRENT_LANG === 'ja') && !c.i18n_ja;
         var card = document.createElement('div');
-        card.className = 'candidate-card';
+        card.className = 'candidate-card' + (waiting ? ' is-waiting' : '');
         card.innerHTML = 
-          '<div class="card-cover" id="cand-cover-' + c.id + '" style="' + getCoverCss(c) + '">' + escHtml(candField(c, 'title')) + '</div>' +
+          '<div class="card-cover" id="cand-cover-' + c.id + '" style="' + getCoverCss(c) + '">' + escHtml(waiting ? '' : candField(c, 'title')) + '</div>' +
           '<div class="card-body">' +
             '<span class="card-genre">' + escHtml(translateGenre(c.genre)) + '</span>' +
-            '<div class="card-title">' + escHtml(candField(c, 'title')) + '</div>' +
-            '<div class="card-author">' + escHtml(candField(c, 'author')) + '</div>' +
-            '<div class="card-synopsis">' + escHtml(candField(c, 'synopsis')) + '</div>' +
+            '<div class="card-title" id="cand-title-' + c.id + '">' + escHtml(waiting ? t('cand_preparing') : candField(c, 'title')) + '</div>' +
+            '<div class="card-author" id="cand-author-' + c.id + '">' + escHtml(waiting ? '' : candField(c, 'author')) + '</div>' +
+            '<div class="card-synopsis" id="cand-synopsis-' + c.id + '">' + escHtml(waiting ? t('cand_preparing_desc') : candField(c, 'synopsis')) + '</div>' +
             '<div style="margin-top:auto"><button class="btn-adopt" onclick="adoptCandidate(' + c.id + ')">' + t('cand_select_btn') + '</button></div>' +
           '</div>';
         container.appendChild(card);
@@ -1771,7 +1774,56 @@ function renderGenreSection() {
         if (!c.cover_image_url) {
           pollCandidateCover(c.id, c.color);
         }
+        // 번역도 뒤에서 채워지므로 같은 방식으로 기다린다.
+        if (waiting) {
+          pollCandidateJa(c.id);
+        }
       });
+    }
+
+    // 후보의 일본어본이 올 때까지 기다렸다 글자를 채운다.
+    // 표지 폴링과 같은 간격·횟수를 쓴다(3초 × 20회 ≒ 60초).
+    function pollCandidateJa(candId, attempt) {
+      attempt = attempt || 0;
+      if (attempt > 20) {
+        // 끝내 못 받으면 원문이라도 보여준다. 빈 카드보다는 낫다.
+        var cand = (window.__lastCandidates || []).find(function (x) { return x.id === candId; });
+        if (cand) fillCandidateText(candId, cand, true);
+        return;
+      }
+      setTimeout(async function () {
+        try {
+          var _tk = localStorage.getItem('token');
+          var res = await fetch('/api/books/candidates/pending', {
+            headers: _tk ? { 'Authorization': 'Bearer ' + _tk } : {}
+          });
+          if (res.ok) {
+            var list = await res.json();
+            var hit = (list || []).find(function (x) { return x.id === candId; });
+            if (hit && hit.i18n_ja) {
+              fillCandidateText(candId, hit, false);
+              return;
+            }
+          }
+        } catch (e) { /* 무시하고 다시 시도 */ }
+        pollCandidateJa(candId, attempt + 1);
+      }, 3000);
+    }
+
+    // 카드의 글자 칸을 채운다. raw가 true면 번역을 포기하고 원문을 쓴다.
+    function fillCandidateText(candId, c, raw) {
+      function put(id, value) {
+        var el = document.getElementById(id);
+        if (el) el.textContent = value || '';
+      }
+      var pick = raw ? function (f) { return c[f] || ''; } : function (f) { return candField(c, f); };
+      put('cand-title-' + candId, pick('title'));
+      put('cand-author-' + candId, pick('author'));
+      put('cand-synopsis-' + candId, pick('synopsis'));
+      var cover = document.getElementById('cand-cover-' + candId);
+      if (cover && !cover.style.backgroundImage) cover.textContent = pick('title');
+      var card = cover && cover.closest('.candidate-card');
+      if (card) card.classList.remove('is-waiting');
     }
 
     function pollCandidateCover(candId, fallbackColor, attempt) {
@@ -4315,6 +4367,8 @@ function adaptDbBookToFrontend(dbBook) {
         deadline_section_sub: "마감이 가까운 독서방",
         cand_back: "← 돌아가기",
         cand_label: "BOOK CURATION",
+        cand_preparing: "준비 중...",
+        cand_preparing_desc: "책 소개를 다듬고 있어요. 잠시만 기다려 주세요.",
         cand_title: "어떤 책을<br>독서방으로 열까요?",
         cand_desc: "AI가 3권의 후보 책을 가져왔습니다. 하나를 선택하면 정식 독서방으로 개설됩니다.",
         cand_select_btn: "이 책으로 독서방 열기",
@@ -4671,6 +4725,8 @@ function adaptDbBookToFrontend(dbBook) {
         deadline_section_sub: "終了間近の読書室",
         cand_back: "← 戻る",
         cand_label: "BOOK CURATION",
+        cand_preparing: "準備中…",
+        cand_preparing_desc: "本の紹介を整えています。少々お待ちください。",
         cand_title: "どの本を<br>読書室として開きますか？",
         cand_desc: "AIが3冊の候補本を準備しました。1冊を選択すると正式な読書室が開設されます。",
         cand_select_btn: "この本で読書室を開く",
