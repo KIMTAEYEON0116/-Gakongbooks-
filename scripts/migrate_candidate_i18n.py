@@ -4,6 +4,12 @@
 SQLAlchemy의 create_all은 이미 있는 표에 칸을 더해 주지 않는다.
 운영 DB에는 직접 넣어야 한다. 이미 있으면 아무것도 하지 않는다.
 """
+import os
+import sys
+
+# scripts/ 안에서 실행해도 프로젝트 모듈을 찾도록 경로를 먼저 잡는다.
+sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
+
 from sqlalchemy import text
 
 import database

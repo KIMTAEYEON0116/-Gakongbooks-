@@ -7,6 +7,12 @@
 
 본문의 뜻은 건드리지 않고 용어만 바꾼다.
 """
+import os
+import sys
+
+# scripts/ 안에서 실행해도 프로젝트 모듈을 찾도록 경로를 먼저 잡는다.
+sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
+
 import json
 
 import database
