@@ -1896,6 +1896,7 @@ function renderGenreSection() {
             'Authorization': 'Bearer ' + token
           }
         });
+        if (handleAuthError(res.status)) return;
         if (res.ok) {
           var data = await res.json();
           myLibraryData = data; // 저장
@@ -2249,17 +2250,19 @@ function renderGenreSection() {
     }
 
     function handleAuthError(status) {
-      if (status === 401 || status === 403) {
+      if (status !== 401 && status !== 403) return false;
+
+      showToast(t('toast_session_expired'));
+      // 뒷정리는 정식 로그아웃에 맡긴다. 예전에는 여기서 token과 있지도 않은
+      // 'user' 키만 지워, 닉네임·이메일이 남고 상단 바도 로그인 상태로 보였다.
+      if (typeof window.logout === 'function') {
+        setTimeout(function () { window.logout(); }, 1200);
+      } else {
         localStorage.removeItem('token');
-        localStorage.removeItem('user');
         if (typeof currentUser !== 'undefined') currentUser = null;
-        showToast(t('toast_session_expired'));
-        setTimeout(function() {
-          goPage('home');
-        }, 1200);
-        return true;
+        setTimeout(function () { goPage('home'); }, 1200);
       }
-      return false;
+      return true;
     }
 
     async function openChat() {

@@ -10,6 +10,9 @@
 
 import hashlib
 import secrets
+
+# 응답 문구의 언어 선택(main.py와 공유). 여기 두어야 순환 참조가 생기지 않는다.
+from i18n import m
 from datetime import datetime, timedelta, timezone
 from typing import Optional
 
@@ -31,11 +34,18 @@ ACCESS_TOKEN_EXPIRE_MINUTES = config.ACCESS_TOKEN_EXPIRE_MINUTES
 # 클라이언트로부터 'Authorization: Bearer <token>' 헤더를 파싱합니다.
 oauth2_scheme = OAuth2PasswordBearer(tokenUrl="/api/auth/login", auto_error=False)
 
-_CREDENTIALS_EXCEPTION = HTTPException(
-    status_code=status.HTTP_401_UNAUTHORIZED,
-    detail="로그인이 필요한 서비스입니다.",
-    headers={"WWW-Authenticate": "Bearer"},
-)
+def _credentials_exception() -> HTTPException:
+    """로그인이 필요하다는 응답.
+
+    예전에는 모듈을 불러올 때 한 번 만들어 두고 돌려썼다. 그러면 문구가
+    한국어로 굳어, 일본어 화면을 쓰는 사람도 한국어 오류를 받았다.
+    요청마다 새로 만들어 그 요청의 언어로 답한다.
+    """
+    return HTTPException(
+        status_code=status.HTTP_401_UNAUTHORIZED,
+        detail=m("로그인이 필요한 서비스입니다.", "ログインが必要です。"),
+        headers={"WWW-Authenticate": "Bearer"},
+    )
 
 
 # ── 비밀번호 보안 해싱 (bcrypt) ──
@@ -92,27 +102,27 @@ def get_current_user(
     계정이 삭제된 경우 401을 발생시킵니다.
     """
     if not token:
-        raise _CREDENTIALS_EXCEPTION
+        raise _credentials_exception()
 
     try:
         payload = jwt.decode(token, SECRET_KEY, algorithms=[ALGORITHM])
     except jwt.PyJWTError:
-        raise _CREDENTIALS_EXCEPTION
+        raise _credentials_exception()
 
     user_id = payload.get("user_id")
     if user_id is None:
-        raise _CREDENTIALS_EXCEPTION
+        raise _credentials_exception()
 
     user = db.query(models.User).filter(models.User.id == user_id).first()
     if not user:
         # 탈퇴한 계정의 토큰은 만료 전이라도 통과시키지 않는다.
-        raise _CREDENTIALS_EXCEPTION
+        raise _credentials_exception()
 
     issued_at = payload.get("iat")
     if user.password_changed_at and issued_at is not None:
         # 비밀번호 변경 이전에 발급된 토큰은 무효 (탈취 대응 수단)
         if int(issued_at) < _to_epoch(user.password_changed_at):
-            raise _CREDENTIALS_EXCEPTION
+            raise _credentials_exception()
 
     return user
 
@@ -163,7 +173,8 @@ def consume_reset_token(db: Session, raw_token: str) -> "models.User":
     """
     invalid = HTTPException(
         status_code=status.HTTP_400_BAD_REQUEST,
-        detail="재설정 링크가 유효하지 않거나 만료되었습니다. 다시 요청해 주세요.",
+        detail=m("재설정 링크가 유효하지 않거나 만료되었습니다. 다시 요청해 주세요.",
+                 "再設定リンクが正しくないか、有効期限が切れています。もう一度お申し込みください。"),
     )
     if not raw_token:
         raise invalid
@@ -192,6 +203,6 @@ def require_admin(user: "models.User" = Depends(get_current_user)) -> "models.Us
     if not user.is_admin:
         raise HTTPException(
             status_code=status.HTTP_403_FORBIDDEN,
-            detail="관리자 권한이 필요한 작업입니다.",
+            detail=m("관리자 권한이 필요한 작업입니다.", "管理者権限が必要な操作です。"),
         )
     return user

@@ -24,9 +24,10 @@ import smtplib
 from email.mime.text import MIMEText
 from typing import List, Optional
 import httpx
+# 응답 문구의 언어 선택. auth.py와 함께 쓰려고 따로 뺀 모듈이다.
+from i18n import m, set_request_lang, reset_request_lang
 from datetime import datetime, timedelta
 from contextlib import asynccontextmanager
-from contextvars import ContextVar
 from fastapi import FastAPI, Depends, HTTPException, status, BackgroundTasks, Path, Request
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import HTMLResponse
@@ -1268,16 +1269,6 @@ async def lifespan(app: FastAPI):
     yield  # 앱 실행 중
     # 앱 종료 시 필요한 정리 작업이 있다면 여기에 추가
 
-# 응답 문구의 언어. 아래 미들웨어가 요청마다 채워 넣는다.
-# 기본값을 일본어로 두어, 헤더가 없는 요청(직접 호출·크롤러)도 일본어를 받는다.
-_REQ_LANG: ContextVar = ContextVar("req_lang", default="ja")
-
-
-def m(ko: str, ja: str) -> str:
-    """사용자에게 보일 문구를 요청 언어에 맞춰 고른다."""
-    return ko if _REQ_LANG.get() == "ko" else ja
-
-
 app = FastAPI(
     title="가공독서회 (Gakong) API Server",
     description="FastAPI + MySQL + WebSockets + Gemini API 기반 백엔드 서비스",
@@ -1300,12 +1291,11 @@ async def set_response_language(request: Request, call_next):
     화면에서 고른 언어가 X-App-Lang 헤더로 온다. 값이 없거나 모르는 값이면
     일본어로 둔다. ContextVar라 요청끼리 값이 섞이지 않는다.
     """
-    lang = request.headers.get("X-App-Lang", "").lower()
-    token = _REQ_LANG.set("ko" if lang == "ko" else "ja")
+    token = set_request_lang(request.headers.get("X-App-Lang", ""))
     try:
         return await call_next(request)
     finally:
-        _REQ_LANG.reset(token)
+        reset_request_lang(token)
 
 # CORS: 허용 출처는 config.ALLOW_ORIGINS(.env의 ALLOW_ORIGINS)로만 지정한다.
 # 프론트엔드를 이 서버가 직접 서빙하므로 기본값은 로컬 개발 출처뿐이며 와일드카드는 금지된다.
