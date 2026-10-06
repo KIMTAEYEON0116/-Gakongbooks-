@@ -87,6 +87,9 @@ class CandidateBook(Base):
     price = Column(String(50), default="₩14,000")
     color = Column(String(150), default="#7b5fb8")
     cover_image_url = Column(String(500), nullable=True) # AI 생성 표지 이미지 경로/URL
+    # 후보 화면에 보이는 칸(제목·작가·장르·줄거리·태그)의 일본어본 JSON.
+    # 후보를 만들 때 한 번에 번역해 담고, 채택 시 책으로 물려준다.
+    i18n_ja = Column(Text, nullable=True)
     endorsement_quote = Column(String(500), nullable=True)
     endorsement_attr = Column(String(100), nullable=True)
     publisher_review = Column(Text, nullable=True)

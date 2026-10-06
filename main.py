@@ -1197,6 +1197,39 @@ async def trigger_ai_moderator_response(book_id: int, user_message_id: int = Non
     finally:
         db.close()
 
+async def ja_backfill_loop():
+    """일본어본이 빠진 책을 천천히 채운다.
+
+    번역은 외부 호출 한 번에 달려 있어 과부하(503)나 한도 초과(429)로 그냥
+    실패할 수 있다. 그때 다시 시도할 길이 없으면 일본어 화면에 한국어가
+    영구히 남는다.
+
+    30분마다 한 권씩만 처리한다. 한꺼번에 돌리면 남은 한도를 다 써버려
+    정작 새 책 생성이 막힌다.
+    """
+    while True:
+        await asyncio.sleep(1800)
+        db = database.SessionLocal()
+        try:
+            target = db.query(models.Book).filter(
+                (models.Book.i18n_ja.is_(None)) | (models.Book.i18n_ja == "")
+            ).order_by(models.Book.id.desc()).first()
+            if not target:
+                continue
+            book_id = target.id
+        except Exception as e:
+            print(f"[i18n backfill] 조회 실패: {type(e).__name__}")
+            continue
+        finally:
+            db.close()
+
+        try:
+            ok = await translate_book_to_ja(book_id)
+            print(f"[i18n backfill] book {book_id} 번역 {'성공' if ok else '실패'}")
+        except Exception as e:
+            print(f"[i18n backfill] book {book_id} 오류: {type(e).__name__}")
+
+
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     # 앱 시작 시: 실시간 아카이브 백그라운드 루프 가동
@@ -1206,6 +1239,10 @@ async def lifespan(app: FastAPI):
     # 앱 시작 시: 활성 독서방 자동 보충 백그라운드 루프 가동
     asyncio.create_task(auto_refill_loop())
     print("Auto refill background loop started.")
+
+    # 번역이 실패한 책을 나중에 다시 채우는 루프
+    asyncio.create_task(ja_backfill_loop())
+    print("JA backfill background loop started.")
 
     # AI 사회자 계정 및 시드 독서방 자동 생성
     db = database.SessionLocal()
@@ -2393,7 +2430,76 @@ async def _produce_candidate_books(db: Session, background_tasks: BackgroundTask
             bg_db.close()
 
     background_tasks.add_task(_generate_covers_background)
+
+    # 표지는 나중에 붙어도 되지만 글자는 아니다. 한국어 카드가 한 번이라도
+    # 보이면 일본어 화면의 흐름이 끊기므로, 번역까지 마치고 돌려준다.
+    try:
+        await translate_candidates_to_ja(final_candidates)
+        db.commit()
+    except Exception as e:
+        print(f"[i18n] 후보 번역 건너뜀: {type(e).__name__}")
+
     return final_candidates
+
+async def translate_candidates_to_ja(cands: list) -> None:
+    """후보 도서 여러 권을 한 번의 호출로 번역해 각 레코드에 담는다.
+
+    후보 화면에 보이는 칸만 옮긴다(제목·작가·장르·줄거리·태그). 본문 전체는
+    채택한 뒤 translate_book_to_ja가 맡는다. 한 권씩 부르면 호출 수가 권수만큼
+    늘어나 무료 한도를 금세 쓴다. 실패하면 그냥 둔다 — 화면은 원문으로 나오고,
+    다음에 다시 시도할 수 있다.
+    """
+    targets = [c for c in cands if c and not (c.i18n_ja or "").strip()]
+    if not targets:
+        return
+
+    source = {}
+    for idx, c in enumerate(targets, 1):
+        source[f"b{idx}_title"] = c.title or ""
+        source[f"b{idx}_author"] = c.author or ""
+        source[f"b{idx}_genre"] = c.genre or ""
+        source[f"b{idx}_synopsis"] = c.synopsis or ""
+        source[f"b{idx}_tags"] = c.tags or ""
+
+    prompt = f"""
+        당신은 한국 문학을 일본 독자에게 소개해 온 숙련된 문예 번역가입니다.
+
+        [고정 용어 — 반드시 이대로 쓰세요]
+        독서방=読書室 (読書ルーム·読書部屋 금지) / 가공독서회=架空読書会 /
+        AI 사회자=AI司会者 / 내 서재=私の書斎 (本棚 금지) / 아카이브=アーカイブ /
+        반응=反応 (リアクション 금지) / 감상=感想 /
+        가상의·가공의=架空の (仮想 금지. 일본어 '仮想'은 가상현실 쪽 말입니다)
+
+        아래는 웹 서비스 '가공독서회'의 후보 도서 카드에 실릴 글입니다. 일본어로 옮겨 주세요.
+
+        [원문 JSON]
+        {json.dumps(source, ensure_ascii=False, indent=2)}
+
+        [번역 원칙]
+        1. 직역하지 마세요. 일본어로 처음부터 쓰인 문장처럼 읽히게 하세요.
+        2. 사람 이름은 번역하지 말고 가타카나로 음차하세요.
+        3. 제목은 음차가 아니라 뜻이 전해지는 일본어 제목으로 옮기세요.
+        4. _tags는 '#'로 시작하는 항목을 쉼표로 이은 목록입니다. 항목 수와
+           '#', ',' 구조를 그대로 두고 낱말만 일본어로 바꾸세요.
+        5. 한국어를 한 글자도 남기지 마세요.
+        6. 입력과 완전히 같은 키를 가진 JSON 객체 하나만 출력하세요.
+        7. 마크다운 코드펜스나 설명 없이 JSON만 출력하세요.
+        """
+
+    data = await _gemini_json(prompt)
+    if not isinstance(data, dict):
+        print("[i18n] 후보 번역 실패 — 응답이 JSON이 아니다")
+        return
+
+    for idx, c in enumerate(targets, 1):
+        got = {}
+        for field in ("title", "author", "genre", "synopsis", "tags"):
+            v = data.get(f"b{idx}_{field}")
+            if isinstance(v, str) and v.strip():
+                got[field] = v.strip()
+        if got:
+            c.i18n_ja = json.dumps(got, ensure_ascii=False)
+
 
 def serialize_candidate(c: models.CandidateBook) -> dict:
     """
@@ -2414,6 +2520,8 @@ def serialize_candidate(c: models.CandidateBook) -> dict:
         "color": c.color,
         "cover_image_url": c.cover_image_url,
         "page_count": c.page_count,
+        # 후보 카드도 화면 언어를 따라가야 한다.
+        "i18n_ja": c.i18n_ja,
     }
 
 
@@ -2499,6 +2607,12 @@ async def adopt_candidate(
         deadline_days=10,
         is_archived=False
     )
+
+    # 후보를 고를 때 이미 번역해 둔 칸을 그대로 물려준다. 전체 번역이 끝나기
+    # 전에도 제목과 줄거리가 일본어로 보여, 한국어가 비치는 틈이 없다.
+    if (candidate.i18n_ja or "").strip():
+        new_book.i18n_ja = candidate.i18n_ja
+
     db.add(new_book)
     
     # 상태 업데이트: 선택된 애는 adopted, 나머지 pending 상태인 것들(이전 호출의 찌꺼기들 포함)은 pool로 전환

@@ -1736,6 +1736,19 @@ function renderGenreSection() {
       }
     }
 
+    // 후보 카드의 한 칸을 화면 언어로 꺼낸다.
+    // bookField()와 같은 일을 하지만, 후보는 i18n_ja가 아직 없을 수 있어
+    // (번역 실패·구버전 데이터) 그때는 원문으로 떨어진다.
+    function candField(c, field) {
+      if (CURRENT_LANG === 'ja' && c && c.i18n_ja) {
+        try {
+          var ja = (typeof c.i18n_ja === 'string') ? JSON.parse(c.i18n_ja) : c.i18n_ja;
+          if (ja && ja[field]) return ja[field];
+        } catch (e) { /* 깨졌으면 원문을 쓴다 */ }
+      }
+      return (c && c[field]) || '';
+    }
+
     function renderCandidates(candidates) {
       var container = document.getElementById('candidates-container');
       if (!container) return;
@@ -1744,12 +1757,12 @@ function renderGenreSection() {
         var card = document.createElement('div');
         card.className = 'candidate-card';
         card.innerHTML = 
-          '<div class="card-cover" id="cand-cover-' + c.id + '" style="' + getCoverCss(c) + '">' + escHtml(c.title) + '</div>' +
+          '<div class="card-cover" id="cand-cover-' + c.id + '" style="' + getCoverCss(c) + '">' + escHtml(candField(c, 'title')) + '</div>' +
           '<div class="card-body">' +
-            '<span class="card-genre">' + escHtml(c.genre) + '</span>' +
-            '<div class="card-title">' + escHtml(c.title) + '</div>' +
-            '<div class="card-author">' + escHtml(c.author) + '</div>' +
-            '<div class="card-synopsis">' + escHtml(c.synopsis) + '</div>' +
+            '<span class="card-genre">' + escHtml(translateGenre(c.genre)) + '</span>' +
+            '<div class="card-title">' + escHtml(candField(c, 'title')) + '</div>' +
+            '<div class="card-author">' + escHtml(candField(c, 'author')) + '</div>' +
+            '<div class="card-synopsis">' + escHtml(candField(c, 'synopsis')) + '</div>' +
             '<div style="margin-top:auto"><button class="btn-adopt" onclick="adoptCandidate(' + c.id + ')">' + t('cand_select_btn') + '</button></div>' +
           '</div>';
         container.appendChild(card);
