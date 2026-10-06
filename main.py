@@ -572,12 +572,15 @@ async def ensure_nickname_ja(nickname: str) -> str:
 
 
 # 모델 체인 전체에 허용할 시간. 이 값을 넘기면 남은 모델은 시도하지 않는다.
-# Nginx가 90초에서 끊으므로 그보다 넉넉히 앞에서 멈춰, 호출한 쪽이 폴백을
-# 준비하고 응답까지 마칠 틈을 남긴다.
+# 사람이 기다리는 요청은 Nginx가 90초에서 끊으므로 그보다 앞에서 멈춰,
+# 호출한 쪽이 폴백을 준비하고 응답까지 마칠 틈을 남긴다.
 GEMINI_CHAIN_BUDGET = 45.0
+# 뒤에서 도는 작업에는 기다리는 사람이 없다. 끝까지 내려가 성공할 여지를 준다.
+GEMINI_CHAIN_BUDGET_BACKGROUND = 240.0
 
 
-async def gemini_request(payload: dict, timeout: float, label: str = "Gemini"):
+async def gemini_request(payload: dict, timeout: float, label: str = "Gemini",
+                         budget: float = GEMINI_CHAIN_BUDGET):
     """Gemini를 호출한다. 기본 모델이 붐비거나(503) 한도를 넘으면(429) 대체 모델로 넘어간다.
 
     예전에는 모델 하나만 불렀다. 그 모델이 잠시 과부하면 곧바로 템플릿으로 떨어져,
@@ -593,11 +596,11 @@ async def gemini_request(payload: dict, timeout: float, label: str = "Gemini"):
     started = time.monotonic()
     for model in [config.GEMINI_MODEL] + list(config.GEMINI_FALLBACK_MODELS):
         spent = time.monotonic() - started
-        if spent >= GEMINI_CHAIN_BUDGET:
+        if spent >= budget:
             print(f"[{label}] {spent:.0f}초 소진 — 남은 모델은 건너뛴다")
             break
         # 남은 예산보다 긴 대기는 의미가 없다.
-        step_timeout = min(timeout, GEMINI_CHAIN_BUDGET - spent)
+        step_timeout = min(timeout, budget - spent)
         url = f"https://generativelanguage.googleapis.com/v1beta/models/{model}:generateContent"
         try:
             async with httpx.AsyncClient() as _client:
@@ -1162,7 +1165,7 @@ async def trigger_ai_moderator_response(book_id: int, user_message_id: int = Non
             
             moderator_content = None
             try:
-                response = await gemini_request(payload, 20.0, "AI 사회자")
+                response = await gemini_request(payload, 20.0, "AI 사회자", budget=GEMINI_CHAIN_BUDGET_BACKGROUND)
                 if response is not None and response.status_code == 200:
                     result = response.json()
                     moderator_content = result['candidates'][0]['content']['parts'][0]['text'].strip()
@@ -3654,7 +3657,7 @@ async def _gemini_json(prompt: str, timeout: float = 40.0):
         "generationConfig": {"temperature": 0.3, "maxOutputTokens": 8192},
     }
     try:
-        r = await gemini_request(payload, timeout, "i18n")
+        r = await gemini_request(payload, timeout, "i18n", budget=GEMINI_CHAIN_BUDGET_BACKGROUND)
         if r is None or r.status_code != 200:
             return None
         text = r.json()["candidates"][0]["content"]["parts"][0]["text"].strip()
@@ -4037,7 +4040,7 @@ async def translate_moderator_message_to_ja(message_id: int, is_past: bool = Fal
             "contents": [{"parts": [{"text": prompt}]}],
             "generationConfig": {"temperature": 0.3, "maxOutputTokens": 4096},
         }
-        r = await gemini_request(payload, 30.0, "i18n")
+        r = await gemini_request(payload, 30.0, "i18n", budget=GEMINI_CHAIN_BUDGET_BACKGROUND)
         if r is None or r.status_code != 200:
             return False
         text = strip_chat_emoji(r.json()["candidates"][0]["content"]["parts"][0]["text"].strip())
@@ -4208,7 +4211,7 @@ async def generate_closing_remark(book_id: int):
             # 2.5 Flash는 추론 토큰을 먼저 쓰므로 넉넉히 잡아야 본문이 잘리지 않는다
             "generationConfig": {"temperature": 0.7, "maxOutputTokens": 4096},
         }
-        response = await gemini_request(payload, 25.0, "Closing")
+        response = await gemini_request(payload, 25.0, "Closing", budget=GEMINI_CHAIN_BUDGET_BACKGROUND)
         if response is None or response.status_code != 200:
             print(f"[Closing] Gemini 응답 오류 {response.status_code} (book {book_id})")
             return
