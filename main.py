@@ -1225,6 +1225,25 @@ def ja_missing_fields(book) -> list:
         src = getattr(book, f, None)
         if isinstance(src, str) and src.strip() and not str(have.get(f) or "").strip():
             missing.append(f)
+
+    # 목차는 한 장이라도 덜 되면 통째로 저장하지 않는다. 그 상태를 알아채지
+    # 못하면 되채우기 대상에서 빠져 영영 원문 목차로 남는다.
+    try:
+        src_toc = (json.loads(book.immersion_data or "{}")).get("table_of_contents") or []
+    except Exception:
+        src_toc = []
+    if src_toc:
+        try:
+            ja_toc = (json.loads(have.get("immersion_data") or "{}")).get("table_of_contents") or []
+        except Exception:
+            ja_toc = []
+        # 길이가 모자라거나, 이미 저장된 목차에 한글이 남아 있으면 미완성이다.
+        # (예전 코드는 번역 안 된 장의 원문을 그대로 넣어 저장했다)
+        toc_dirty = any(has_hangul(str(ch.get(k) or ""))
+                        for ch in ja_toc if isinstance(ch, dict)
+                        for k in ("title", "summary", "chapter_number"))
+        if len(ja_toc) < len(src_toc) or toc_dirty:
+            missing.append("immersion_data")
     return missing
 
 
@@ -3806,19 +3825,27 @@ async def translate_book_to_ja(book_id: int, force: bool = False) -> bool:
         # 장 번호는 규칙대로 일본어 표기로 바꾼다.
         if toc_src:
             toc_ja = []
+            toc_short = []          # 번역이 덜 된 칸
             for _i, _item in enumerate(toc_src, 1):
                 if not isinstance(_item, dict):
                     continue
                 _new = dict(_item)
                 if _new.get("chapter_number"):
                     _new["chapter_number"] = chapter_label_ja(_new["chapter_number"])
-                if f"toc{_i}_title" in cleaned:
-                    _new["title"] = cleaned.pop(f"toc{_i}_title")
-                if f"toc{_i}_summary" in cleaned:
-                    _new["summary"] = cleaned.pop(f"toc{_i}_summary")
+                for _f in ("title", "summary"):
+                    _key = f"toc{_i}_{_f}"
+                    if _key in cleaned:
+                        _new[_f] = cleaned.pop(_key)
+                    elif str(_item.get(_f) or "").strip():
+                        toc_short.append(_key)
                 toc_ja.append(_new)
-            if toc_ja:
+
+            # 한 장이라도 덜 되었으면 저장하지 않는다. 섞인 목차를 내보내느니
+            # 화면의 일본어 대체 목차를 쓰게 두고, 다음 바퀴에 다시 시도한다.
+            if toc_ja and not toc_short:
                 cleaned["immersion_data"] = json.dumps({"table_of_contents": toc_ja}, ensure_ascii=False)
+            elif toc_short:
+                print(f"[i18n] book {book_id} 목차 미완성 {toc_short} — 목차는 저장하지 않습니다.")
 
         # 이번에 통과한 칸만 들어 있으므로, 전에 저장해 둔 것 위에 덮어쓴다.
         # 통째로 바꾸면 후보에서 물려받은 칸이나 지난번에 성공한 칸이 사라진다.
