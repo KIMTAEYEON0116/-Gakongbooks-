@@ -6,6 +6,8 @@
 """
 
 import threading
+
+import i18n
 import time
 from typing import Dict, List
 
@@ -22,10 +24,14 @@ class RateLimiter:
     다중 워커로 운영할 계획이라면 이 클래스의 _hits 저장소만 Redis 등으로 교체하면 된다.
     """
 
-    def __init__(self, max_attempts: int, window_seconds: int, message: str):
+    def __init__(self, max_attempts: int, window_seconds: int,
+                 message: str, message_ja: str = ""):
         self.max_attempts = max_attempts
         self.window_seconds = window_seconds
+        # 문구를 두 언어로 들고 있다가 던지는 순간에 고른다.
+        # 여기서 하나로 정해 버리면 요청 언어를 따라갈 수 없다.
         self.message = message
+        self.message_ja = message_ja or message
         self._hits: Dict[str, List[float]] = {}
         self._lock = threading.Lock()
 
@@ -42,9 +48,10 @@ class RateLimiter:
         with self._lock:
             recent = self._prune(key, time.time())
             if len(recent) >= self.max_attempts:
+                text = i18n.m(self.message, self.message_ja)
                 raise HTTPException(
                     status_code=status.HTTP_429_TOO_MANY_REQUESTS,
-                    detail=self.message.format(minutes=max(1, self.window_seconds // 60)),
+                    detail=text.format(minutes=max(1, self.window_seconds // 60)),
                 )
 
     def record(self, key: str) -> None:

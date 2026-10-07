@@ -1719,18 +1719,22 @@ def signup(
 LOGIN_IP_LIMITER = security.RateLimiter(
     max_attempts=10, window_seconds=15 * 60,
     message="로그인 시도가 너무 많습니다. {minutes}분 후 다시 시도해주세요.",
+    message_ja="ログインの試行が多すぎます。{minutes}分後にもう一度お試しください。",
 )
 LOGIN_ACCOUNT_LIMITER = security.RateLimiter(
     max_attempts=20, window_seconds=15 * 60,
     message="이 계정에 대한 로그인 시도가 너무 많습니다. {minutes}분 후 다시 시도해주세요.",
+    message_ja="このアカウントへのログイン試行が多すぎます。{minutes}分後にもう一度お試しください。",
 )
 SIGNUP_LIMITER = security.RateLimiter(
     max_attempts=5, window_seconds=60 * 60,
     message="회원가입 요청이 너무 많습니다. {minutes}분 후 다시 시도해주세요.",
+    message_ja="会員登録の要求が多すぎます。{minutes}分後にもう一度お試しください。",
 )
 PASSWORD_RESET_LIMITER = security.RateLimiter(
     max_attempts=3, window_seconds=60 * 60,
     message="비밀번호 재설정 요청이 너무 많습니다. {minutes}분 후 다시 시도해주세요.",
+    message_ja="パスワード再設定の要求が多すぎます。{minutes}分後にもう一度お試しください。",
 )
 # 링크 '발송 요청'과 링크를 받은 뒤의 '비밀번호 제출'은 제한기를 나눠야 한다.
 # 같은 제한기를 쓰면, 메일을 3번 요청한 사람이 정작 링크를 눌러 새 비밀번호를 넣을 때 막힌다.
@@ -1740,16 +1744,19 @@ PASSWORD_RESET_LIMITER = security.RateLimiter(
 MODERATOR_MENTION_LIMITER = security.RateLimiter(
     max_attempts=3, window_seconds=5 * 60,
     message="AI 사회자는 잠시 후에 다시 불러주세요. {minutes}분 후 다시 응답합니다.",
+    message_ja="AI司会者は少し時間を置いてからお呼びください。{minutes}分後にまたお答えします。",
 )
 
 CHAT_SEND_LIMITER = security.RateLimiter(
     max_attempts=10, window_seconds=60,
     message="대화를 너무 빠르게 보내고 있습니다. 잠시 후 다시 시도해주세요.",
+    message_ja="メッセージの送信が速すぎます。少し時間を置いてからお試しください。",
 )
 
 PASSWORD_SUBMIT_LIMITER = security.RateLimiter(
     max_attempts=10, window_seconds=60 * 60,
     message="비밀번호 재설정 시도가 너무 많습니다. {minutes}분 후 다시 시도해주세요.",
+    message_ja="パスワード再設定の試行が多すぎます。{minutes}分後にもう一度お試しください。",
 )
 
 
