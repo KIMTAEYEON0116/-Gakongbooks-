@@ -1053,6 +1053,56 @@ def seed_lost_voyage_book_if_needed(db: Session):
         m10 = models.ChatMessage(book_id=book.id, user_id=user_map["단안경사색가"].id, content="맞아요! 상처 입은 렌즈로 보았기에 비로소 타인의 아픔을 가장 온전하게 품을 수 있었던 테오의 눈빛이 오래도록 잔상으로 남네요. 역대 최고의 활성화 독서방이었습니다", reply_to_id=m9.id, created_at=dt_july31_4)
         db.add(m10); db.commit(); db.refresh(m10)
 
+def nickname_ja_or_same(db: Session, nickname: str) -> str:
+    """저장된 일본어 닉네임 표기를 꺼낸다. 없으면 원문을 그대로 쓴다.
+
+    여기서는 새로 만들지 않는다 — 부를 수 있는 상황이었다면 애초에
+    사회자 답변이 나왔을 것이다.
+    """
+    if not nickname:
+        return nickname
+    row = db.query(models.NicknameI18n).filter(
+        models.NicknameI18n.nickname == nickname).first()
+    return (row.nickname_ja if row and row.nickname_ja else nickname)
+
+
+def moderator_fallback_text(db: Session, book, user_message) -> tuple:
+    """사회자가 AI 없이 답해야 할 때 쓸 문구를 한국어·일본어로 만든다.
+
+    이미 저장된 번역본만 조합한다. 외부 호출을 하지 않으므로, 한도가 바닥나
+    AI가 멎은 상황에서도 두 언어가 함께 나온다.
+    """
+    ja = get_book_i18n(book, "ja")
+    title_ko = book.title or ""
+    title_ja = ja.get("title") or title_ko
+
+    if user_message:
+        nick_ko = user_message.user.nickname
+        nick_ja = nickname_ja_or_same(db, nick_ko)
+        return (
+            f"{nick_ko}님, 좋은 관점입니다. 『{title_ko}』의 상징적인 표현들에 대해 "
+            f"다들 어떻게 느끼셨나요?",
+            f"{nick_ja}さん、よい視点ですね。『{title_ja}』の象徴的な表現について、"
+            f"皆さんはどう感じられましたか。",
+        )
+
+    def pick(raw, default):
+        items = [q.strip() for q in (raw or "").split("|") if q.strip()]
+        return items[0] if items else default
+
+    q_ko = pick(book.additional_questions,
+                book.core_dilemma or "이 책의 주인공의 선택에 대해 어떻게 생각하시나요?")
+    q_ja = pick(ja.get("additional_questions"),
+                ja.get("core_dilemma") or "この本の主人公の選択について、どうお考えですか。")
+
+    return (
+        f"독자님들의 흥미로운 의견 잘 듣고 있습니다. 토론을 더 깊이 이어가기 위해 "
+        f"질문을 드려요. {q_ko}",
+        f"皆様の興味深いご意見を拝見しています。対話をもう一歩深めるために、"
+        f"ひとつお尋ねします。{q_ja}",
+    )
+
+
 async def trigger_ai_moderator_response(book_id: int, user_message_id: int = None):
     """
     백그라운드 스레드에서 작동하여 책 정보와 최근 독자 대화를 바탕으로
@@ -1089,17 +1139,13 @@ async def trigger_ai_moderator_response(book_id: int, user_message_id: int = Non
         if user_message_id:
             user_message = db.query(models.ChatMessage).filter(models.ChatMessage.id == user_message_id).first()
 
+        # AI 없이 지은 문구를 쓸 때 담아 둘 일본어본. 호출이 성공하면 비어 있다.
+        fallback_ja = None
+
         gemini_key = os.getenv("GEMINI_API_KEY")
         if not gemini_key or gemini_key == "YOUR_GEMINI_API_KEY_HERE":
-            # Fallback 질문 선택
-            if user_message:
-                moderator_content = f"{user_message.user.nickname}님, 흥미로운 질문이네요! 『{book.title}』의 세계관에서는 말씀해주신 부분 외에도 다양한 해석의 갈래가 존재한답니다. 다른 독자님들은 어떻게 생각하시나요?"
-            else:
-                questions = book.additional_questions.split("|") if book.additional_questions else []
-                if not questions:
-                    questions = [book.core_dilemma] if book.core_dilemma else ["이 책의 주인공의 선택에 대해 어떻게 생각하시나요?"]
-                chosen_q = random.choice(questions)
-                moderator_content = f"독자님들의 흥미로운 의견 잘 듣고 있습니다. 토론을 더 깊이 이어가기 위해 질문을 드려요. {chosen_q}"
+            # 키가 없으면 호출 자체가 불가능하다. 준비된 문구로 답한다.
+            moderator_content, fallback_ja = moderator_fallback_text(db, book, user_message)
         else:
             if user_message:
                 prompt = f"""
@@ -1174,15 +1220,10 @@ async def trigger_ai_moderator_response(book_id: int, user_message_id: int = Non
                 print(f"Error calling Gemini in AI moderator task: {e}")
                 
             if not moderator_content:
-                # Fallback on failure
-                if user_message:
-                    moderator_content = f"{user_message.user.nickname}님, 좋은 관점입니다. 『{book.title}』의 상징적인 표현들에 대해 다들 어떻게 느끼셨나요?"
-                else:
-                    questions = book.additional_questions.split("|") if book.additional_questions else []
-                    if not questions:
-                        questions = [book.core_dilemma] if book.core_dilemma else ["이 책의 주인공의 선택에 대해 어떻게 생각하시나요?"]
-                    chosen_q = random.choice(questions)
-                    moderator_content = f"독자님들의 흥미로운 의견 잘 듣고 있습니다. 토론을 더 깊이 이어가기 위해 질문을 드려요. {chosen_q}"
+                # AI가 답하지 못했다. 미리 준비한 문구로 답하되, 일본어도 같이 만든다.
+                # 번역을 부를 수 있는 상황이 아니므로(같은 이유로 실패한다)
+                # 저장된 번역본만 조합해 그 자리에서 짓는다.
+                moderator_content, fallback_ja = moderator_fallback_text(db, book, user_message)
                 
         # DB 저장 (문장이 잘리지 않도록 안전 마감 처리)
         final_content = moderator_content.strip()
@@ -1205,10 +1246,16 @@ async def trigger_ai_moderator_response(book_id: int, user_message_id: int = Non
         print(f"AI Moderator message posted in book {book_id}: {moderator_content}")
 
         # 사회자 발언은 화면에 그대로 노출되므로 일본어본도 만들어 둔다.
-        try:
-            await translate_moderator_message_to_ja(db_msg.id)
-        except Exception as e:
-            print(f"[i18n] 사회자 답변 번역 실패 (msg {db_msg.id}): {type(e).__name__}")
+        if fallback_ja:
+            # AI 없이 지은 문구다. 일본어가 이미 손에 있으니 번역을 부르지 않는다.
+            db_msg.content_ja = strip_chat_emoji(fallback_ja.strip())
+            db.commit()
+            print(f"[i18n] 사회자 대비 문구 — 일본어도 함께 저장 (msg {db_msg.id})")
+        else:
+            try:
+                await translate_moderator_message_to_ja(db_msg.id)
+            except Exception as e:
+                print(f"[i18n] 사회자 답변 번역 실패 (msg {db_msg.id}): {type(e).__name__}")
     except Exception as e:
         print(f"Error in trigger_ai_moderator_response background task: {e}")
     finally:
