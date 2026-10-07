@@ -4393,6 +4393,7 @@ async def realtime_archive_loop():
 _SCHEMA_PATCHES = [
     ("books", "closing_remark", "TEXT NULL"),
     ("books", "i18n_ja", "TEXT NULL"),
+    ("candidate_books", "i18n_ja", "TEXT NULL"),
     ("chat_messages", "content_ja", "TEXT NULL"),
     ("past_chat_messages", "content_ja", "TEXT NULL"),
 ]

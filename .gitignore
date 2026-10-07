@@ -30,7 +30,8 @@ index_standalone.html
 index_standalone.html.bak
 
 # IDE 및 도구 로컬 설정
-.claude/settings.local.json
+# .claude는 개발 도구가 쓰는 폴더다. 프로젝트 코드가 아니므로 통째로 제외한다.
+.claude/
 .vscode/
 .idea/
 
