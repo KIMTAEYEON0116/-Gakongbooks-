@@ -42,18 +42,18 @@ GENRE_FALLBACKS = {
             "concrete": ["은빛 티아라", "장미 봉인", "달빛 정원", "마법 거울",
                          "쌍둥이 반지", "백야의 탑", "유리 구두", "검은 깃털 펜"],
             "title": ["{concrete}에 걸린 {abstract}",
-                      "{abstract}을 봉인한 {concrete}",
+                      "{abstract}{eul_a} 봉인한 {concrete}",
                       "{concrete}의 밤, {abstract}의 아침",
-                      "{abstract}과 {concrete}의 서약"],
+                      "{abstract}{wa_a} {concrete}의 서약"],
             "synopsis": [
-                "왕국의 끝자락에서 {concrete}을 지키며 살아온 주인공은, 그것이 {abstract}의 증표였음을 알게 된다. 봉인을 풀 수 있는 사람은 단 한 명뿐이고, 그 사람은 하필 가장 멀리 있어야 할 상대였다.",
-                "{abstract}을 대가로 {concrete}을 손에 넣은 밤부터 모든 것이 어긋나기 시작한다. 되돌리려 할수록 마음은 깊어지고, 깊어질수록 대가는 커진다.",
-                "해마다 {concrete}이 빛나는 하루, 왕궁은 {abstract}을 치른다. 올해 선택된 사람은 그 의식의 진짜 의미를 아는 유일한 사람이었다.",
+                "왕국의 끝자락에서 {concrete}{eul_c} 지키며 살아온 주인공은, 그것이 {abstract}의 증표였음을 알게 된다. 봉인을 풀 수 있는 사람은 단 한 명뿐이고, 그 사람은 하필 가장 멀리 있어야 할 상대였다.",
+                "{abstract}{eul_a} 대가로 {concrete}{eul_c} 손에 넣은 밤부터 모든 것이 어긋나기 시작한다. 되돌리려 할수록 마음은 깊어지고, 깊어질수록 대가는 커진다.",
+                "해마다 {concrete}{i_c} 빛나는 하루, 왕궁은 {abstract}{eul_a} 치른다. 올해 선택된 사람은 그 의식의 진짜 의미를 아는 유일한 사람이었다.",
             ],
             "endorsement": ["{concrete}의 반짝임 뒤에 {abstract}의 그림자를 숨겨 둔, 단정하고 아픈 로맨스.",
-                            "{abstract}을 이토록 다정하게 저주처럼 그려낸 작품은 드물다."],
+                            "{abstract}{eul_a} 이토록 다정하게 저주처럼 그려낸 작품은 드물다."],
             "attr": ["로맨스 판타지 평론가", "장르소설 서평가"],
-            "review": ["{concrete}이라는 상징 하나로 {abstract}의 밀도를 끝까지 끌고 간다. 설렘과 비극이 같은 온도로 놓인 보기 드문 로맨스 판타지.",
+            "review": ["{concrete}{ira_c} 상징 하나로 {abstract}의 밀도를 끝까지 끌고 간다. 설렘과 비극이 같은 온도로 놓인 보기 드문 로맨스 판타지.",
                        "달콤함에 기대지 않는다. {abstract}의 대가를 끝까지 치르게 하면서도 독자를 놓지 않는 솜씨가 돋보인다."],
             "tag": "로맨스판타지",
         },
@@ -86,19 +86,19 @@ GENRE_FALLBACKS = {
                          "짝사랑", "졸업의 계절", "말하지 못한 마음", "빛나던 하루"],
             "concrete": ["교복 리본", "자전거 뒷자리", "옥상 난간", "편의점 우산",
                          "낡은 이어폰", "폴라로이드 사진", "체육관 조명", "벚꽃 가로수"],
-            "title": ["{concrete}와 {abstract}",
-                      "{abstract}을 닮은 {concrete}",
+            "title": ["{concrete}{wa_c} {abstract}",
+                      "{abstract}{eul_a} 닮은 {concrete}",
                       "{concrete} 아래에서, {abstract}",
                       "그해 {abstract}, {concrete}의 기억"],
             "synopsis": [
-                "{concrete}을 사이에 두고 나란히 선 두 사람의 열일곱. 말해야 할 것은 분명한데 {abstract}은 늘 한 박자 늦게 도착한다.",
-                "졸업을 앞둔 교실에서 주인공은 {concrete}을 발견한다. 거기 적힌 이름이 {abstract}의 정체를 조용히 알려준다.",
-                "여름이 끝나기 전에 끝내야 할 것이 있었다. {concrete}을 돌려주는 일, 그리고 {abstract}을 인정하는 일.",
+                "{concrete}{eul_c} 사이에 두고 나란히 선 두 사람의 열일곱. 말해야 할 것은 분명한데 {abstract}{eun_a} 늘 한 박자 늦게 도착한다.",
+                "졸업을 앞둔 교실에서 주인공은 {concrete}{eul_c} 발견한다. 거기 적힌 이름이 {abstract}의 정체를 조용히 알려준다.",
+                "여름이 끝나기 전에 끝내야 할 것이 있었다. {concrete}{eul_c} 돌려주는 일, 그리고 {abstract}{eul_a} 인정하는 일.",
             ],
             "endorsement": ["{concrete} 하나로 {abstract}의 온도를 복원해낸다. 읽는 내내 그 계절에 서 있었다.",
                             "서툴러서 더 선명한 {abstract}. 끝까지 담백해서 더 오래 남는다."],
             "attr": ["청춘소설 평론가", "독서 칼럼니스트"],
-            "review": ["크게 사건을 벌이지 않는다. {concrete}을 주고받는 사소한 장면에 {abstract}의 무게를 전부 실어 보낸다.",
+            "review": ["크게 사건을 벌이지 않는다. {concrete}{eul_c} 주고받는 사소한 장면에 {abstract}의 무게를 전부 실어 보낸다.",
                        "{abstract}의 끝을 미화하지 않는 점이 좋다. 그래서 마지막 장이 더 다정하게 읽힌다."],
             "tag": "청춘",
         },
@@ -131,19 +131,19 @@ GENRE_FALLBACKS = {
                          "다정한 안부", "괜찮다는 말", "쉼표 하나", "오래 가는 온기"],
             "concrete": ["동네 빵집", "창가 자리", "담요와 찻잔", "베란다 화분",
                          "오래된 라디오", "고양이 발자국", "자전거 바구니", "수선집 재봉틀"],
-            "title": ["{concrete}과 {abstract}",
-                      "{abstract}이 머무는 {concrete}",
+            "title": ["{concrete}{wa_c} {abstract}",
+                      "{abstract}{i_a} 머무는 {concrete}",
                       "{concrete}에서 보낸 계절",
                       "오늘의 {concrete}, 오늘의 {abstract}"],
             "synopsis": [
-                "도시를 떠나 작은 동네에 자리 잡은 주인공은 {concrete} 곁에서 하루를 보낸다. 대단한 일은 일어나지 않지만, {abstract}은 그 자리에서 천천히 자란다.",
-                "{concrete}을 돌보는 일이 전부인 나날. 그 사소한 반복이 어느 날 {abstract}이 되어 돌아온다.",
-                "아무것도 하지 않기로 한 한 달. 주인공은 {concrete} 앞에 앉아 {abstract}이 무엇이었는지 처음으로 생각한다.",
+                "도시를 떠나 작은 동네에 자리 잡은 주인공은 {concrete} 곁에서 하루를 보낸다. 대단한 일은 일어나지 않지만, {abstract}{eun_a} 그 자리에서 천천히 자란다.",
+                "{concrete}{eul_c} 돌보는 일이 전부인 나날. 그 사소한 반복이 어느 날 {abstract}{i_a} 되어 돌아온다.",
+                "아무것도 하지 않기로 한 한 달. 주인공은 {concrete} 앞에 앉아 {abstract}{i_a} 무엇이었는지 처음으로 생각한다.",
             ],
-            "endorsement": ["읽는 속도가 저절로 느려진다. {concrete} 곁에 앉아 {abstract}을 받아 적은 책.",
+            "endorsement": ["읽는 속도가 저절로 느려진다. {concrete} 곁에 앉아 {abstract}{eul_a} 받아 적은 책.",
                             "위로하려 들지 않아서 더 위로가 된다."],
             "attr": ["에세이스트", "서점원"],
-            "review": ["{concrete}이라는 작은 무대 안에서만 이야기가 흐른다. 그 좁음이 답답하지 않고 오히려 {abstract}의 자리를 넓힌다.",
+            "review": ["{concrete}{ira_c} 작은 무대 안에서만 이야기가 흐른다. 그 좁음이 답답하지 않고 오히려 {abstract}의 자리를 넓힌다.",
                        "사건 대신 계절이 지나간다. 다 읽고 나면 자기 하루를 조금 다르게 보게 된다."],
             "tag": "힐링",
         },
@@ -181,15 +181,15 @@ GENRE_FALLBACKS = {
                       "{concrete} 앞에서 무너진 {abstract}",
                       "{abstract}, 그래도 오늘은 {concrete}"],
             "synopsis": [
-                "{concrete} 앞에서 어른인 척하기란 생각보다 어렵다. 저자는 {abstract}이 무너지는 순간들을 하나씩 받아 적었다.",
-                "{abstract}을 지키려다 벌어진 일들의 기록. 대부분은 {concrete} 근처에서 시작되고, 전부 민망하게 끝난다.",
-                "누구에게도 자랑할 수 없는 {abstract}의 연대기. 읽다 보면 {concrete}을 볼 때마다 이 책이 떠오를 것이다.",
+                "{concrete} 앞에서 어른인 척하기란 생각보다 어렵다. 저자는 {abstract}{i_a} 무너지는 순간들을 하나씩 받아 적었다.",
+                "{abstract}{eul_a} 지키려다 벌어진 일들의 기록. 대부분은 {concrete} 근처에서 시작되고, 전부 민망하게 끝난다.",
+                "누구에게도 자랑할 수 없는 {abstract}의 연대기. 읽다 보면 {concrete}{eul_c} 볼 때마다 이 책이 떠오를 것이다.",
             ],
-            "endorsement": ["웃기려 애쓰지 않는데 자꾸 웃긴다. {abstract}을 이렇게 성실하게 기록한 사람이 또 있을까.",
+            "endorsement": ["웃기려 애쓰지 않는데 자꾸 웃긴다. {abstract}{eul_a} 이렇게 성실하게 기록한 사람이 또 있을까.",
                             "{concrete} 이야기만으로 한 권을 끌고 간다. 재주다."],
             "attr": ["유머 에세이스트", "칼럼니스트"],
-            "review": ["웃음의 끝에 머쓱한 공감이 남는다. {abstract}은 결국 모두의 것이었다.",
-                       "{concrete}이라는 지극히 평범한 소재에서 이만한 이야기를 길어 올린다."],
+            "review": ["웃음의 끝에 머쓱한 공감이 남는다. {abstract}{eun_a} 결국 모두의 것이었다.",
+                       "{concrete}{ira_c} 지극히 평범한 소재에서 이만한 이야기를 길어 올린다."],
             "tag": "유머",
         },
         "ja": {
@@ -221,19 +221,19 @@ GENRE_FALLBACKS = {
                          "마지막 신호", "복제된 자아", "침묵하는 우주", "중력의 기억"],
             "concrete": ["관측소 돔", "항행 일지", "냉동 수면관", "통신 안테나",
                          "폐기된 탐사선", "산소 계기판", "외계 표본함", "중력 추"],
-            "title": ["{concrete}가 기록한 {abstract}",
+            "title": ["{concrete}{i_c} 기록한 {abstract}",
                       "{abstract}, 그리고 {concrete}",
                       "{concrete} 너머의 {abstract}",
                       "{abstract}에 관한 마지막 보고서"],
             "synopsis": [
                 "항로를 벗어난 탐사선에서 {concrete}만이 작동을 멈추지 않았다. 대원들은 거기 남은 기록에서 {abstract}의 흔적을 읽어낸다.",
-                "지구와의 교신이 끊긴 지 사백 일. {concrete}이 수신한 짧은 신호가 {abstract}이라는 가설을 다시 꺼내 놓는다.",
-                "임무는 단순했다. {concrete}을 회수해 돌아올 것. 그러나 회수한 순간부터 {abstract}이 시작된다.",
+                "지구와의 교신이 끊긴 지 사백 일. {concrete}{i_c} 수신한 짧은 신호가 {abstract}{ira_a} 가설을 다시 꺼내 놓는다.",
+                "임무는 단순했다. {concrete}{eul_c} 회수해 돌아올 것. 그러나 회수한 순간부터 {abstract}{i_a} 시작된다.",
             ],
-            "endorsement": ["차갑고 정확하다. {concrete}이라는 장치 하나로 {abstract}의 공포를 끝까지 밀어붙인다.",
+            "endorsement": ["차갑고 정확하다. {concrete}{ira_c} 장치 하나로 {abstract}의 공포를 끝까지 밀어붙인다.",
                             "우주를 배경으로 쓰였지만, 끝내 묻는 것은 사람의 {abstract}이다."],
             "attr": ["SF 평론가", "과학 저널리스트"],
-            "review": ["설정에 기대지 않는다. {concrete}의 작은 오차가 쌓여 {abstract}이라는 결론에 닿는 구성이 단단하다.",
+            "review": ["설정에 기대지 않는다. {concrete}의 작은 오차가 쌓여 {abstract}{ira_a} 결론에 닿는 구성이 단단하다.",
                        "경이로움보다 불안을 택한 SF. 마지막 장을 덮고도 신호음이 남는다."],
             "tag": "SF",
         },
@@ -266,16 +266,16 @@ GENRE_FALLBACKS = {
                          "되감긴 시간", "거짓의 무게", "마지막 목격", "열세 번째 손님"],
             "concrete": ["멈춘 괘종시계", "잠긴 서랍", "비 오는 정류장", "깨진 안경알",
                          "호텔 열쇠고리", "젖은 발자국", "유리 재떨이", "낡은 등기부"],
-            "title": ["{concrete}와 {abstract}",
+            "title": ["{concrete}{wa_c} {abstract}",
                       "{abstract}: {concrete}의 증언",
-                      "{concrete}은 알고 있었다",
-                      "{abstract}을 덮은 {concrete}"],
+                      "{concrete}{eun_c} 알고 있었다",
+                      "{abstract}{eul_a} 덮은 {concrete}"],
             "synopsis": [
-                "현장에 남은 것은 {concrete} 하나뿐이었다. 수사가 막힐 때마다 그 물건은 {abstract}을 가리키지만, 가리키는 방향은 매번 달라진다.",
+                "현장에 남은 것은 {concrete} 하나뿐이었다. 수사가 막힐 때마다 그 물건은 {abstract}{eul_a} 가리키지만, 가리키는 방향은 매번 달라진다.",
                 "모두의 진술이 맞아떨어진다. 다만 {concrete}의 위치만이 어긋나 있고, 그 어긋남이 {abstract}의 전부다.",
-                "십 년 전 닫힌 사건이 {concrete}의 발견으로 다시 열린다. 이번에는 {abstract}을 덮을 사람이 남아 있지 않다.",
+                "십 년 전 닫힌 사건이 {concrete}의 발견으로 다시 열린다. 이번에는 {abstract}{eul_a} 덮을 사람이 남아 있지 않다.",
             ],
-            "endorsement": ["{concrete}을 끝까지 의심하게 만든다. 마지막 장에서야 {abstract}의 모양이 드러난다.",
+            "endorsement": ["{concrete}{eul_c} 끝까지 의심하게 만든다. 마지막 장에서야 {abstract}의 모양이 드러난다.",
                             "단서를 숨기지 않고도 속인다. 정공법으로 쓴 수작."],
             "attr": ["추리소설 평론가", "미스터리 서평가"],
             "review": ["{concrete}의 자리 하나로 모든 진술을 흔든다. {abstract}에 도달하는 길이 깔끔하고 인색하다.",
@@ -311,19 +311,19 @@ GENRE_FALLBACKS = {
                          "금기의 주문", "영웅의 대가", "돌아올 수 없는 문", "용의 숨결"],
             "concrete": ["이끼 낀 석판", "부러진 성검", "지도 없는 나침반", "서리 덮인 성문",
                          "떠도는 등불", "고대 문장", "바람의 방울", "거인의 뼈"],
-            "title": ["{concrete}와 {abstract}",
-                      "{abstract}을 여는 {concrete}",
+            "title": ["{concrete}{wa_c} {abstract}",
+                      "{abstract}{eul_a} 여는 {concrete}",
                       "{concrete}의 길, {abstract}의 끝",
-                      "{abstract}을 짊어진 자들"],
+                      "{abstract}{eul_a} 짊어진 자들"],
             "synopsis": [
-                "국경 너머에서 발견된 {concrete}이 {abstract}의 시작을 알린다. 떠난 사람은 넷이었고, 돌아올 수 있는 자리는 하나뿐이었다.",
-                "{abstract}을 멈추려면 {concrete}을 제자리에 돌려놓아야 한다. 문제는 그 자리가 지도에 없다는 것이다.",
-                "낡은 {concrete}을 물려받은 날부터 주인공은 쫓기기 시작한다. 쫓는 자들도 {abstract}의 끝을 알지 못한다.",
+                "국경 너머에서 발견된 {concrete}{i_c} {abstract}의 시작을 알린다. 떠난 사람은 넷이었고, 돌아올 수 있는 자리는 하나뿐이었다.",
+                "{abstract}{eul_a} 멈추려면 {concrete}{eul_c} 제자리에 돌려놓아야 한다. 문제는 그 자리가 지도에 없다는 것이다.",
+                "낡은 {concrete}{eul_c} 물려받은 날부터 주인공은 쫓기기 시작한다. 쫓는 자들도 {abstract}의 끝을 알지 못한다.",
             ],
-            "endorsement": ["{concrete}을 쥔 손의 떨림까지 적는다. {abstract}의 무게가 끝까지 가볍지 않다.",
+            "endorsement": ["{concrete}{eul_c} 쥔 손의 떨림까지 적는다. {abstract}의 무게가 끝까지 가볍지 않다.",
                             "거대한 세계를 벌여 놓고도 한 사람의 선택으로 닫는다."],
             "attr": ["판타지 평론가", "장르소설 서평가"],
-            "review": ["모험의 쾌감과 {abstract}의 대가를 같은 비중으로 다룬다. {concrete}은 끝까지 장식이 아니었다.",
+            "review": ["모험의 쾌감과 {abstract}의 대가를 같은 비중으로 다룬다. {concrete}{eun_c} 끝까지 장식이 아니었다.",
                        "세계관 설명에 지면을 낭비하지 않는다. 걸으면서 보여준다."],
             "tag": "판타지",
         },
@@ -356,19 +356,19 @@ GENRE_FALLBACKS = {
                          "시간의 소유", "말의 한계", "평범함의 의미", "죽음의 자리"],
             "concrete": ["체스판", "모래시계", "빈 의자", "낡은 지도",
                          "유리창의 김", "멈춘 시계추", "계단참의 빛", "책장 사이 먼지"],
-            "title": ["{concrete}의 미학: {abstract}을 사유하다",
-                      "{abstract}을 묻는 {concrete}의 시간",
-                      "{concrete}와 {abstract}에 관하여",
+            "title": ["{concrete}의 미학: {abstract}{eul_a} 사유하다",
+                      "{abstract}{eul_a} 묻는 {concrete}의 시간",
+                      "{concrete}{wa_c} {abstract}에 관하여",
                       "{abstract}, {concrete} 앞에서"],
             "synopsis": [
-                "삶의 근본적인 물음을 사유하는 철학 에세이. 저자는 {concrete}이라는 사물이 지닌 상징을 통해 {abstract}을 명쾌하면서도 깊이 있게 탐구한다.",
+                "삶의 근본적인 물음을 사유하는 철학 에세이. 저자는 {concrete}{ira_c} 사물이 지닌 상징을 통해 {abstract}{eul_a} 명쾌하면서도 깊이 있게 탐구한다.",
                 "현대 사회에서 잊혀 가는 {abstract}의 자리. 우리는 왜 {concrete} 앞에서 삶의 의미를 떠올리는가에 대한 사색적 통찰.",
-                "{concrete}을 오래 들여다본 사람만이 쓸 수 있는 글. 저자는 {abstract}을 설명하는 대신 끝까지 머물러 본다.",
+                "{concrete}{eul_c} 오래 들여다본 사람만이 쓸 수 있는 글. 저자는 {abstract}{eul_a} 설명하는 대신 끝까지 머물러 본다.",
             ],
-            "endorsement": ["사색을 자극하는 날카롭고 깊이 있는 성찰. {concrete}와 {abstract}의 철학.",
-                            "삶의 의미를 재정의하게 만든다. {concrete}을 통한 {abstract}의 사유."],
+            "endorsement": ["사색을 자극하는 날카롭고 깊이 있는 성찰. {concrete}{wa_c} {abstract}의 철학.",
+                            "삶의 의미를 재정의하게 만든다. {concrete}{eul_c} 통한 {abstract}의 사유."],
             "attr": ["철학자", "인문 서평가"],
-            "review": ["{concrete}이라는 사물에서 출발해 {abstract}의 심연에 이른다. 독자의 내면을 끊임없이 흔드는 사색의 책.",
+            "review": ["{concrete}{ira_c} 사물에서 출발해 {abstract}의 심연에 이른다. 독자의 내면을 끊임없이 흔드는 사색의 책.",
                        "결론을 서두르지 않는다. 묻는 자리에 오래 머무는 태도가 이 책의 미덕이다."],
             "tag": "철학",
         },
@@ -401,20 +401,20 @@ GENRE_FALLBACKS = {
                          "아버지의 침묵", "어른이 된다는 것", "가족이라는 짐", "돌아보는 용기"],
             "concrete": ["이삿짐 상자", "식탁의 빈자리", "손때 묻은 공구함", "병실 창가",
                          "졸업 앨범", "낡은 가계부", "기차표 한 장", "어머니의 재봉틀"],
-            "title": ["{concrete}와 {abstract}",
-                      "{abstract}을 담은 {concrete}",
+            "title": ["{concrete}{wa_c} {abstract}",
+                      "{abstract}{eul_a} 담은 {concrete}",
                       "{concrete} 앞에서 배운 것",
                       "{abstract}에 이르는 계절"],
             "synopsis": [
-                "집을 정리하다 발견한 {concrete}이 묻어 두었던 {abstract}을 꺼내 놓는다. 주인공은 떠나온 자리로 한 번 더 돌아가야 한다.",
-                "서로 다른 속도로 어긋나 온 가족이 {concrete}을 사이에 두고 마주 앉는다. {abstract}은 그 자리에서 비로소 이름을 얻는다.",
-                "{abstract}을 인정하는 데 십오 년이 걸렸다. 그 시간을 지켜본 것은 {concrete}뿐이었다.",
+                "집을 정리하다 발견한 {concrete}{i_c} 묻어 두었던 {abstract}{eul_a} 꺼내 놓는다. 주인공은 떠나온 자리로 한 번 더 돌아가야 한다.",
+                "서로 다른 속도로 어긋나 온 가족이 {concrete}{eul_c} 사이에 두고 마주 앉는다. {abstract}{eun_a} 그 자리에서 비로소 이름을 얻는다.",
+                "{abstract}{eul_a} 인정하는 데 십오 년이 걸렸다. 그 시간을 지켜본 것은 {concrete}뿐이었다.",
             ],
-            "endorsement": ["울리려 들지 않는다. {concrete} 하나를 오래 비추는 것으로 {abstract}을 전부 말한다.",
+            "endorsement": ["울리려 들지 않는다. {concrete} 하나를 오래 비추는 것으로 {abstract}{eul_a} 전부 말한다.",
                             "성장은 결심이 아니라 반복이라는 것을 조용히 증명한다."],
             "attr": ["문학평론가", "드라마 작가"],
             "review": ["화해를 쉽게 주지 않는다. {abstract}에 닿기까지의 머뭇거림을 끝까지 따라가는 성실한 소설.",
-                       "{concrete}을 중심에 둔 구성이 인물의 시간을 또렷하게 만든다."],
+                       "{concrete}{eul_c} 중심에 둔 구성이 인물의 시간을 또렷하게 만든다."],
             "tag": "드라마",
         },
         "ja": {
@@ -455,6 +455,34 @@ def pick(genre: str, lang: str = "ko") -> dict:
     return data.get(lang) or data["ko"]
 
 
+def _has_batchim(word: str) -> bool:
+    """한글 낱말이 받침으로 끝나는지 본다. 한글이 아니면 받침 없는 쪽으로 친다."""
+    w = (word or "").strip()
+    if not w:
+        return False
+    last = w[-1]
+    if "가" <= last <= "힣":
+        return (ord(last) - 0xAC00) % 28 != 0
+    return False
+
+
+def _particles(word: str, suffix: str) -> dict:
+    """낱말 뒤에 붙을 조사를 받침에 맞춰 골라 자리표 이름으로 묶는다.
+
+    낱말이 무작위로 들어가는 자리라 템플릿에 조사를 고정할 수 없다.
+    '떠도는 등불와'처럼 어긋나는 것을 막는다.
+    """
+    b = _has_batchim(word)
+    return {
+        "wa_" + suffix: "과" if b else "와",
+        "eul_" + suffix: "을" if b else "를",
+        "i_" + suffix: "이" if b else "가",
+        "eun_" + suffix: "은" if b else "는",
+        "ro_" + suffix: "으로" if b else "로",
+        "ira_" + suffix: "이라는" if b else "라는",
+    }
+
+
 def make_keywords(genre: str) -> tuple:
     """한국어와 일본어가 같은 뜻의 낱말을 쓰도록 자리를 맞춰 고른다.
 
@@ -465,7 +493,66 @@ def make_keywords(genre: str) -> tuple:
     ja = pick(genre, "ja")
     ai = random.randrange(min(len(ko["abstract"]), len(ja["abstract"])))
     ci = random.randrange(min(len(ko["concrete"]), len(ja["concrete"])))
-    return (
-        {"abstract": ko["abstract"][ai], "concrete": ko["concrete"][ci]},
-        {"abstract": ja["abstract"][ai], "concrete": ja["concrete"][ci]},
-    )
+    ko_words = {"abstract": ko["abstract"][ai], "concrete": ko["concrete"][ci]}
+    ko_words.update(_particles(ko_words["concrete"], "c"))
+    ko_words.update(_particles(ko_words["abstract"], "a"))
+    ja_words = {"abstract": ja["abstract"][ai], "concrete": ja["concrete"][ci]}
+    return ko_words, ja_words
+
+
+# ── 작가 이름 ────────────────────────────────────────────────────────────
+# 한국어 표기와 일본어 표기를 짝으로 둔다. 번호를 맞춰 꺼내야 같은 사람을 가리킨다.
+# 국적 비율은 한국 50 / 일본 25 / 미국 25로, 실제 번역서 시장의 체감에 맞춘다.
+AUTHOR_NAMES = {
+    "한국": {
+        "label_ja": "韓国",
+        "family": [("박", "パク"), ("김", "キム"), ("임", "イム"), ("오", "オ"),
+                   ("윤", "ユン"), ("정", "チョン"), ("류", "リュ"), ("손", "ソン")],
+        "given": [("서윤", "ソユン"), ("하진", "ハジン"), ("채린", "チェリン"), ("도현", "ドヒョン"),
+                  ("시온", "シオン"), ("예솔", "イェソル"), ("민재", "ミンジェ"), ("지후", "ジフ")],
+        "joiner_ko": "", "joiner_ja": "・",
+    },
+    "일본": {
+        "label_ja": "日本",
+        "family": [("타나베", "田辺"), ("모리", "森"), ("이시다", "石田"),
+                   ("쿠라타", "倉田"), ("니시노", "西野"), ("후지와라", "藤原")],
+        "given": [("유키", "由紀"), ("하나", "花"), ("켄지", "健二"), ("아오이", "葵"),
+                  ("렌", "蓮"), ("사키", "咲")],
+        "joiner_ko": " ", "joiner_ja": "",
+    },
+    "미국": {
+        "label_ja": "アメリカ",
+        "family": [("보스", "ヴォス"), ("헤일", "ヘイル"), ("핀치", "フィンチ"), ("렌", "レン"),
+                   ("대로우", "ダロウ"), ("캘럼", "キャラム"), ("메리트", "メリット")],
+        "given": [("엘라라", "エララ"), ("소렌", "ソレン"), ("케이든", "ケイデン"), ("미라", "ミラ"),
+                  ("테오", "テオ"), ("레나", "レナ"), ("콜", "コール")],
+        "joiner_ko": " ", "joiner_ja": "・",
+    },
+}
+
+
+def make_author() -> tuple:
+    """작가 이름을 한국어·일본어 두 표기로 만든다.
+
+    돌려주는 값: (국적(한국어), 국적(일본어), 이름(한국어), 이름(일본어))
+    한국 이름은 성과 이름을 붙여 쓰고, 일본어 표기에서는 가운뎃점으로 나눈다.
+    일본 이름은 한자 표기가 있으므로 음차하지 않는다.
+    """
+    nation = random.choices(["한국", "일본", "미국"], weights=[50, 25, 25], k=1)[0]
+    spec = AUTHOR_NAMES[nation]
+    fam_ko, fam_ja = random.choice(spec["family"])
+    giv_ko, giv_ja = random.choice(spec["given"])
+
+    if nation == "한국":
+        # 한국 이름은 '성+이름' 순서
+        ko = fam_ko + spec["joiner_ko"] + giv_ko
+        ja = fam_ja + spec["joiner_ja"] + giv_ja
+    elif nation == "일본":
+        # 한국어 화면에서는 '이름 성'으로 음차해 왔다. 표기를 바꾸지 않는다.
+        ko = giv_ko + spec["joiner_ko"] + fam_ko
+        ja = fam_ja + giv_ja
+    else:
+        ko = giv_ko + spec["joiner_ko"] + fam_ko
+        ja = giv_ja + spec["joiner_ja"] + fam_ja
+
+    return nation, spec["label_ja"], ko, ja

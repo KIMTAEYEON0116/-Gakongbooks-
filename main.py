@@ -24,6 +24,7 @@ import smtplib
 from email.mime.text import MIMEText
 from typing import List, Optional
 import httpx
+import fallback_books
 # 응답 문구의 언어 선택. auth.py와 함께 쓰려고 따로 뺀 모듈이다.
 from i18n import m, set_request_lang, reset_request_lang
 from datetime import datetime, timedelta
@@ -2362,6 +2363,8 @@ async def _produce_candidate_books(db: Session, background_tasks: BackgroundTask
     
     gemini_key = os.getenv("GEMINI_API_KEY")
     generated_books_data = []
+    # 이번 묶음에서 이미 쓴 소재와 문장틀. 세 권이 서로 닮지 않게 피해 간다.
+    used_words, used_tpl = set(), set()
     
     if gemini_key and gemini_key != "YOUR_GEMINI_API_KEY_HERE" and needed_count > 0:
         payload = {
@@ -2385,45 +2388,61 @@ async def _produce_candidate_books(db: Session, background_tasks: BackgroundTask
         # 후보마다 소재와 템플릿을 새로 고른다.
         # 예전에는 배치 전체가 같은 k1/k2를 공유해 같은 소재의 쌍둥이 책이 만들어졌고,
         # 생성용 장르 목록과 템플릿의 키가 하나도 겹치지 않아 항상 같은 템플릿만 쓰였다.
-        k1 = random.choice(kw_abstract)
-        k2 = random.choice(kw_concrete)
-        fallback_genre_data = GENRE_FALLBACKS.get(
-            selected_genre, GENRE_FALLBACKS[random.choice(list(GENRE_FALLBACKS))]
-        )
-        for _ in range(15):
-            raw_title = random.choice(fallback_genre_data['title_templates'])
-            chosen_title = raw_title.format(abstract=k1, concrete=k2)
-            existing_book = db.query(models.CandidateBook).filter(models.CandidateBook.title == chosen_title).first()
-            if not existing_book:
-                break
-            k1 = random.choice(kw_abstract)
-            k2 = random.choice(kw_concrete)
-        
-        raw_synopsis = random.choice(fallback_genre_data['synopsis_templates'])
-        chosen_synopsis = raw_synopsis.format(abstract=k1, concrete=k2)
-        raw_quote = random.choice(fallback_genre_data['endorsement_quotes'])
-        chosen_quote = raw_quote.format(abstract=k1, concrete=k2)
-        chosen_attr = "— " + random.choice(fallback_genre_data['endorsement_attrs'])
-        raw_review = random.choice(fallback_genre_data['publisher_reviews'])
-        chosen_review = raw_review.format(abstract=k1, concrete=k2)
-        
-        # 작가 국적 비율: 한국 50%, 일본 25%, 미국 25% (프랑스 등 기타 국적 제거)
-        nations = ["한국", "일본", "미국"]
-        weights = [50, 25, 25]
-        chosen_nation = random.choices(nations, weights=weights, k=1)[0]
+        ko_tpl = fallback_books.pick(selected_genre, "ko")
+        ja_tpl = fallback_books.pick(selected_genre, "ja")
 
-        if chosen_nation == "한국":
-            chosen_author = f"{random.choice(['박', '김', '임', '오', '윤', '정', '류', '손'])}{random.choice(['서윤', '하진', '채린', '도현', '시온', '예솔', '민재', '지후'])}"
-        elif chosen_nation == "일본":
-            chosen_author = f"{random.choice(['유키', '하나', '켄지', '아오이', '렌', '사키'])} {random.choice(['타나베', '모리', '이시다', '쿠라타', '니시노', '후지와라'])}"
-        else: # 미국
-            chosen_author = f"{random.choice(['엘라라', '소렌', '케이든', '미라', '테오', '레나', '콜'])} {random.choice(['보스', '헤일', '핀치', '렌', '대로우', '캘럼', '메리트'])}"
-        
+        # 같은 번호의 낱말을 꺼내야 한국어 제목과 일본어 제목이 같은 책을 가리킨다.
+        kw_ko, kw_ja = fallback_books.make_keywords(selected_genre)
+
+        # 이번 묶음에서 이미 쓴 소재는 피한다. 자료가 모자라면 그냥 쓴다.
+        for _ in range(20):
+            if kw_ko["abstract"] not in used_words and kw_ko["concrete"] not in used_words:
+                break
+            kw_ko, kw_ja = fallback_books.make_keywords(selected_genre)
+        # 제목이 겹치면 낱말과 문장틀을 바꿔 다시 고른다.
+        # 다시 고를 때도 이번 묶음에서 쓴 소재는 피한다.
+        title_i = random.randrange(len(ko_tpl["title"]))
+        for _ in range(15):
+            chosen_title = ko_tpl["title"][title_i].format(**kw_ko)
+            fresh = (kw_ko["abstract"] not in used_words
+                     and kw_ko["concrete"] not in used_words
+                     and ("t", title_i) not in used_tpl)
+            if fresh and not db.query(models.CandidateBook).filter(
+                    models.CandidateBook.title == chosen_title).first():
+                break
+            kw_ko, kw_ja = fallback_books.make_keywords(selected_genre)
+            title_i = random.randrange(len(ko_tpl["title"]))
+        used_words.update((kw_ko["abstract"], kw_ko["concrete"]))
+        used_tpl.add(("t", title_i))
+        chosen_title_ja = ja_tpl["title"][min(title_i, len(ja_tpl["title"]) - 1)].format(**kw_ja)
+
+        # 아래 코드가 쓰던 이름을 그대로 유지한다(태그·목차에서 참조한다).
+        k1, k2 = kw_ko["abstract"], kw_ko["concrete"]
+
+        syn_i = random.randrange(len(ko_tpl["synopsis"]))
+        for _ in range(10):
+            if ("s", syn_i) not in used_tpl:
+                break
+            syn_i = random.randrange(len(ko_tpl["synopsis"]))
+        used_tpl.add(("s", syn_i))
+        chosen_synopsis = ko_tpl["synopsis"][syn_i].format(**kw_ko)
+        chosen_synopsis_ja = ja_tpl["synopsis"][min(syn_i, len(ja_tpl["synopsis"]) - 1)].format(**kw_ja)
+
+        chosen_quote = random.choice(ko_tpl["endorsement"]).format(**kw_ko)
+        chosen_attr = "— " + random.choice(ko_tpl["attr"])
+        chosen_review = random.choice(ko_tpl["review"]).format(**kw_ko)
+
+        # 작가 국적 비율은 한국 50 / 일본 25 / 미국 25. 이름은 두 언어 표기를 함께 받는다.
+        chosen_nation, nation_ja, chosen_author, chosen_author_ja = fallback_books.make_author()
+
         fallback_tags = [f"#{selected_genre.split(' ')[0]}", f"#{k1}", f"#{k2}"]
+        fallback_tags_ja = [f"#{ja_tpl['tag']}", f"#{kw_ja['abstract']}", f"#{kw_ja['concrete']}"]
         if chosen_nation != "한국":
             fallback_tags.append(f"#{chosen_nation}")
+            fallback_tags_ja.append(f"#{nation_ja}")
         else:
             fallback_tags.append("#AI가공")
+            fallback_tags_ja.append("#AI創作")
 
         # Fallback용 페이지 수 미리 결정
         fallback_pages = calc_page_count(selected_genre)
@@ -2442,6 +2461,16 @@ async def _produce_candidate_books(db: Session, background_tasks: BackgroundTask
         }
 
         book_data = {
+            "_fallback": True,
+            # 폴백으로 만든 책도 일본어를 함께 갖춘다. AI가 죽은 날에도
+            # 일본어 화면에 한국어가 비치지 않게 하려는 것이다.
+            "ja": {
+                "title": chosen_title_ja,
+                "author": chosen_author_ja,
+                "genre": ja_tpl["tag"],
+                "synopsis": chosen_synopsis_ja,
+                "tags": fallback_tags_ja,
+            },
             "title": chosen_title,
             "author": chosen_author,
             "synopsis": chosen_synopsis,
@@ -2479,7 +2508,11 @@ async def _produce_candidate_books(db: Session, background_tasks: BackgroundTask
     for b_data in generated_books_data:
         # 장르별 페이지 수 지정 (10단위 무작위)
         b_genre = selected_genre
-        if any(t in b_data.get('tags', []) for t in ['#소설', '#일반소설', '#드라마', '#판타지', '#코지 판타지', '#다크 판타지', '#도시 판타지']):
+        # 태그를 보고 장르를 뭉뚱그리는 규칙은 AI가 돌려준 값에만 쓴다.
+        # 폴백으로 만든 책은 우리가 고른 장르가 정답이라, 뭉뚱그리면 템플릿과 어긋난다.
+        if not b_data.get('_fallback') and any(
+                t in b_data.get('tags', [])
+                for t in ['#소설', '#일반소설', '#드라마', '#판타지', '#코지 판타지', '#다크 판타지', '#도시 판타지']):
             b_genre = '소설'
 
         # Gemini 생성값이 있으면 우선적으로 사용
