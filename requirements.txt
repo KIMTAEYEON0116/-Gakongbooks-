@@ -1,12 +1,18 @@
-fastapi
-uvicorn
-sqlalchemy
-pymysql
-cryptography
-bcrypt
-pyjwt
-httpx
-python-dotenv
-jinja2
-email-validator
-pillow
+# 운영 서버에서 실제로 돌고 있는 버전으로 고정한다.
+# 버전을 비워 두면 설치하는 날에 따라 다른 것이 깔려 재현이 안 되고,
+# 호환이 깨지거나 손상된 판이 올라와도 그대로 받아오게 된다.
+#
+# 올릴 때는 한 번에 하나씩 바꾸고 tests/ 를 돌려 확인한다.
+
+fastapi==0.141.1
+uvicorn==0.53.0
+SQLAlchemy==2.0.54
+PyMySQL==1.2.3
+cryptography==50.0.1
+bcrypt==5.0.0
+PyJWT==2.14.0
+httpx==0.28.1
+python-dotenv==1.2.3
+Jinja2==3.1.6
+email-validator==2.3.0
+pillow==12.3.0
