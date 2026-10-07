@@ -1247,6 +1247,53 @@ def ja_missing_fields(book) -> list:
     return missing
 
 
+# 되채우기가 하루에 쓸 수 있는 호출 수. 무료 한도(체인 전체로 120회쯤) 가운데
+# 일부만 쓰고, 나머지는 사람이 누르는 '새 책 생성'과 사회자 응답 몫으로 남긴다.
+BACKFILL_DAILY_MAX = 12
+
+# 대상별 연속 실패 횟수와 다음 시도 시각. 같은 책을 30분마다 48번 붙잡지 않도록
+# 실패할수록 간격을 벌린다.
+_BACKFILL_FAILS = {}
+_BACKFILL_NEXT_TRY = {}
+_BACKFILL_USED = {"day": None, "count": 0}
+
+
+def _backfill_roll_day() -> None:
+    """날짜가 바뀌었으면 오늘 쓴 횟수를 0으로 되돌린다."""
+    today = models.get_kst_now().date()
+    if _BACKFILL_USED["day"] != today:
+        _BACKFILL_USED["day"] = today
+        _BACKFILL_USED["count"] = 0
+
+
+def _backfill_can_spend() -> bool:
+    """오늘 되채우기에 남은 호출이 있는지 본다."""
+    _backfill_roll_day()
+    return _BACKFILL_USED["count"] < BACKFILL_DAILY_MAX
+
+
+def _backfill_spend(key: str, ok: bool) -> None:
+    """한 번 시도한 결과를 기록한다. 실패가 쌓이면 다음 시도를 미룬다."""
+    _backfill_roll_day()
+    _BACKFILL_USED["count"] += 1
+    if ok:
+        _BACKFILL_FAILS.pop(key, None)
+        _BACKFILL_NEXT_TRY.pop(key, None)
+        return
+    fails = _BACKFILL_FAILS.get(key, 0) + 1
+    _BACKFILL_FAILS[key] = fails
+    # 30분 → 1시간 → 2시간 → 4시간, 최대 4시간
+    delay = 1800 * (2 ** min(fails - 1, 3))
+    _BACKFILL_NEXT_TRY[key] = time.monotonic() + delay
+    print(f"[i18n backfill] {key} {fails}번째 실패 — {delay // 60}분 뒤에 다시 시도")
+
+
+def _backfill_ready(key: str) -> bool:
+    """미뤄 둔 시각이 지났는지 본다."""
+    until = _BACKFILL_NEXT_TRY.get(key)
+    return until is None or time.monotonic() >= until
+
+
 async def ja_backfill_loop():
     """일본어본이 빠진 책을 천천히 채운다.
 
@@ -1255,7 +1302,8 @@ async def ja_backfill_loop():
     영구히 남는다.
 
     30분마다 한 권씩만 처리한다. 한꺼번에 돌리면 남은 한도를 다 써버려
-    정작 새 책 생성이 막힌다.
+    정작 새 책 생성이 막힌다. 같은 대상이 계속 실패하면 간격을 벌리고,
+    하루 상한(BACKFILL_DAILY_MAX)을 넘으면 그날은 더 쓰지 않는다.
     """
     # 배포 직후에도 밀린 것이 있으면 곧 채우도록 첫 바퀴는 일찍 돈다.
     wait = 60
@@ -1285,19 +1333,23 @@ async def ja_backfill_loop():
         finally:
             db.close()
 
-        if book_id is not None:
+        if book_id is not None and _backfill_can_spend() and _backfill_ready(f"book:{book_id}"):
+            ok = False
             try:
                 ok = await translate_book_to_ja(book_id, force=True)
                 print(f"[i18n backfill] book {book_id} 번역 {'성공' if ok else '실패'}")
             except Exception as e:
                 print(f"[i18n backfill] book {book_id} 오류: {type(e).__name__}")
+            _backfill_spend(f"book:{book_id}", ok)
 
-        if msg_id is not None:
+        if msg_id is not None and _backfill_can_spend() and _backfill_ready(f"msg:{msg_id}"):
+            ok = False
             try:
                 ok = await translate_moderator_message_to_ja(msg_id)
                 print(f"[i18n backfill] 사회자 메시지 {msg_id} 번역 {'성공' if ok else '실패'}")
             except Exception as e:
                 print(f"[i18n backfill] 메시지 {msg_id} 오류: {type(e).__name__}")
+            _backfill_spend(f"msg:{msg_id}", ok)
 
 
 @asynccontextmanager
