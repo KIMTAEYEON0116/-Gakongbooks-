@@ -38,9 +38,12 @@ mkdir -p "$BACKUP_DIR"
 OUT="$BACKUP_DIR/${DB_NAME}_${STAMP}.sql.gz"
 
 # 비밀번호를 명령줄에 쓰면 ps로 다른 사용자에게 보인다. 환경변수로 넘긴다.
+# --no-tablespaces: 앱 계정은 자기 DB에만 권한이 있어 테이블스페이스를 읽지 못한다.
+# 권한을 올리는 대신 필요 없는 조회를 끈다(최소 권한 계정을 그대로 둔다).
 MYSQL_PWD="$DB_PASS" mysqldump \
   --host="$DB_HOST" --user="$DB_USER" \
   --single-transaction --quick --default-character-set=utf8mb4 \
+  --no-tablespaces \
   "$DB_NAME" | gzip > "$OUT"
 
 SIZE="$(du -h "$OUT" | cut -f1)"
