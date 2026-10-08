@@ -358,11 +358,12 @@ def cover_uid(prefix: str, row_id, title: str) -> str:
 
 def _cover_prompt(title: str, genre: str, synopsis: str) -> tuple:
     central_motif, motif_key = _extract_central_motif(title, genre, synopsis)
+    # "book cover"라는 말을 넣으면 모델이 책·포스터·액자 자체를 그리고 글자를 채운다.
+    # 상징 사물 하나의 정물화로 설명해야 표지에 쓸 수 있는 그림이 나온다.
     prompt_text = (
-        f"editorial concept art book cover illustration, "
-        f"{central_motif}, "
-        f"clean off-white background, centered composition, high quality publication artwork, "
-        f"portrait format, no text, no letters, no watermark"
+        f"delicate watercolor still life painting of {central_motif}, "
+        f"single centered object, soft natural light, muted warm palette, "
+        f"plain cream paper background, editorial illustration, no text"
     )
     return prompt_text, motif_key
 
@@ -384,7 +385,7 @@ async def _pollinations_fetch(prompt_text: str, seed: int, max_wait: float) -> O
             await asyncio.sleep(wait)
         _POLL_NEXT_OK = time.monotonic() + POLL_MIN_GAP
         # 그림 안에 글자·로고·액자가 들어가는 것을 막는다(2번 책에 뜻 없는 글자가 찍혔다).
-        negative = urllib.parse.quote("text,letters,words,typography,watermark,logo,frame,poster")
+        negative = urllib.parse.quote("text,letters,words,typography,watermark,logo,frame,poster,book,person,face")
         url = (f"https://image.pollinations.ai/prompt/{urllib.parse.quote(prompt_text)}"
                f"?nologo=true&width=768&height=1024&seed={seed}&negative_prompt={negative}")
         headers = {"User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64)"}
