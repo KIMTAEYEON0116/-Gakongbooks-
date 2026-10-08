@@ -383,8 +383,10 @@ async def _pollinations_fetch(prompt_text: str, seed: int, max_wait: float) -> O
         if wait > 0:
             await asyncio.sleep(wait)
         _POLL_NEXT_OK = time.monotonic() + POLL_MIN_GAP
+        # 그림 안에 글자·로고·액자가 들어가는 것을 막는다(2번 책에 뜻 없는 글자가 찍혔다).
+        negative = urllib.parse.quote("text,letters,words,typography,watermark,logo,frame,poster")
         url = (f"https://image.pollinations.ai/prompt/{urllib.parse.quote(prompt_text)}"
-               f"?nologo=true&width=768&height=1024&seed={seed}")
+               f"?nologo=true&width=768&height=1024&seed={seed}&negative_prompt={negative}")
         headers = {"User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64)"}
         try:
             async with httpx.AsyncClient() as client:
