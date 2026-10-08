@@ -333,7 +333,94 @@ def _generate_editorial_cover_pil(title: str, genre: str, synopsis: str, color: 
         return False
 
 
-async def generate_book_cover_art(title: str, genre: str, synopsis: str, color: str = "#b54a6a", unique_id: str = None, author: str = "") -> Optional[str]:
+# ── Pollinations 호출 간격 ──
+# 무료 구간은 IP당 약 1분에 1장이다. 동시에 여러 장을 요청하면 뒤의 것은 402로
+# 거부된다. 잠금 하나로 줄을 세우고, 앞 호출로부터 POLL_MIN_GAP 초를 띄운다.
+POLL_MIN_GAP = 65.0
+_POLL_LOCK = None          # 이벤트 루프 안에서 처음 쓸 때 만든다
+_POLL_NEXT_OK = 0.0        # 다음 호출이 허용되는 시각(monotonic)
+
+
+def _poll_lock() -> asyncio.Lock:
+    global _POLL_LOCK
+    if _POLL_LOCK is None:
+        _POLL_LOCK = asyncio.Lock()
+    return _POLL_LOCK
+
+
+def cover_uid(prefix: str, row_id, title: str) -> str:
+    """표지 파일 이름의 고유 부분. 번호만 쓰면 표가 비워진 뒤 번호가 겹칠 때
+    다른 책의 표지를 그대로 물려받는다(실제로 12번·21번 책이 같은 표지였다).
+    제목 해시를 섞어 같은 번호라도 다른 책이면 다른 파일이 되게 한다."""
+    h = hashlib.md5((title or "").encode("utf-8")).hexdigest()[:6]
+    return f"{prefix}_{row_id}_{h}"
+
+
+def _cover_prompt(title: str, genre: str, synopsis: str) -> tuple:
+    central_motif, motif_key = _extract_central_motif(title, genre, synopsis)
+    prompt_text = (
+        f"editorial concept art book cover illustration, "
+        f"{central_motif}, "
+        f"clean off-white background, centered composition, high quality publication artwork, "
+        f"portrait format, no text, no letters, no watermark"
+    )
+    return prompt_text, motif_key
+
+
+async def _pollinations_fetch(prompt_text: str, seed: int, max_wait: float) -> Optional[bytes]:
+    """Pollinations에서 그림 한 장을 받아 온다. 차례가 max_wait 초보다 멀면 기다리지
+    않고 None을 돌려준다(호출한 쪽이 PIL로 가거나 다음에 다시 온다)."""
+    global _POLL_NEXT_OK
+    from PIL import Image
+    lock = _poll_lock()
+    # 줄이 길면 기다리지 않는다 — 잠금을 쥔 채 자는 사람 뒤로 줄이 늘어나지 않게
+    if lock.locked() and (_POLL_NEXT_OK - time.monotonic()) > max_wait:
+        return None
+    async with lock:
+        wait = _POLL_NEXT_OK - time.monotonic()
+        if wait > max_wait:
+            return None
+        if wait > 0:
+            await asyncio.sleep(wait)
+        _POLL_NEXT_OK = time.monotonic() + POLL_MIN_GAP
+        url = (f"https://image.pollinations.ai/prompt/{urllib.parse.quote(prompt_text)}"
+               f"?nologo=true&width=768&height=1024&seed={seed}")
+        headers = {"User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64)"}
+        try:
+            async with httpx.AsyncClient() as client:
+                res = await client.get(url, headers=headers, timeout=45.0, follow_redirects=True)
+        except Exception as e:
+            print(f"[Cover AI] 호출 실패: {type(e).__name__}")
+            return None
+        if res.status_code in (402, 429):
+            print(f"[Cover AI] 호출 한도 ({res.status_code}) — 다음 차례로 미룸")
+            return None
+        if res.status_code != 200 or len(res.content) < 5000:
+            print(f"[Cover AI] 실패 응답 (status={res.status_code}, size={len(res.content)}bytes)")
+            return None
+        try:
+            # 상태코드/용량만으로는 에러 페이지를 그림으로 오인할 수 있다
+            Image.open(io.BytesIO(res.content)).verify()
+        except Exception:
+            print(f"[Cover AI] 응답이 유효한 이미지가 아님 (size={len(res.content)}bytes)")
+            return None
+        return res.content
+
+
+def _is_fallback_cover(path: str) -> bool:
+    """PIL 도형 표지인지 본다. AI 표지는 세로 3:4(또는 예전 정사각형)로 오고,
+    PIL 표지는 450x600이거나 5KB 미만이다."""
+    try:
+        from PIL import Image
+        if not os.path.exists(path) or os.path.getsize(path) < 5000:
+            return True
+        with Image.open(path) as im:
+            return im.size == (450, 600)
+    except Exception:
+        return True
+
+
+async def generate_book_cover_art(title: str, genre: str, synopsis: str, color: str = "#b54a6a", unique_id: str = None, author: str = "", max_wait: float = 20.0) -> Optional[str]:
     """
     도서의 상징 사물 중심 편집 일러스트 표지를 100% 고유하게 생성합니다.
     1순위: Pollinations AI (고유 시드 적용)
@@ -353,51 +440,21 @@ async def generate_book_cover_art(title: str, genre: str, synopsis: str, color: 
         elif os.path.exists(filepath):
             os.remove(filepath)
 
-        central_motif, motif_key = _extract_central_motif(title, genre, synopsis)
+        prompt_text, motif_key = _cover_prompt(title, genre, synopsis)
 
-        # ── 1. Pollinations AI 생성 시도 ──
-        prompt_text = (
-            f"editorial concept art book cover illustration, "
-            f"{central_motif}, "
-            f"clean off-white background, centered composition, high quality Korean publication artwork, "
-            f"3:4 portrait format, no text"
-        )
-        encoded_prompt = urllib.parse.quote(prompt_text)
+        # ── 1. Pollinations AI 생성 시도 (호출은 줄을 서서 1분에 1장) ──
+        # 내장 hash()는 프로세스마다 달라지므로 md5로 결정적인 시드를 만든다
+        seed = int(hashlib.md5(f"{title}{unique_id}".encode("utf-8")).hexdigest(), 16) % 999999 + 1000
+        content = await _pollinations_fetch(prompt_text, seed, max_wait)
+        ai_success = content is not None
+        if ai_success:
+            with open(filepath, "wb") as f:
+                f.write(content)
+            print(f"[Cover AI] Pollinations 생성 성공: {web_url}")
 
-        ai_success = False
-        headers = {'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64)'}
-
-        for attempt in range(2):
-            # PYTHONHASHSEED에 따라 값이 매 프로세스마다 달라지는 내장 hash() 대신,
-            # 결정적(deterministic)인 md5 해시로 시드를 계산하여 동일 도서는 항상 동일 시드가 나오도록 함
-            seed_source = f"{title}{unique_id}{attempt}".encode("utf-8")
-            seed = int(hashlib.md5(seed_source).hexdigest(), 16) % 999999 + 1000
-            poll_url = f"https://image.pollinations.ai/prompt/{encoded_prompt}?nologo=true&seed={seed}"
-            try:
-                async with httpx.AsyncClient() as client:
-                    res = await client.get(poll_url, headers=headers, timeout=25.0, follow_redirects=True)
-                    if res.status_code == 200 and len(res.content) > 5000:
-                        # 상태코드/용량만으로는 에러 페이지(HTML 등)를 그림으로 오인할 수 있으므로
-                        # 실제로 디코딩 가능한 이미지인지 검증한 뒤에만 저장
-                        try:
-                            Image.open(io.BytesIO(res.content)).verify()
-                        except Exception:
-                            print(f"[Cover AI] attempt={attempt+1} 응답이 유효한 이미지가 아님 (size={len(res.content)}bytes) - 건너뜀")
-                        else:
-                            with open(filepath, "wb") as f:
-                                f.write(res.content)
-                            ai_success = True
-                            print(f"[Cover AI] Pollinations 생성 성공 (attempt={attempt+1}): {web_url}")
-                            break
-                    else:
-                        print(f"[Cover AI] attempt={attempt+1} 실패 응답 (status={res.status_code}, size={len(res.content)}bytes)")
-            except Exception as e:
-                print(f"[Cover AI] Attempt {attempt+1} 실패: {e}")
-            await asyncio.sleep(1.5)
-
-        # ── 2. AI 실패 시 Editorial PIL 백터 드로잉 생성 (100% 중복 없음) ──
+        # ── 2. 차례가 멀거나 실패하면 PIL 도형 표지로 우선 채운다. 뒤에서 되채우기 루프가 바꾼다 ──
         if not ai_success:
-            print(f"[Cover Fallback] Editorial PIL 고유 사물 표지 생성: {title}")
+            print(f"[Cover Fallback] PIL 표지로 우선 생성 (되채우기 대상): {title}")
             _generate_editorial_cover_pil(title, genre, synopsis, color, filepath, unique_id=unique_id, motif_key=motif_key)
 
         return web_url
@@ -1400,6 +1457,101 @@ async def ja_backfill_loop():
             _backfill_spend(f"msg:{msg_id}", ok)
 
 
+COVER_BACKFILL_DAILY_MAX = 60
+_COVER_BACKFILL_USED = {"day": None, "count": 0}
+_COVER_BACKFILL_FAILS = {}
+
+
+def _cover_backfill_can_spend() -> bool:
+    today = models.get_kst_now().date()
+    if _COVER_BACKFILL_USED["day"] != today:
+        _COVER_BACKFILL_USED["day"] = today
+        _COVER_BACKFILL_USED["count"] = 0
+    return _COVER_BACKFILL_USED["count"] < COVER_BACKFILL_DAILY_MAX
+
+
+def _cover_url_in_use(db: Session, url: str, except_book=None, except_cand=None) -> bool:
+    """다른 행이 같은 표지 파일을 가리키는지 본다(파일명 충돌 시대의 잔재)."""
+    q1 = db.query(models.Book.id).filter(models.Book.cover_image_url == url)
+    if except_book is not None:
+        q1 = q1.filter(models.Book.id != except_book)
+    q2 = db.query(models.CandidateBook.id).filter(models.CandidateBook.cover_image_url == url)
+    if except_cand is not None:
+        q2 = q2.filter(models.CandidateBook.id != except_cand)
+    return q1.first() is not None or q2.first() is not None
+
+
+def _pick_cover_backfill_target(db: Session):
+    """AI 표지로 바꿀 대상 하나를 고른다. 열려 있는 방 → 고르는 중인 후보 → 보관 후보 → 종료된 방 순."""
+    def fallback(url):
+        return (not url) or _is_fallback_cover(url.lstrip("/").replace("/", os.sep))
+
+    for b in db.query(models.Book).filter(models.Book.is_archived.is_(False)).order_by(models.Book.id.desc()).all():
+        if fallback(b.cover_image_url) and _COVER_BACKFILL_FAILS.get(f"book:{b.id}", 0) < 5:
+            return ("book", b)
+    for st in ("pending", "pool"):
+        for c in db.query(models.CandidateBook).filter(models.CandidateBook.status == st).order_by(models.CandidateBook.id.desc()).all():
+            if fallback(c.cover_image_url) and _COVER_BACKFILL_FAILS.get(f"cand:{c.id}", 0) < 5:
+                return ("cand", c)
+    for b in db.query(models.Book).filter(models.Book.is_archived.is_(True)).order_by(models.Book.id.desc()).all():
+        if fallback(b.cover_image_url) and _COVER_BACKFILL_FAILS.get(f"book:{b.id}", 0) < 5:
+            return ("book", b)
+    return None
+
+
+async def cover_backfill_loop():
+    """PIL 도형 표지를 AI 표지로 천천히 바꾼다.
+
+    Pollinations는 1분에 1장이라 생성 시점에 못 받은 표지가 많다. 5분마다 한 장씩,
+    새 파일 이름으로 받아 DB 주소를 바꾼다(같은 이름에 덮어쓰면 브라우저 캐시가 옛 그림을
+    보여 준다). 같은 대상이 5번 실패하면 더 붙잡지 않는다.
+    """
+    wait = 90
+    while True:
+        await asyncio.sleep(wait)
+        wait = 300
+        if not _cover_backfill_can_spend():
+            continue
+        db = database.SessionLocal()
+        try:
+            picked = _pick_cover_backfill_target(db)
+            if not picked:
+                continue
+            kind, row = picked
+            key = f"{kind}:{row.id}"
+            uid = cover_uid(kind, row.id, row.title) + f"_r{_COVER_BACKFILL_FAILS.get(key, 0)}"
+            prompt_text, _ = _cover_prompt(row.title, row.genre, row.synopsis)
+            seed = int(hashlib.md5(f"{row.title}{uid}".encode("utf-8")).hexdigest(), 16) % 999999 + 1000
+            _COVER_BACKFILL_USED["count"] += 1
+            content = await _pollinations_fetch(prompt_text, seed, max_wait=120.0)
+            if not content:
+                _COVER_BACKFILL_FAILS[key] = _COVER_BACKFILL_FAILS.get(key, 0) + 1
+                print(f"[Cover backfill] {key} 실패 ({_COVER_BACKFILL_FAILS[key]}번째)")
+                continue
+            os.makedirs(os.path.join("static", "covers"), exist_ok=True)
+            filename = f"cover_{uid}.png"
+            filepath = os.path.join("static", "covers", filename)
+            with open(filepath, "wb") as f:
+                f.write(content)
+            old_url = row.cover_image_url
+            row.cover_image_url = f"/static/covers/{filename}"
+            db.commit()
+            _COVER_BACKFILL_FAILS.pop(key, None)
+            print(f"[Cover backfill] {key} AI 표지로 교체: {filename}")
+            # 옛 파일은 다른 행이 쓰지 않을 때만 지운다
+            if old_url and not _cover_url_in_use(db, old_url,
+                                                 except_book=row.id if kind == "book" else None,
+                                                 except_cand=row.id if kind == "cand" else None):
+                try:
+                    os.remove(old_url.lstrip("/").replace("/", os.sep))
+                except OSError:
+                    pass
+        except Exception as e:
+            print(f"[Cover backfill] 오류: {type(e).__name__}")
+        finally:
+            db.close()
+
+
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     # 앱 시작 시: 실시간 아카이브 백그라운드 루프 가동
@@ -1413,6 +1565,10 @@ async def lifespan(app: FastAPI):
     # 번역이 실패한 책을 나중에 다시 채우는 루프
     asyncio.create_task(ja_backfill_loop())
     print("JA backfill background loop started.")
+
+    # PIL 도형 표지를 AI 표지로 천천히 바꾸는 루프
+    asyncio.create_task(cover_backfill_loop())
+    print("Cover backfill background loop started.")
 
     # AI 사회자 계정 및 시드 독서방 자동 생성
     db = database.SessionLocal()
@@ -1453,7 +1609,7 @@ async def lifespan(app: FastAPI):
                 return
             print(f"[Cover Init] 표지 없는 Book {len(books_no_cover)}권 AI 표지 생성 시작...")
             results = await asyncio.gather(*[
-                generate_book_cover_art(b.title, b.genre, b.synopsis, b.color, f"book_{b.id}", author=b.author or "")
+                generate_book_cover_art(b.title, b.genre, b.synopsis, b.color, cover_uid("book", b.id, b.title), author=b.author or "", max_wait=600.0)
                 for b in books_no_cover
             ], return_exceptions=True)
             updated = 0
@@ -2680,9 +2836,11 @@ async def _produce_candidate_books(db: Session, background_tasks: BackgroundTask
                     pending_records.append(cand_record)
 
             if pending_records:
-                # 3권을 동시에 생성해 후보 1권당 순차 대기 시간(최대 수십 초)이 누적되지 않도록 병렬 처리
+                # 백그라운드이므로 차례를 기다릴 수 있다. 호출 자체는 잠금으로 1분에 1장씩 나간다.
+                # (예전에는 3장을 동시에 쏴서 2장이 402로 거부되고 PIL 표지로 떨어졌다)
                 results = await asyncio.gather(*[
-                    generate_book_cover_art(c.title, c.genre, c.synopsis, c.color, f"cand_{c.id}", author=c.author or "")
+                    generate_book_cover_art(c.title, c.genre, c.synopsis, c.color,
+                                            cover_uid("cand", c.id, c.title), author=c.author or "", max_wait=240.0)
                     for c in pending_records
                 ], return_exceptions=True)
                 for cand_record, url in zip(pending_records, results):
@@ -2891,7 +3049,7 @@ async def adopt_candidate(
 
     # 표지 없으면 채택 직전 생성
     if not candidate.cover_image_url:
-        candidate.cover_image_url = await generate_book_cover_art(candidate.title, candidate.genre, candidate.synopsis, candidate.color, f"cand_{candidate.id}", author=candidate.author or "")
+        candidate.cover_image_url = await generate_book_cover_art(candidate.title, candidate.genre, candidate.synopsis, candidate.color, cover_uid("cand", candidate.id, candidate.title), author=candidate.author or "")
         db.commit()
 
     # 정식 도서(Book)로 복사 생성
@@ -4629,7 +4787,7 @@ async def _auto_refill_active_books_if_needed():
             if not cand.cover_image_url:
                 cand.cover_image_url = await generate_book_cover_art(
                     cand.title, cand.genre, cand.synopsis, cand.color,
-                    f"cand_{cand.id}", author=cand.author or ""
+                    cover_uid("cand", cand.id, cand.title), author=cand.author or "", max_wait=120.0
                 )
         db.commit()
 
