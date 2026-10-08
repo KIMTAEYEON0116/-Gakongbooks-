@@ -33,6 +33,7 @@ from fastapi import FastAPI, Depends, HTTPException, status, BackgroundTasks, Pa
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import HTMLResponse, JSONResponse, Response
 from fastapi.staticfiles import StaticFiles
+from starlette.exceptions import HTTPException as StarletteHTTPException
 from fastapi.templating import Jinja2Templates
 from pydantic import BaseModel, EmailStr, Field
 from sqlalchemy.orm import Session
@@ -1694,6 +1695,18 @@ if not os.path.exists("static/js"):
 app.mount("/static", StaticFiles(directory="static"), name="static")
 
 templates = Jinja2Templates(directory="templates")
+
+
+@app.exception_handler(StarletteHTTPException)
+async def http_exception_handler(request: Request, exc: StarletteHTTPException):
+    """없는 주소를 치면 API는 JSON 그대로, 화면 주소는 서비스와 같은 모양의 404 페이지를 보여 준다.
+    (기본값은 {"detail":"Not Found"} 한 줄이라 포트폴리오 첫인상에 맞지 않는다)"""
+    if (exc.status_code == 404
+            and not request.url.path.startswith(("/api/", "/static/"))
+            and "text/html" in (request.headers.get("accept") or "")):
+        return templates.TemplateResponse(request=request, name="not_found.html", status_code=404)
+    return JSONResponse(status_code=exc.status_code, content={"detail": exc.detail},
+                        headers=getattr(exc, "headers", None))
 
 @app.get("/", response_class=HTMLResponse)
 async def serve_index(request: Request):
@@ -3376,7 +3389,7 @@ def trigger_auto_archive(
     평상시에는 realtime_archive_loop 백그라운드 루프가 자동으로 처리한다.
     """
     count = _auto_archive_expired_books(db)
-    return {"archived_count": count, "message": f"{count}개의 독서방이 아카이브 처리되었습니다."}
+    return {"archived_count": count, "message": m(f"{count}개의 독서방이 아카이브 처리되었습니다.", f"{count}件の読書室をアーカイブしました。")}
 
 
 @app.get("/api/books")

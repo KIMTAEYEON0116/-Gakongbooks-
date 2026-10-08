@@ -1,0 +1,39 @@
+<!DOCTYPE html>
+<html lang="ja">
+
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>ページが見つかりません · 架空読書会</title>
+  <meta name="robots" content="noindex">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Noto+Serif+JP:wght@400;500;600;700&display=swap" rel="stylesheet">
+  <style>
+    :root { --bg: #f6f1e8; --ink: #2c2418; --sub: #7a6a58; --accent: #b5703a; --paper: #fffdf8; }
+    * { box-sizing: border-box; }
+    body { margin: 0; min-height: 100vh; display: flex; align-items: center; justify-content: center;
+           background: var(--bg); color: var(--ink); font-family: "Noto Serif JP", "Noto Serif KR", serif; padding: 24px 16px; }
+    .card { background: var(--paper); border: 1px solid rgba(0,0,0,.06); border-radius: 18px; padding: 40px 32px;
+            max-width: 460px; width: 100%; text-align: center; box-shadow: 0 12px 40px rgba(60,40,20,.08); }
+    .code { font-size: 13px; letter-spacing: .3em; color: var(--accent); font-weight: 600; margin-bottom: 10px; }
+    h1 { font-size: 22px; margin: 0 0 12px; font-weight: 600; }
+    p { margin: 0; color: var(--sub); line-height: 1.8; font-size: 14.5px; }
+    .ko { margin-top: 18px; padding-top: 16px; border-top: 1px dashed rgba(0,0,0,.1); font-size: 13px; }
+    a.btn { display: inline-block; margin-top: 26px; padding: 11px 24px; border-radius: 999px; background: var(--accent);
+            color: #fff; text-decoration: none; font-weight: 600; font-size: 14px; }
+    a.btn:hover { filter: brightness(1.06); }
+  </style>
+</head>
+
+<body>
+  <main class="card">
+    <div class="code">404</div>
+    <h1>そのページは書架にありません</h1>
+    <p>お探しのページは移動したか、もともと存在しない本のように架空のものかもしれません。</p>
+    <p class="ko">찾으시는 페이지가 없습니다. 주소가 바뀌었거나 처음부터 없던 페이지일 수 있습니다.</p>
+    <a class="btn" href="/">読書室一覧へ戻る</a>
+  </main>
+</body>
+
+</html>
