@@ -922,7 +922,7 @@ function renderGenreSection() {
             '<div class="card-title">' + escHtml(bookField(b, 'title')) + '</div>' +
             '<div class="card-synopsis">' + escHtml(bookField(b, 'synopsis')) + '</div>' +
             '<div class="card-footer">' +
-            '<span class="card-price">' + escHtml(b.price) + '</span>' +
+            '<span class="card-price">' + escHtml(displayPrice(b.price)) + '</span>' +
             '<span class="card-count">👥 ' + b.count + t('people_unit') + '</span>' +
             '</div>' +
             '</div>';
@@ -1027,7 +1027,7 @@ function renderGenreSection() {
       document.getElementById('dc-synopsis').textContent = bookField(book, 'synopsis');
       var pcEl = document.getElementById('dc-page-count');
       if (pcEl) pcEl.textContent = (book.pageCount || 300) + t('page_unit');
-      document.getElementById('dc-price').textContent = book.price + t('discount_note');
+      document.getElementById('dc-price').textContent = displayPrice(book.price) + t('discount_note');
       // 동적 몰입 데이터 반영: 등장인물
       var charEl = document.getElementById('dc-characters');
       if (charEl) {
@@ -2251,6 +2251,14 @@ function renderGenreSection() {
       { user: '녹색독자', av: '녹', avBg: '#e8f0dc', avColor: '#2d7a50', text: '작가가 이 책에서 하려는 말이 뭔지 읽고 나서도 계속 생각하게 돼요' },
       { user: '봄의문장', av: '봄', avBg: '#f0f8dc', avColor: '#3a6a20', text: '마지막 문장이 아직도 머릿속에 맴돌아요. 이런 책은 진짜 오래 남더라고' },
     ];
+
+    // 가격 표기. 일본어 화면에서는 '₩17,100' 대신 일본에서 흔한 '17,100ウォン'으로 쓴다.
+    function displayPrice(p) {
+      if (!p) return '';
+      if (typeof CURRENT_LANG === 'undefined' || CURRENT_LANG !== 'ja') return p;
+      var digits = String(p).replace(/[^0-9,]/g, '');
+      return digits ? digits + 'ウォン' : p;
+    }
 
     function dateLabel(d) {
       // 어제, 오늘 텍스트 대신 항상 정확한 날짜 표시.
@@ -3561,7 +3569,7 @@ function buildMsgEl(msg, bookId) {
       html += '  <div class="arc-cover-label">' + t('arc_edition_a') + book.id + t('arc_edition_b') + '</div>';
       html += '  <div class="arc-cover-title">' + escHtml(bookField(book, 'title')) + '</div>';
       html += '  <div class="arc-cover-subtitle">' + escHtml(bookField(book, 'author')) + ' · ' +
-        escHtml(translateGenre(book.genre)) + ' · ' + escHtml(book.price) + '</div>';
+        escHtml(translateGenre(book.genre)) + ' · ' + escHtml(displayPrice(book.price)) + '</div>';
       html += '  <div class="arc-cover-divider"></div>';
       html += '  <div class="arc-cover-author-note">' + totalUsers + t('arc_cover_note') + '</div>';
       html += '  <div class="arc-cover-meta">';
