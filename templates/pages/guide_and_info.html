@@ -2,455 +2,18 @@
   <div class="page" id="pg-archive">
     <div class="arc-page-header" style="position:sticky;top:54px;z-index:50;">
       <button class="arc-page-back" onclick="goPage(window.lastPageBeforeArchive || 'detail')" data-i18n="arc_back">← 돌아가기</button>
-      <button class="arc-view-toggle-btn" id="arc-view-toggle-btn" onclick="toggleArcViewMode()" title="가로 보기 전환">⇄ 가로 보기</button>
+      <button class="arc-view-toggle-btn" id="arc-view-toggle-btn" onclick="toggleArcViewMode()" data-i18n="view_horizontal">⇄ 가로 보기</button>
       <div class="arc-page-book-row">
         <div>
           <div class="arc-page-badge">READING ROOM ARCHIVE</div>
-          <div class="arc-page-title" id="arc-page-title">구름 위의 도서관</div>
-          <div class="arc-page-meta" id="arc-page-meta">30명 참여 · 2025.10 종료</div>
+          <div class="arc-page-title" id="arc-page-title"></div>
+          <div class="arc-page-meta" id="arc-page-meta"></div>
         </div>
       </div>
     </div>
+    <!-- 열람 내용은 openArchive()가 통째로 채운다. 예전에는 여기 440줄짜리 한국어 목업이 있었고,
+         JS가 채우기 전 잠깐 또는 실패 시 그대로 노출됐다. -->
     <div class="arc-content">
-
-      <!-- COVER -->
-      <div class="arc-cover">
-        <div class="arc-cover-label">가공독서회 · 아카이브 북 · 제7호</div>
-        <div class="arc-cover-title">구름 위의 도서관</div>
-        <div class="arc-cover-subtitle">가상 작가 서하은 · 판타지 · ₩14,000</div>
-        <div class="arc-cover-divider"></div>
-        <div class="arc-cover-author-note">30인 독서회 종료 기념 감상 아카이브</div>
-        <div class="arc-cover-meta">
-          <span>READING ROOM ARCHIVE</span>
-          <span>30 READERS · 312 MESSAGES</span>
-          <span>GAKONG BOOK CLUB</span>
-        </div>
-      </div>
-
-      <!-- BOOK BAND -->
-      <div class="arc-book-band">
-        <div class="arc-book-band-cover">구름 위의<br>도서관</div>
-        <div>
-          <div class="arc-book-band-genre">판타지 FANTASY</div>
-          <div class="arc-book-band-title">구름 위의 도서관</div>
-          <div class="arc-book-band-author">가상 작가 서하은</div>
-          <div class="arc-book-band-synopsis">죽은 사람의 기억을 책으로 보관하는 구름 위 도서관. 사서 다은은 어느 날 아직 살아있는 사람의 기억이 책으로 배달되는 것을
-            발견한다. 죽음보다 먼저 도착한 삶의 기록을 어떻게 해야 할까.</div>
-          <div class="arc-book-band-tags">
-            <span class="arc-book-band-tag">#판타지</span>
-            <span class="arc-book-band-tag">#도서관</span>
-            <span class="arc-book-band-tag">#기억</span>
-            <span class="arc-book-band-tag">#사서</span>
-            <span class="arc-book-band-tag">#삶과죽음</span>
-          </div>
-        </div>
-      </div>
-
-      <!-- STATS BAR -->
-      <div class="arc-stats-bar">
-        <div class="arc-stat-item">
-          <div class="arc-stat-num">30</div>
-          <div class="arc-stat-label">참여 독자</div>
-        </div>
-        <div class="arc-stat-item">
-          <div class="arc-stat-num">312</div>
-          <div class="arc-stat-label">채팅 메시지</div>
-        </div>
-        <div class="arc-stat-item">
-          <div class="arc-stat-num">58</div>
-          <div class="arc-stat-label">댓글</div>
-        </div>
-        <div class="arc-stat-item">
-          <div class="arc-stat-num">847</div>
-          <div class="arc-stat-label">총 반응 수</div>
-        </div>
-        <div class="arc-stat-item">
-          <div class="arc-stat-num">4.6</div>
-          <div class="arc-stat-label">평균 평점</div>
-        </div>
-      </div>
-
-      <!-- EDITORIAL NOTE -->
-      <div class="arc-section arc-editorial">
-        <div class="arc-eyebrow">EDITOR'S NOTE</div>
-        <div class="arc-editorial-title">편집자의 말</div>
-        <div class="arc-editorial-body">
-          <p>이 책은 존재하지 않습니다. 그런데 이 안에 담긴 감상들은 진짜입니다.</p>
-          <p>가공독서회의 서른 명은 『구름 위의 도서관』의 줄거리 하나를 붙들고 사흘 동안 이야기를 나눴습니다. 아무도 실제로 이 책을 읽지 않았지만, 모두가 이 책을 "읽은 것처럼" 이야기했고, 그
-            이야기들이 모여 어느 순간 하나의 공간을 이루었습니다.</p>
-          <p>이 아카이브는 그 공간의 기록입니다. 독서방에서 나눈 채팅 중 반응이 많았던 문장들, 댓글 중 가장 오래 회자된 감상들, 그리고 독자들이 서로에게 건넨 반응들을 추려 한 권으로 묶었습니다.
-          </p>
-          <p>존재하지 않는 책에 대한, 존재하는 감상들의 기록. 그것이 이 아카이브의 전부입니다.</p>
-        </div>
-        <div class="arc-editorial-sig"><span>가공독서회 아카이브 편집팀</span><span>2025년 가을</span></div>
-      </div>
-
-      <!-- PARTICIPANTS -->
-      <div class="arc-section" style="background:#fff;">
-        <div class="arc-eyebrow">PARTICIPANTS</div>
-        <div class="arc-section-title">이번 독서회 참여자 30인</div>
-        <div class="arc-section-sub">닉네임은 가공독서회 시스템이 랜덤으로 배정합니다. 본명은 공개되지 않습니다.</div>
-        <div class="arc-participants-grid">
-          <div class="arc-p-chip">
-            <div class="arc-p-av" style="background:#e0f0e0;color:#3a6a2a;">도</div>
-            <div class="arc-p-name">도서관팬</div>
-          </div>
-          <div class="arc-p-chip">
-            <div class="arc-p-av" style="background:#ecf4e8;color:#4a7a3a;">몽</div>
-            <div class="arc-p-name">몽상독자</div>
-          </div>
-          <div class="arc-p-chip">
-            <div class="arc-p-av" style="background:#dce8f8;color:#2c5f8a;">구</div>
-            <div class="arc-p-name">구름위에서</div>
-          </div>
-          <div class="arc-p-chip">
-            <div class="arc-p-av" style="background:#fdf0e4;color:#a06020;">기</div>
-            <div class="arc-p-name">기억수집가</div>
-          </div>
-          <div class="arc-p-chip">
-            <div class="arc-p-av" style="background:#fce0e8;color:#b54a6a;">봄</div>
-            <div class="arc-p-name">봄날사서</div>
-          </div>
-          <div class="arc-p-chip">
-            <div class="arc-p-av" style="background:#fce8dc;color:#a04020;">다</div>
-            <div class="arc-p-name">다은이좋아</div>
-          </div>
-          <div class="arc-p-chip">
-            <div class="arc-p-av" style="background:#f0f0f0;color:#606060;">흰</div>
-            <div class="arc-p-name">흰구름독자</div>
-          </div>
-          <div class="arc-p-chip">
-            <div class="arc-p-av" style="background:#d8e0f0;color:#3040a0;">잠</div>
-            <div class="arc-p-name">잠못드는밤</div>
-          </div>
-          <div class="arc-p-chip">
-            <div class="arc-p-av" style="background:#dcf4ec;color:#1d7a58;">살</div>
-            <div class="arc-p-name">살아있는기억</div>
-          </div>
-          <div class="arc-p-chip">
-            <div class="arc-p-av" style="background:#e8e8d8;color:#6a6a28;">책</div>
-            <div class="arc-p-name">책속의책</div>
-          </div>
-          <div class="arc-p-chip">
-            <div class="arc-p-av" style="background:#dce8f0;color:#2a5870;">조</div>
-            <div class="arc-p-name">조용한페이지</div>
-          </div>
-          <div class="arc-p-chip">
-            <div class="arc-p-av" style="background:#e4f0f8;color:#2060a0;">하</div>
-            <div class="arc-p-name">하늘서고</div>
-          </div>
-          <div class="arc-p-chip">
-            <div class="arc-p-av" style="background:#f8dcd8;color:#a03020;">반</div>
-            <div class="arc-p-name">반납불가</div>
-          </div>
-          <div class="arc-p-chip">
-            <div class="arc-p-av" style="background:#ece0f8;color:#7040b0;">무</div>
-            <div class="arc-p-name">기억의무게</div>
-          </div>
-          <div class="arc-p-chip">
-            <div class="arc-p-av" style="background:#daf0ec;color:#1a6a60;">너</div>
-            <div class="arc-p-name">구름너머</div>
-          </div>
-          <div class="arc-p-chip">
-            <div class="arc-p-av" style="background:#d8d8f0;color:#484898;">새</div>
-            <div class="arc-p-name">새벽사서</div>
-          </div>
-          <div class="arc-p-chip">
-            <div class="arc-p-av" style="background:#fce8d4;color:#a86020;">여</div>
-            <div class="arc-p-name">책먹는여우</div>
-          </div>
-          <div class="arc-p-chip">
-            <div class="arc-p-av" style="background:#d8ecd8;color:#286028;">영</div>
-            <div class="arc-p-name">영원한독자</div>
-          </div>
-          <div class="arc-p-chip">
-            <div class="arc-p-av" style="background:#ede0d0;color:#7a5030;">함</div>
-            <div class="arc-p-name">기억보관함</div>
-          </div>
-          <div class="arc-p-chip">
-            <div class="arc-p-av" style="background:#d8e8f8;color:#2050a0;">파</div>
-            <div class="arc-p-name">파란하늘아래</div>
-          </div>
-          <div class="arc-p-chip">
-            <div class="arc-p-av" style="background:#f8f0d0;color:#806010;">낙</div>
-            <div class="arc-p-name">낙서독서</div>
-          </div>
-          <div class="arc-p-chip">
-            <div class="arc-p-av" style="background:#f8e0d4;color:#a04830;">밑</div>
-            <div class="arc-p-name">밑줄긋기</div>
-          </div>
-          <div class="arc-p-chip">
-            <div class="arc-p-av" style="background:#daf0ec;color:#1a6a60;">미</div>
-            <div class="arc-p-name">도서관미아</div>
-          </div>
-          <div class="arc-p-chip">
-            <div class="arc-p-av" style="background:#d8d8f4;color:#4040a0;">별</div>
-            <div class="arc-p-name">별자리서재</div>
-          </div>
-          <div class="arc-p-chip">
-            <div class="arc-p-av" style="background:#e4ecd4;color:#506020;">느</div>
-            <div class="arc-p-name">느린독서가</div>
-          </div>
-          <div class="arc-p-chip">
-            <div class="arc-p-av" style="background:#e8e4e0;color:#706050;">그</div>
-            <div class="arc-p-name">그날의책</div>
-          </div>
-          <div class="arc-p-chip">
-            <div class="arc-p-av" style="background:#dcecd8;color:#306828;">사</div>
-            <div class="arc-p-name">사서지망생</div>
-          </div>
-          <div class="arc-p-chip">
-            <div class="arc-p-av" style="background:#dce8f0;color:#285878;">카</div>
-            <div class="arc-p-name">구름카탈로그</div>
-          </div>
-          <div class="arc-p-chip">
-            <div class="arc-p-av" style="background:#ecdcd8;color:#805040;">서</div>
-            <div class="arc-p-name">기억의서가</div>
-          </div>
-          <div class="arc-p-chip">
-            <div class="arc-p-av" style="background:#e4dcd4;color:#604030;">오</div>
-            <div class="arc-p-name">오래된독자</div>
-          </div>
-        </div>
-      </div>
-
-      <!-- CHAPTER 1 -->
-      <div class="arc-chapter-divider"></div>
-      <div class="arc-chapter-header">
-        <div class="arc-chapter-num">1장</div>
-        <div class="arc-chapter-title">도서관이라는 공간에 대하여</div>
-        <div class="arc-chapter-desc">구름 위 도서관을 처음 상상한 순간, 독자들이 무엇을 떠올렸는지에 대한 기록.</div>
-      </div>
-      <div class="arc-messages-area">
-        <div class="arc-msg-card highlight">
-          <div class="arc-msg-head">
-            <div class="arc-msg-av" style="background:#ecf4e8;color:#4a7a3a;">몽</div>
-            <div>
-              <div class="arc-msg-name">몽상독자</div>
-              <div class="arc-msg-time">독서방 1일차 · 오후 2:14</div>
-            </div>
-          </div>
-          <div class="arc-msg-body">판타지인데 판타지처럼 안 읽혀요. 도서관이라는 공간이 너무 현실적이어서, 사서의 고민이 너무 현실적이어서. 어느 순간부터 이게 실제 공간인 것처럼 읽게
-            됐어요. 구름 위에 있다는 설정조차 나중엔 당연하게 받아들이게 되는 게 무섭기도 하고 신기하기도 했어요.</div>
-          <div class="arc-msg-reactions">
-            <span class="arc-rx-tag hot">❤️ 공감해요 18</span>
-            <span class="arc-rx-tag hot">✨ 인상 깊어요 14</span>
-            <span class="arc-rx-tag">😄 재밌어요 3</span>
-            <div class="arc-rx-total">총 <strong>35</strong>개 반응</div>
-          </div>
-        </div>
-        <div class="arc-msg-card top-pick">
-          <div class="arc-top-pick-badge">TOP PICK</div>
-          <div class="arc-msg-head">
-            <div class="arc-msg-av" style="background:#daf0ec;color:#1a6a60;">너</div>
-            <div>
-              <div class="arc-msg-name">구름너머</div>
-              <div class="arc-msg-time">독서방 1일차 · 오후 4:52</div>
-            </div>
-          </div>
-          <div class="arc-msg-body">사서라는 직업이 원래도 경계에 있는 존재잖아요. <strong>책과 독자 사이</strong>, 작가와 독자 사이, 지식과 모름 사이. 그런데 이
-            소설에서 사서 다은은 삶과 죽음 사이에도 있어요. 그 설정이 진짜 기가 막혀요. 사서라서 가능한 이야기예요.</div>
-          <div class="arc-msg-reactions">
-            <span class="arc-rx-tag hot">❤️ 공감해요 24</span>
-            <span class="arc-rx-tag hot">✨ 인상 깊어요 19</span>
-            <span class="arc-rx-tag">🤔 생각이 달라요 4</span>
-            <div class="arc-rx-total">총 <strong>47</strong>개 반응 · 1일차 최다</div>
-          </div>
-        </div>
-
-        <!-- CHAT THREAD -->
-        <div class="arc-chat-thread">
-          <div class="arc-chat-thread-label"><span>2일차 채팅 스레드 발췌</span></div>
-          <div class="arc-chat-row other">
-            <div class="arc-chat-av-sm" style="background:#e0f0e0;color:#3a6a2a;">도</div>
-            <div class="arc-chat-col">
-              <div class="arc-chat-name-sm">도서관팬</div>
-              <div class="arc-chat-bubble">사서 다은이 그 책을 반납해야 하는지 아닌지 고민하는 장면이 너무 좋았어요</div>
-              <div style="display:flex;gap:4px;margin-top:4px;">
-                <span class="arc-crx hot">❤️ 13</span><span class="arc-crx">✨ 6</span>
-              </div>
-            </div>
-            <span style="font-size:10px;color:#6b5040;align-self:flex-end;flex-shrink:0;">오후 2:31</span>
-          </div>
-          <div class="arc-chat-row other">
-            <div class="arc-chat-av-sm" style="background:#ecf4e8;color:#4a7a3a;">몽</div>
-            <div class="arc-chat-col">
-              <div class="arc-chat-name-sm">몽상독자</div>
-              <div class="arc-chat-bubble">마지막 책의 주인이 누군지 알게 된 순간 처음부터 다시 읽었어요</div>
-              <div style="display:flex;gap:4px;margin-top:4px;">
-                <span class="arc-crx hot">❤️ 9</span>
-              </div>
-            </div>
-            <span style="font-size:10px;color:#6b5040;align-self:flex-end;flex-shrink:0;">오후 2:40</span>
-          </div>
-          <div class="arc-chat-row mine">
-            <div class="arc-chat-col">
-              <div class="arc-chat-bubble">규칙과 감정 사이에서 흔들리는 모습이 현실적으로 느껴져서 더 몰입했어요</div>
-            </div>
-            <span style="font-size:10px;color:#6b5040;align-self:flex-end;flex-shrink:0;">오후 2:44</span>
-          </div>
-        </div>
-
-        <div class="arc-quote-block">
-          <div class="arc-quote-text">"책이 먼저 도착했다면, 그 사람은 아직 자기 이야기의 저자입니다."</div>
-          <div class="arc-quote-attr">— 도서관팬, 독서방 2일차 댓글 중</div>
-        </div>
-      </div>
-
-      <!-- CHAPTER 2: TOP SENTENCES -->
-      <div class="arc-chapter-divider"></div>
-      <div class="arc-chapter-header">
-        <div class="arc-chapter-num">2장</div>
-        <div class="arc-chapter-title">가장 오래 남은 문장들</div>
-        <div class="arc-chapter-desc">독서방에서 가장 많은 반응을 받은 감상 TOP 10.</div>
-      </div>
-      <div class="arc-section arc-top-sentences" style="padding-top:0;">
-        <div class="arc-sentence-item">
-          <div class="arc-sentence-rank">01</div>
-          <div class="arc-sentence-body">
-            <div class="arc-sentence-text">죽은 사람의 기억이 책이 된다는 설정인데, 정작 이 소설은 기억 자체가 아니라 그 기억을 어떻게 다룰 것인가에 대한 이야기예요. 사서가
-              영사(靈司)인 동시에 윤리학자인 존재로 느껴졌어요.</div>
-            <div class="arc-sentence-meta">
-              <div class="arc-sentence-author">
-                <div class="arc-s-av" style="background:#dce8f0;color:#2a5870;">조</div><span
-                  class="arc-s-name">조용한페이지</span>
-              </div>
-              <div class="arc-s-rxs"><span class="arc-s-rx">❤️ 28</span><span class="arc-s-rx">✨ 20</span><span
-                  class="arc-s-rx">🤔 6</span></div>
-              <span style="font-size:11px;color:var(--text-faint);margin-left:4px;">총 54 · 전체 1위</span>
-            </div>
-          </div>
-        </div>
-        <div class="arc-sentence-item">
-          <div class="arc-sentence-rank">02</div>
-          <div class="arc-sentence-body">
-            <div class="arc-sentence-text">살아있는 사람의 기억이 먼저 왔다는 설정이, 처음엔 SF처럼 읽히다가 나중엔 그냥 우리 얘기처럼 느껴졌어요. 우리도 이미 어딘가에 기록되고
-              있을 수 있잖아요. SNS가 구름 위 도서관 아닐까요.</div>
-            <div class="arc-sentence-meta">
-              <div class="arc-sentence-author">
-                <div class="arc-s-av" style="background:#d8d8f4;color:#4040a0;">별</div><span
-                  class="arc-s-name">별자리서재</span>
-              </div>
-              <div class="arc-s-rxs"><span class="arc-s-rx">❤️ 25</span><span class="arc-s-rx">😄 18</span><span
-                  class="arc-s-rx">✨ 7</span></div>
-              <span style="font-size:11px;color:var(--text-faint);margin-left:4px;">총 50 · 전체 2위</span>
-            </div>
-          </div>
-        </div>
-        <div class="arc-sentence-item">
-          <div class="arc-sentence-rank">03</div>
-          <div class="arc-sentence-body">
-            <div class="arc-sentence-text">다은이 책을 열다가 닫는 장면. 읽어선 안 된다는 걸 알면서 손이 가는 그 감각이 인간적이었어요. 결국 닫기로 한 것도, 열려고 했던 것도
-              둘 다 다은이에요.</div>
-            <div class="arc-sentence-meta">
-              <div class="arc-sentence-author">
-                <div class="arc-s-av" style="background:#dce8f8;color:#2c5f8a;">구</div><span
-                  class="arc-s-name">구름위에서</span>
-              </div>
-              <div class="arc-s-rxs"><span class="arc-s-rx">✨ 22</span><span class="arc-s-rx">❤️ 18</span><span
-                  class="arc-s-rx">🤔 5</span></div>
-              <span style="font-size:11px;color:var(--text-faint);margin-left:4px;">총 45 · 전체 3위</span>
-            </div>
-          </div>
-        </div>
-        <div class="arc-sentence-item">
-          <div class="arc-sentence-rank">04</div>
-          <div class="arc-sentence-body">
-            <div class="arc-sentence-text">존재하지 않는 책인데 읽은 것 같은 기분이 들어요. 아니, 읽은 것보다 더 많이 생각한 것 같기도 하고. 이게 가공독서회의 마법인 것
-              같아요.</div>
-            <div class="arc-sentence-meta">
-              <div class="arc-sentence-author">
-                <div class="arc-s-av" style="background:#dce8f8;color:#2c5f8a;">구</div><span
-                  class="arc-s-name">구름위에서</span>
-              </div>
-              <div class="arc-s-rxs"><span class="arc-s-rx">❤️ 20</span><span class="arc-s-rx">😄 12</span><span
-                  class="arc-s-rx">✨ 8</span></div>
-              <span style="font-size:11px;color:var(--text-faint);margin-left:4px;">총 40 · 전체 4위</span>
-            </div>
-          </div>
-        </div>
-        <div class="arc-sentence-item">
-          <div class="arc-sentence-rank">05</div>
-          <div class="arc-sentence-body">
-            <div class="arc-sentence-text">구름 위의 도서관에서 가장 무서운 건 죽음이 아니라, '아직 살아있는데 기억이 먼저 도착했다'는 사실이에요. 그 사람은 알고 있을까요,
-              자기 기억이 이미 책이 됐다는 걸.</div>
-            <div class="arc-sentence-meta">
-              <div class="arc-sentence-author">
-                <div class="arc-s-av" style="background:#dcf4ec;color:#1d7a58;">살</div><span
-                  class="arc-s-name">살아있는기억</span>
-              </div>
-              <div class="arc-s-rxs"><span class="arc-s-rx">❤️ 23</span><span class="arc-s-rx">🤔 8</span><span
-                  class="arc-s-rx">✨ 7</span></div>
-              <span style="font-size:11px;color:var(--text-faint);margin-left:4px;">총 38 · 전체 5위</span>
-            </div>
-          </div>
-        </div>
-      </div>
-
-      <!-- REACTION SUMMARY -->
-      <div class="arc-rx-summary">
-        <div class="arc-eyebrow">REACTION REPORT</div>
-        <div class="arc-section-title">독서회 반응 분석</div>
-        <div class="arc-section-sub">총 847개의 반응이 312개의 채팅 메시지와 58개의 댓글에 달렸습니다.</div>
-        <div class="arc-rx-grid">
-          <div class="arc-rx-card">
-            <div class="arc-rx-emoji">❤️</div>
-            <div class="arc-rx-label">공감해요 · 가장 많은 반응</div>
-            <div class="arc-rx-bar-wrap">
-              <div class="arc-rx-bar-bg">
-                <div class="arc-rx-bar-fill" style="width:88%;"></div>
-              </div>
-              <div class="arc-rx-count-label">347</div>
-            </div>
-          </div>
-          <div class="arc-rx-card">
-            <div class="arc-rx-emoji">✨</div>
-            <div class="arc-rx-label">인상 깊어요</div>
-            <div class="arc-rx-bar-wrap">
-              <div class="arc-rx-bar-bg">
-                <div class="arc-rx-bar-fill" style="width:72%;"></div>
-              </div>
-              <div class="arc-rx-count-label">284</div>
-            </div>
-          </div>
-          <div class="arc-rx-card">
-            <div class="arc-rx-emoji">🤔</div>
-            <div class="arc-rx-label">생각이 달라요 · 논쟁적 문장</div>
-            <div class="arc-rx-bar-wrap">
-              <div class="arc-rx-bar-bg">
-                <div class="arc-rx-bar-fill" style="width:43%;background:#c17b3f;"></div>
-              </div>
-              <div class="arc-rx-count-label">148</div>
-            </div>
-          </div>
-          <div class="arc-rx-card">
-            <div class="arc-rx-emoji">😄</div>
-            <div class="arc-rx-label">재밌어요</div>
-            <div class="arc-rx-bar-wrap">
-              <div class="arc-rx-bar-bg">
-                <div class="arc-rx-bar-fill" style="width:18%;"></div>
-              </div>
-              <div class="arc-rx-count-label">68</div>
-            </div>
-          </div>
-        </div>
-      </div>
-
-      <!-- CLOSING -->
-      <div class="arc-closing">
-        <div class="arc-closing-eyebrow">CLOSING NOTE</div>
-        <div class="arc-closing-title">존재하지 않는 책에 대한<br>가장 진실한 기록</div>
-        <div class="arc-closing-body">이 아카이브는 이제 구름 위 어딘가에 보관됩니다.<br>독자 서른 명의 기억이, 한 권의 책이 되어.<br><br>다음 독서회에서 또 만나요.
-        </div>
-        <div class="arc-closing-logo"><em>가공</em>독서회</div>
-      </div>
-
-      <!-- COLOPHON -->
-      <div class="arc-colophon">
-        <div class="arc-colophon-left">가공독서회 아카이브 북 Vol.7<br>『구름 위의 도서관』 독서회 기념 출판<br>발행: 가공독서회 편집팀 · 2025년 가을</div>
-        <div class="arc-colophon-right">이 책에 수록된 모든 감상은<br>실제 독자들의 상상에서 왔습니다.</div>
-      </div>
-
     </div><!-- /arc-content -->
   </div><!-- /pg-archive -->
 
@@ -493,36 +56,36 @@
     onclick="if(event.target===this) closeProfileEditModal()">
     <div class="custom-modal-card">
       <div class="custom-modal-header">
-        <h3>⚙️ 프로필 편집</h3>
+        <h3 data-i18n="pm_title">⚙️ 프로필 편집</h3>
         <button class="custom-modal-close" onclick="closeProfileEditModal()">&times;</button>
       </div>
       <div class="custom-modal-body">
         <!-- 1. 비밀번호 변경 영역 -->
-        <div class="modal-section-title">🔒 비밀번호 변경</div>
+        <div class="modal-section-title" data-i18n="pm_pw_title">🔒 비밀번호 변경</div>
         <div class="modal-input-group">
-          <label>현재 비밀번호</label>
-          <input type="password" id="edit-curr-pw" placeholder="현재 비밀번호를 입력하세요">
+          <label data-i18n="pm_pw_curr">현재 비밀번호</label>
+          <input type="password" id="edit-curr-pw" placeholder="현재 비밀번호를 입력하세요" data-i18n-placeholder="pm_pw_curr_ph">
         </div>
         <div class="modal-input-group">
-          <label>새 비밀번호 (8자 이상)</label>
-          <input type="password" id="edit-new-pw" placeholder="8자 이상 입력하세요">
+          <label data-i18n="pm_pw_new">새 비밀번호 (8자 이상)</label>
+          <input type="password" id="edit-new-pw" placeholder="8자 이상 입력하세요" data-i18n-placeholder="pm_pw_new_ph">
         </div>
         <div class="modal-input-group">
-          <label>새 비밀번호 확인</label>
-          <input type="password" id="edit-confirm-pw" placeholder="새 비밀번호를 한번 더 입력하세요">
+          <label data-i18n="pm_pw_confirm">새 비밀번호 확인</label>
+          <input type="password" id="edit-confirm-pw" placeholder="새 비밀번호를 한번 더 입력하세요" data-i18n-placeholder="pm_pw_confirm_ph">
         </div>
-        <button class="modal-action-btn" onclick="submitChangePassword()">비밀번호 변경 적용</button>
+        <button class="modal-action-btn" onclick="submitChangePassword()" data-i18n="pm_pw_btn">비밀번호 변경 적용</button>
 
         <hr class="modal-divider">
 
         <!-- 2. 회원 탈퇴 영역 -->
-        <div class="modal-section-title danger">⚠️ 가공독서회 탈퇴</div>
-        <p class="modal-warn-text">탈퇴 즉시 내 서재 목록, 작성한 감상(댓글) 및 대화 내역이 완전히 영구 삭제되며 절대 복구할 수 없습니다.</p>
+        <div class="modal-section-title danger" data-i18n="pm_wd_title">⚠️ 가공독서회 탈퇴</div>
+        <p class="modal-warn-text" data-i18n="pm_wd_warn">탈퇴 즉시 내 서재 목록, 작성한 감상(댓글) 및 대화 내역이 완전히 영구 삭제되며 절대 복구할 수 없습니다.</p>
         <div class="modal-input-group">
-          <label>본인 확인 비밀번호</label>
-          <input type="password" id="withdraw-pw" placeholder="탈퇴 확인을 위해 비밀번호를 입력하세요">
+          <label data-i18n="pm_wd_pw">본인 확인 비밀번호</label>
+          <input type="password" id="withdraw-pw" placeholder="탈퇴 확인을 위해 비밀번호를 입력하세요" data-i18n-placeholder="pm_wd_pw_ph">
         </div>
-        <button class="modal-action-btn danger" onclick="submitWithdraw()">회원 탈퇴 및 계정 영구 삭제</button>
+        <button class="modal-action-btn danger" onclick="submitWithdraw()" data-i18n="pm_wd_btn">회원 탈퇴 및 계정 영구 삭제</button>
       </div>
     </div>
   </div>
