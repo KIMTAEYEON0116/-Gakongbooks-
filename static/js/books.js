@@ -2198,7 +2198,19 @@ function renderGenreSection() {
       var token = localStorage.getItem('token');
       if (!container || !token || container.querySelector('.candidate-card')) return;
       var pending = await fetchPendingCandidates(token);
-      if (pending.length) renderCandidates(pending);
+      if (pending.length) { renderCandidates(pending); return; }
+      // 고를 후보가 없다. 제목만 남은 빈 화면 대신 다음 행동을 안내한다
+      // (새로고침·뒤로가기로 들어오면 이 상태가 된다).
+      container.innerHTML =
+        '<div class="candidates-empty">' +
+          '<div class="candidates-empty-icon">📚</div>' +
+          '<div class="candidates-empty-title">' + escHtml(t('cand_empty_title')) + '</div>' +
+          '<div class="candidates-empty-desc">' + escHtml(t('cand_empty_desc')) + '</div>' +
+          '<div class="candidates-empty-actions">' +
+            '<button class="gen-btn" onclick="generateBook()">' + escHtml(t('gen_btn')) + '</button>' +
+            '<button class="candidates-empty-home" onclick="goPage(&quot;home&quot;)">' + escHtml(t('cand_empty_home')) + '</button>' +
+          '</div>' +
+        '</div>';
     }
     window.restoreCandidatesIfEmpty = restoreCandidatesIfEmpty;
 
@@ -4448,6 +4460,9 @@ function adaptDbBookToFrontend(dbBook) {
         cand_back: "← 돌아가기",
         cand_label: "BOOK CURATION",
         cand_preparing: "준비 중...",
+        cand_empty_title: "고를 후보가 없습니다",
+        cand_empty_desc: "새 책을 생성하면 AI가 후보 3권을 가져옵니다. 이미 고른 책은 독서실 목록에서 볼 수 있습니다.",
+        cand_empty_home: "독서실 목록으로",
         pm_title: "⚙️ 프로필 편집",
         pm_pw_title: "🔒 비밀번호 변경",
         pm_pw_curr: "현재 비밀번호",
@@ -4820,6 +4835,9 @@ function adaptDbBookToFrontend(dbBook) {
         cand_back: "← 戻る",
         cand_label: "BOOK CURATION",
         cand_preparing: "準備中…",
+        cand_empty_title: "選べる候補がありません",
+        cand_empty_desc: "新しい本を生成すると、AIが候補を3冊ご用意します。すでに選んだ本は読書室一覧でご覧いただけます。",
+        cand_empty_home: "読書室一覧へ",
         pm_title: "⚙️ プロフィール編集",
         pm_pw_title: "🔒 パスワードの変更",
         pm_pw_curr: "現在のパスワード",

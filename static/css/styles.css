@@ -4908,6 +4908,28 @@ html[lang="ja"] .chat-header-book-title {
 
 
 /* /  CANDIDATE SELECTION UI  / */
+/* 후보가 없을 때의 빈 상태 */
+.candidates-empty {
+  grid-column: 1 / -1;
+  width: 100%;
+  max-width: 520px;
+  margin: 40px auto 60px;
+  text-align: center;
+  padding: 40px 28px;
+  background: var(--paper, #fffdf8);
+  border: 1px dashed rgba(0, 0, 0, 0.12);
+  border-radius: 18px;
+}
+.candidates-empty-icon { font-size: 34px; margin-bottom: 10px; }
+.candidates-empty-title { font-size: 18px; font-weight: 700; margin-bottom: 8px; }
+.candidates-empty-desc { font-size: 13.5px; color: var(--text-muted); line-height: 1.7; margin-bottom: 22px; }
+.candidates-empty-actions { display: flex; gap: 10px; justify-content: center; flex-wrap: wrap; }
+.candidates-empty-home {
+  padding: 11px 20px; border-radius: 999px; border: 1px solid rgba(0, 0, 0, 0.14);
+  background: transparent; color: var(--text); font-family: inherit; font-size: 14px; cursor: pointer;
+}
+.candidates-empty-home:hover { background: rgba(0, 0, 0, 0.04); }
+
 .candidates-container {
   display: flex;
   justify-content: center;
