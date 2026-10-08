@@ -2476,12 +2476,15 @@ async def _produce_candidate_books(db: Session, background_tasks: BackgroundTask
     k2 = random.choice(kw_concrete)
     
     # 0. 같은 사용자가 이전에 받아놓고 고르지 않은 후보는 pool로 되돌린다.
-    #    (다른 사람이 고르는 중인 후보까지 건드리지 않도록 소유자 기준으로만 정리한다)
-    stale = db.query(models.CandidateBook).filter(models.CandidateBook.status == 'pending')
+    #    소유자가 없는 호출(자동 보충)은 아무것도 건드리지 않는다 — 예전에는 이때
+    #    모든 사용자의 '고르는 중' 후보를 pool로 돌려, 보충이 도는 순간 누군가의
+    #    선택 화면이 비어 버릴 수 있었다.
     if owner_user_id is not None:
-        stale = stale.filter(models.CandidateBook.created_by == owner_user_id)
-    stale.update({"status": "pool"}, synchronize_session=False)
-    db.flush()
+        db.query(models.CandidateBook).filter(
+            models.CandidateBook.status == 'pending',
+            models.CandidateBook.created_by == owner_user_id,
+        ).update({"status": "pool"}, synchronize_session=False)
+        db.flush()
 
     # 1. Pool(보관된 남겨진 책들) 중에서 매번 무작위 랜덤으로 꺼내오기 (최대 3권)
     reused_candidates = db.query(models.CandidateBook).filter(
@@ -4679,6 +4682,10 @@ async def realtime_archive_loop():
                 _auto_archive_expired_books(db)
             finally:
                 db.close()
+
+            # 3) 방이 줄었으면 그 자리에서 보충한다. 1시간 주기만 믿으면 그동안 홈이 빈다.
+            if expiring:
+                await _auto_refill_active_books_if_needed()
         except Exception as e:
             print(f"Realtime archive loop error: {e}")
 
@@ -4841,8 +4848,12 @@ async def _auto_refill_active_books_if_needed():
 
 # --- 활성 독서방 자동 보충 루프 ---
 async def auto_refill_loop():
+    # 첫 검사는 기동 2분 뒤. 1시간을 기다리면 배포로 재시작될 때마다 검사가 밀려
+    # 사실상 한 번도 돌지 않는다(30일간 재시작 51회, 보충 기록 0회).
+    wait = 120
     while True:
-        await asyncio.sleep(3600)  # 1시간마다 확인 (0권 상태가 최대 1시간까지만 노출되도록)
+        await asyncio.sleep(wait)
+        wait = 3600
         try:
             await _auto_refill_active_books_if_needed()
         except Exception as e:
