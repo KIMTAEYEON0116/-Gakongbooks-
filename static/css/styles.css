@@ -17,17 +17,16 @@
   --accent-border: #e8c89a;
   /* 본문 폰트 — 한국어 기본. 일본어일 때는 아래 html[lang="ja"] 규칙이 JP 폰트를 우선한다.
      (한중일 한자는 나라별로 자형이 달라서, 언어에 맞는 폰트를 먼저 두어야 자연스럽게 보인다) */
-  /* 서체는 한 벌로 통일한다 (Noto Serif).
-     문학 아카이브라는 성격에 명조가 맞다. 다만 기본 굵기(400)에서는 획이 가늘어
-     참여 인원·평점·D-day 같은 작은 숫자가 흐릿했다. 서체를 바꾸는 대신 굵기를 올려
-     그 문제만 걷어낸다 — 본문 --w-body, 통계·라벨 --w-small.
-     --serif와 --sans 두 변수가 98곳에서 쓰이고 있어 변수는 남기되 같은 서체를 가리킨다. */
+  /* 서체는 두 벌. --serif(제목·표지·인용·로고)는 명조로 문학 아카이브의 인상을 맡고,
+     --sans(본문·버튼·설명·채팅)는 고딕으로 가독성을 맡는다.
+     한때 전부 명조로 통일했으나 12~13px 본문에서 획이 가늘어 읽기 힘들었다.
+     굵기는 --w-body / --w-small 변수로만 조절한다. */
   --serif: 'Noto Serif KR', 'Noto Serif JP', 'Apple SD Gothic Neo', 'Malgun Gothic', serif;
-  --sans: 'Noto Serif KR', 'Noto Serif JP', 'Apple SD Gothic Neo', 'Malgun Gothic', serif;
+  --sans: 'Noto Sans KR', 'Noto Sans JP', 'Apple SD Gothic Neo', 'Malgun Gothic', sans-serif;
 
   /* 굵기 기준. 명조를 얇지 않게 쓰기 위한 값이다. */
-  --w-body: 500;   /* 본문·줄거리·채팅 */
-  --w-small: 600;  /* 통계·숫자·작은 라벨 — 한 단계 더 올려야 또렷하다 */
+  --w-body: 400;   /* 본문·줄거리·채팅 (고딕 기준) */
+  --w-small: 500;  /* 통계·숫자·작은 라벨 */
 
   /* 상단 내비게이션 높이. sticky 요소가 그 아래에 붙을 때 기준으로 쓴다. */
   --nav-h: 56px;
@@ -35,9 +34,12 @@
 
 /* 일본어 표시 중일 때의 폰트 우선순위 (setLanguage()가 <html lang>을 바꾼다) */
 html[lang="ja"] {
-  /* 일본어 화면도 같은 원칙 — 명조 한 벌. 일본어 자형이 우선되도록 순서만 바꾼다. */
+  line-height: 1.7;
+  letter-spacing: 0.01em;
+  /* 제목·표지·인용은 명조, 본문·버튼·설명은 고딕 (見出し明朝・本文ゴシック).
+     일본어 자형이 우선되도록 JP 서체를 앞에 둔다. */
   --serif: 'Noto Serif JP', 'Hiragino Mincho ProN', 'Yu Mincho', serif;
-  --sans: 'Noto Serif JP', 'Hiragino Mincho ProN', 'Yu Mincho', serif;
+  --sans: 'Noto Sans JP', 'Hiragino Sans', 'Yu Gothic', 'Meiryo', sans-serif;
 }
 
 body {
@@ -4757,6 +4759,11 @@ html[lang="ja"] .chat-header-book-title {
   letter-spacing: 0.05em;
 }
 
+/* 사회자 태그는 CSS content라 사전을 거치지 않는다. 일본어 화면에서는 여기서 바꾼다. */
+html[lang="ja"] .chat-row.moderator-row .chat-name.mod-name::after {
+  content: "司会者";
+}
+
 .chat-row.moderator-row .chat-time {
   color: #5c4233 !important;
 }
@@ -5083,7 +5090,7 @@ html[lang="ja"] .chat-header-book-title {
   background: linear-gradient(135deg, #fffdf2 0%, #fef3d6 100%) !important;
   border: 1.5px solid #e0c27b !important;
   color: #2c1d09 !important;
-  font-weight: 600 !important;
+  font-weight: 500 !important;   /* 고딕에서는 600이 지나치게 굵다 */
   font-size: 14.5px !important;
   line-height: 1.7 !important;
   box-shadow: 0 4px 14px rgba(180, 130, 40, 0.12) !important;
