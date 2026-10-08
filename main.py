@@ -401,10 +401,17 @@ async def _pollinations_fetch(prompt_text: str, seed: int, max_wait: float) -> O
         try:
             # 상태코드/용량만으로는 에러 페이지를 그림으로 오인할 수 있다
             Image.open(io.BytesIO(res.content)).verify()
+            # 무료 구간은 오른쪽 아래에 워터마크를 찍는다. 아래 6%를 잘라 낸다
+            # (표지는 가운데 정렬로 보여 주므로 가장자리는 잘려도 티가 나지 않는다).
+            im = Image.open(io.BytesIO(res.content)).convert("RGB")
+            w, h = im.size
+            im = im.crop((0, 0, w, h - int(h * 0.06)))
+            out = io.BytesIO()
+            im.save(out, format="PNG", optimize=True)
+            return out.getvalue()
         except Exception:
             print(f"[Cover AI] 응답이 유효한 이미지가 아님 (size={len(res.content)}bytes)")
             return None
-        return res.content
 
 
 def _is_fallback_cover(path: str) -> bool:
