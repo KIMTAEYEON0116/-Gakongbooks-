@@ -2330,6 +2330,109 @@ function renderGenreSection() {
       return true;
     }
 
+    // 서버가 내려준 대화 목록을 화면용 객체로 바꾼다. 방을 열 때와 자동 갱신 때 같은 변환을 쓴다.
+    function mapServerChats(dbChats) {
+      var list = (dbChats || []).map(function (c) {
+        return {
+          id: c.id,
+          userId: c.userId,
+          mine: (typeof CURRENT_USER_ID !== 'undefined' && CURRENT_USER_ID !== null && c.userId == CURRENT_USER_ID),
+          user: c.user,
+          // 서버 플래그를 그대로 실어 준다 (사회자 판별 · 가상 독자 '예시' 표시)
+          isBot: !!c.isBot,
+          isSample: !!c.isSample,
+          textJa: c.textJa || null,   // 사회자 메시지의 일본어 본문
+          // 아바타 글자도 보이는 이름에서 따온다. 원문에서 따면 일본어 화면에
+          // 이름은 일본어인데 동그라미 안만 한글로 남는다.
+          av: displayUser(c.user).charAt(0),
+          avBg: '#f5d87a',
+          avColor: '#7a4a10',
+          text: c.text,
+          date: new Date(c.date),
+          ts: c.ts,
+          reactions: (function(rx, mineList) {
+            // 내가 누른 반응은 서버가 알려준다.
+            var mapped = {};
+            for (var k in rx) {
+              mapped[k] = { count: rx[k], mine: (mineList || []).indexOf(k) !== -1 };
+            }
+            return mapped;
+          })(c.reactions || {}, c.myReactions),
+          replyTo: c.replyTo || null,
+          edited: c.edited || false
+        };
+      });
+      list.sort(function (a, b) { return a.date.getTime() - b.date.getTime(); });
+      return list;
+    }
+
+    // ── 채팅 자동 갱신 ──
+    // 다른 사람의 발언은 새로고침해야만 보였다. 방이 열려 있는 동안 몇 초마다 서버본을 받아
+    // 달라졌을 때만 다시 그린다. 1인 운영 서버라 연결을 쥐고 있는 WebSocket보다 가벼운 폴링이 맞다.
+    var CHAT_POLL_MS = 7000;
+    var _chatPollTimer = null;
+    var _chatPollBusy = false;
+
+    function chatSignature(list) {
+      return (list || []).map(function (m) {
+        var rx = m.reactions || {};
+        var rxKeys = Object.keys(rx).sort().map(function (k) { return k + ':' + (rx[k].count || 0) + (rx[k].mine ? '*' : ''); });
+        return [m.id, m.text, m.textJa || '', m.edited ? 1 : 0, rxKeys.join(',')].join('|');
+      }).join('\n');
+    }
+
+    async function refreshChatIfChanged() {
+      if (!currentBook || _chatPollBusy) return;
+      var pg = document.getElementById('pg-chat');
+      if (!pg || !pg.classList.contains('active') || document.hidden) return;
+      var bookId = currentBook.id;
+      var local = chatMsgs[bookId] || [];
+      // 아직 서버에 저장되지 않은 내 발언(임시 id)이 있으면 이번 회차는 건너뛴다
+      if (local.some(function (m) { return typeof m.id === 'string' && m.id.indexOf('msg') === 0; })) return;
+      // 수정 중이거나 검색 중이면 화면을 바꾸지 않는다
+      if (document.querySelector('#chat-body .chat-edit-wrap')) return;
+      var q = document.getElementById('chat-search-input');
+      if (q && q.value.trim()) return;
+
+      _chatPollBusy = true;
+      try {
+        var headers = {};
+        var tk = localStorage.getItem('token');
+        if (tk) headers['Authorization'] = 'Bearer ' + tk;
+        var res = await fetch('/api/books/' + bookId + '/chats', { headers: headers });
+        if (!res.ok) return;
+        var fresh = mapServerChats(await res.json());
+        if (!currentBook || currentBook.id !== bookId) return;
+        if (chatSignature(fresh) === chatSignature(chatMsgs[bookId] || [])) return;
+
+        var body = document.getElementById('chat-body');
+        var nearBottom = body ? (body.scrollHeight - body.scrollTop - body.clientHeight < 140) : false;
+        var pageNearBottom = (window.innerHeight + window.scrollY) >= (document.body.scrollHeight - 140);
+        chatMsgs[bookId] = fresh;
+        renderChat(bookId);
+        if (nearBottom || pageNearBottom) {
+          if (body) body.scrollTop = body.scrollHeight;
+          window.scrollTo({ top: document.body.scrollHeight, behavior: 'auto' });
+        }
+      } catch (e) {
+        // 네트워크가 잠깐 끊긴 것뿐이다. 다음 회차에 다시 본다.
+      } finally {
+        _chatPollBusy = false;
+      }
+    }
+
+    function startChatPolling() {
+      stopChatPolling();
+      _chatPollTimer = setInterval(refreshChatIfChanged, CHAT_POLL_MS);
+    }
+    function stopChatPolling() {
+      if (_chatPollTimer) { clearInterval(_chatPollTimer); _chatPollTimer = null; }
+    }
+    // 탭을 다시 보는 순간 바로 한 번 맞춘다
+    document.addEventListener('visibilitychange', function () {
+      if (!document.hidden) refreshChatIfChanged();
+    });
+
     async function openChat() {
       if (!currentBook) return;
       initChatMsgs(currentBook.id);
@@ -2342,41 +2445,8 @@ function renderGenreSection() {
         if (_chatToken) fetchHeaders['Authorization'] = 'Bearer ' + _chatToken;
         var res = await fetch('/api/books/' + book.id + '/chats', { headers: fetchHeaders });
         if (res.ok) {
-          var dbChats = await res.json();
           // DB 데이터로 완전 교체 (기존 캐시/시드 메시지 제거)
-          chatMsgs[book.id] = [];
-          dbChats.forEach(function (c) {
-            chatMsgs[book.id].push({
-              id: c.id,
-              userId: c.userId,
-              mine: (typeof CURRENT_USER_ID !== 'undefined' && CURRENT_USER_ID !== null && c.userId == CURRENT_USER_ID),
-              user: c.user,
-              // 서버 플래그를 그대로 실어 준다 (사회자 판별 · 가상 독자 '예시' 표시)
-              isBot: !!c.isBot,
-              isSample: !!c.isSample,
-              textJa: c.textJa || null,   // 사회자 메시지의 일본어 본문
-              // 아바타 글자도 보이는 이름에서 따온다. 원문에서 따면 일본어 화면에
-              // 이름은 일본어인데 동그라미 안만 한글로 남는다.
-              av: displayUser(c.user).charAt(0),
-              avBg: '#f5d87a',
-              avColor: '#7a4a10',
-              text: c.text,
-              date: new Date(c.date),
-              ts: c.ts,
-              reactions: (function(rx, mineList) {
-                // 내가 누른 반응은 서버가 알려준다. 예전에는 항상 false로 두어
-                // 새로고침하면 누른 표시가 사라지고 같은 반응을 다시 누를 수 있었다.
-                var mapped = {};
-                for (var k in rx) {
-                  mapped[k] = { count: rx[k], mine: (mineList || []).indexOf(k) !== -1 };
-                }
-                return mapped;
-              })(c.reactions || {}, c.myReactions),
-              replyTo: c.replyTo || null,
-              edited: c.edited || false
-            });
-          });
-          chatMsgs[book.id].sort(function (a, b) { return a.date.getTime() - b.date.getTime(); });
+          chatMsgs[book.id] = mapServerChats(await res.json());
         }
       } catch (e) { console.error(e); }
 
@@ -3204,6 +3274,8 @@ function buildMsgEl(msg, bookId) {
     }
 
     function goPage(p) {
+      // 독서방을 벗어나면 자동 갱신도 멈춘다
+      if (p === 'chat') startChatPolling(); else stopChatPolling();
       document.querySelectorAll('.page').forEach(function (e) { e.classList.remove('active'); });
       document.querySelectorAll('.nav-btn').forEach(function (e) { e.classList.remove('active'); });
       var globalFooter = document.getElementById('global-footer');

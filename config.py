@@ -146,6 +146,11 @@ if not SMTP_CONFIGURED:
 APP_BASE_URL = _get("APP_BASE_URL", "http://127.0.0.1:8001").rstrip("/")
 PASSWORD_RESET_TTL_MINUTES = _get_int("PASSWORD_RESET_TTL_MINUTES", 30)
 
+# 체험 계정. 여러 사람이 같은 날 같은 계정으로 들어오므로 "하루 1회" 대신
+# 쿨다운으로 생성 제한을 건다. 비워 두면 체험 계정 특례는 없다.
+DEMO_EMAIL = _get("DEMO_EMAIL", "test@example.com").lower()
+DEMO_GENERATION_COOLDOWN_MINUTES = _get_int("DEMO_GENERATION_COOLDOWN_MINUTES", 180)
+
 # ── 기타 외부 서비스 ──
 GEMINI_API_KEY = _get("GEMINI_API_KEY")
 

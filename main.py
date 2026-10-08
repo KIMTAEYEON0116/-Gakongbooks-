@@ -31,13 +31,13 @@ from datetime import datetime, timedelta
 from contextlib import asynccontextmanager
 from fastapi import FastAPI, Depends, HTTPException, status, BackgroundTasks, Path, Request
 from fastapi.middleware.cors import CORSMiddleware
-from fastapi.responses import HTMLResponse, Response
+from fastapi.responses import HTMLResponse, JSONResponse, Response
 from fastapi.staticfiles import StaticFiles
 from fastapi.templating import Jinja2Templates
 from pydantic import BaseModel, EmailStr, Field
 from sqlalchemy.orm import Session
 from sqlalchemy.exc import IntegrityError
-from sqlalchemy import func
+from sqlalchemy import func, text as sa_text
 
 import config
 import database
@@ -1944,16 +1944,27 @@ def _send_email(to_email: str, subject: str, body: str) -> bool:
 
 
 def send_reset_link_email(to_email: str, nickname: str, reset_url: str):
-    """비밀번호 재설정 링크를 메일로 발송합니다."""
+    """비밀번호 재설정 링크를 메일로 발송합니다.
+
+    백그라운드에서 보내므로 요청 언어(ContextVar)를 믿을 수 없다.
+    일본어를 앞에, 한국어를 뒤에 두어 한 통으로 두 언어를 모두 담는다.
+    """
+    ttl = config.PASSWORD_RESET_TTL_MINUTES
     body = (
-        f"안녕하세요, {nickname} 독자님." + BR * 2 +
-        "비밀번호 재설정을 요청하셨습니다. 아래 링크에서 새 비밀번호를 설정해 주세요." + BR * 2 +
+        f"{nickname} 様" + BR * 2 +
+        "パスワードの再設定が要求されました。下記のリンクから新しいパスワードを設定してください。" + BR * 2 +
         reset_url + BR * 2 +
-        f"이 링크는 {config.PASSWORD_RESET_TTL_MINUTES}분 후 만료되며 한 번만 사용할 수 있습니다." + BR +
+        f"このリンクは {ttl} 分後に無効となり、一度だけ使用できます。" + BR +
+        "お心当たりがない場合は、このメールを無視してください。現在のパスワードはそのまま保持されます。" + BR * 2 +
+        "架空読書会 運営" + BR * 2 +
+        "────────────────────" + BR * 2 +
+        f"안녕하세요, {nickname} 독자님." + BR * 2 +
+        "비밀번호 재설정을 요청하셨습니다. 위 링크에서 새 비밀번호를 설정해 주세요." + BR * 2 +
+        f"이 링크는 {ttl}분 후 만료되며 한 번만 사용할 수 있습니다." + BR +
         "본인이 요청하지 않았다면 이 메일을 무시하셔도 됩니다. 기존 비밀번호는 그대로 유지됩니다." + BR * 2 +
         "가공독서회 운영진 드림"
     )
-    sent = _send_email(to_email, "[가공독서회] 비밀번호 재설정 링크입니다.", body)
+    sent = _send_email(to_email, "[架空読書会] パスワード再設定のご案内 / 비밀번호 재설정 링크", body)
     if not sent and not config.IS_PRODUCTION:
         # 개발 환경에서만 링크를 콘솔로 확인할 수 있게 한다 (운영에서는 절대 출력하지 않는다).
         print(f"[개발용 재설정 링크] {to_email} -> {reset_url}")
@@ -2227,7 +2238,20 @@ async def generate_candidates(
         return [serialize_candidate(c) for c in existing]
 
     now_kst = models.get_kst_now()
-    if user.last_generation_at and user.last_generation_at.date() == now_kst.date():
+    is_demo = bool(config.DEMO_EMAIL) and (user.email or "").lower() == config.DEMO_EMAIL
+    if is_demo:
+        # 체험 계정은 여러 사람이 같은 날 쓴다. 하루 1회로 묶으면 두 번째 방문자가
+        # 아무것도 못 해 보고 돌아간다. 대신 쿨다운으로 호출량을 묶는다.
+        cooldown = timedelta(minutes=config.DEMO_GENERATION_COOLDOWN_MINUTES)
+        if user.last_generation_at and now_kst - user.last_generation_at < cooldown:
+            left = cooldown - (now_kst - user.last_generation_at)
+            left_min = max(1, int(left.total_seconds() // 60) + 1)
+            raise HTTPException(
+                status_code=status.HTTP_429_TOO_MANY_REQUESTS,
+                detail=m(f"체험 계정은 {left_min}분 후에 새 책을 만들 수 있습니다. 그동안 이미 열린 독서방을 둘러봐 주세요. 📖",
+                         f"体験アカウントでは、あと{left_min}分ほどで新しい本を作れます。それまでは開かれている読書室をご覧ください。📖")
+            )
+    elif user.last_generation_at and user.last_generation_at.date() == now_kst.date():
         raise HTTPException(
             status_code=status.HTTP_429_TOO_MANY_REQUESTS,
             detail=m("새 책 생성은 하루에 한 번만 가능합니다. 내일 다시 시도해 주세요! 📖", "新しい本の生成は一日に一度までです。明日またお試しください。📖")
@@ -2787,6 +2811,17 @@ def serialize_candidate(c: models.CandidateBook) -> dict:
 
 
 FAVICON_SVG = "<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'><rect width='32' height='32' rx='6' fill='#c17b3f'/><path d='M8 8h7a2 2 0 0 1 2 2v14a2 2 0 0 0-2-2H8z' fill='#fff'/><path d='M24 8h-7a2 2 0 0 0-2 2v14a2 2 0 0 1 2-2h7z' fill='#fdf0e4'/></svg>"
+
+
+@app.get("/health", include_in_schema=False)
+def health(db: Session = Depends(database.get_db)):
+    """서버·DB가 살아 있는지 한 번에 알려 준다. 외부 감시와 배포 확인용."""
+    try:
+        db.execute(sa_text("SELECT 1"))
+        return {"status": "ok", "db": "ok"}
+    except Exception as e:
+        return JSONResponse(status_code=503,
+                            content={"status": "degraded", "db": type(e).__name__})
 
 
 @app.get("/favicon.ico", include_in_schema=False)
@@ -3434,6 +3469,44 @@ class ReactRequest(BaseModel):
     emoji: str = Field(..., description="반응 이모지 (❤️, 🤔, 😄, ✨ 중 하나)")
 
 
+def build_welcome_text_ja(book) -> Optional[str]:
+    """환영 카드의 일본어본을 저장된 책 번역만으로 짓는다.
+
+    제목과 질문 중 하나라도 번역이 없으면 None을 돌려주고, 호출한 쪽이
+    AI 번역에 맡긴다. 반쪽짜리(제목은 일본어, 질문은 한국어)는 만들지 않는다.
+    """
+    ja = get_book_i18n(book, "ja")
+    title_ja = (ja.get("title") or "").strip()
+    if not title_ja:
+        return None
+
+    q_list = []
+    ko_count = (1 if book.core_dilemma else 0)
+    if book.core_dilemma:
+        dilemma_ja = (ja.get("core_dilemma") or "").strip()
+        if not dilemma_ja:
+            return None
+        q_list.append(f"1. {dilemma_ja.replace('Q. ', '').replace('Q.', '').strip()}")
+    if book.additional_questions:
+        ko_qs = [q.strip() for q in book.additional_questions.split("|") if q.strip()][:2]
+        ja_qs = [q.strip().replace("Q. ", "").replace("Q.", "").strip()
+                 for q in (ja.get("additional_questions") or "").split("|") if q.strip()][:2]
+        if len(ja_qs) < len(ko_qs):
+            return None
+        for idx, q in enumerate(ja_qs[:len(ko_qs)], start=len(q_list) + 1):
+            q_list.append(f"{idx}. {q}")
+        ko_count += len(ko_qs)
+    if not q_list:
+        q_list = ["1. この本の主人公の選択について、どうお考えですか。"]
+
+    q_text = "\n".join(q_list)
+    return (
+        f"読者の皆様、『{title_ja}』の読書室へようこそ！\n"
+        f"本日ご一緒に語り合いたい、おすすめの討論テーマです：\n\n{q_text}\n\n"
+        f"ご自由にご意見をお寄せいただくか、@司会者 に話しかけてみてください。"
+    )
+
+
 @app.get("/api/books/{book_id}/chats")
 def get_chat_history(
     book_id: int,
@@ -3490,6 +3563,9 @@ def get_chat_history(
                 
             q_text = "\n".join(q_list)
             welcome_text = f"독자님, 『{book.title}』 {WELCOME_MARKER}!\n오늘 함께 나눌 추천 토론 질문입니다:\n\n{q_text}\n\n자유롭게 의견을 남기시거나 @사회자에게 이야기를 건네보세요!"
+            # 일본어본은 저장된 번역으로 그 자리에서 짓는다. AI 번역에 기대면
+            # 한도가 바닥난 날 일본어 화면의 첫 카드가 한국어로 남는다.
+            welcome_text_ja = build_welcome_text_ja(book)
             
             # 독서방 최상단에 물리적으로 가장 먼저 위치하도록 시간 조정
             first_base_time = (book.created_at if book and book.created_at else models.get_kst_now())
@@ -3503,10 +3579,13 @@ def get_chat_history(
                 content=welcome_text,
                 created_at=welcome_time
             )
+            if welcome_text_ja:
+                welcome_msg.content_ja = welcome_text_ja
             db.add(welcome_msg)
             db.commit()
-            # 환영 인사도 일본어 화면에서 보여야 한다(응답을 막지 않도록 백그라운드).
-            background_tasks.add_task(translate_moderator_message_to_ja, welcome_msg.id)
+            if not welcome_text_ja:
+                # 책 번역이 아직 없을 때만 AI 번역에 맡긴다(응답을 막지 않도록 백그라운드).
+                background_tasks.add_task(translate_moderator_message_to_ja, welcome_msg.id)
             
             # 시간순 및 ID 순으로 다시 정렬 조회
             messages = db.query(models.ChatMessage).filter(

@@ -349,6 +349,13 @@
     width: 42px;
     padding: 0 12px;
     flex: 0 0 auto;
+    overflow: hidden;
+  }
+
+  /* 접힌 동안에는 건수·화살표를 숨긴다. 그대로 두면 42px 밖으로 삐져나와 화면 끝을 넘는다 */
+  .chat-header-search-bar:not(:focus-within) .chat-search-count,
+  .chat-header-search-bar:not(:focus-within) .chat-search-nav {
+    display: none;
   }
 
   .chat-header-search-bar:focus-within {
