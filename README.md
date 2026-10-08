@@ -38,13 +38,13 @@ AIが本を作る → 読書室が開く(10日) → 想像で語り合う → �
 
 | 機能 | 内容 |
 |---|---|
-| **AI書籍生成** | Gemini APIが3冊の候補を生成し、選んだ1冊で読書室が開く（1日1回）。表紙はPillowで合成し、API失敗時はテンプレートで代替 |
+| **AI書籍生成** | Gemini APIが3冊の候補を生成し、選んだ1冊で読書室が開く（1日1回）。表紙は画像生成API（Pollinations）で描き、生成失敗時はPillowの図形表紙で代替し、あとから差し替える |
 | **AI司会者** | 入室時の歓迎カードで討論テーマを3つ提示。`@司会者` へのメンションに応答（5分に3回まで）。締切時には総括を残す |
 | **読書室の自動運用** | 作成日を基準に10日で締切。締切後は会話をアーカイブへ移し、進行中の本が3冊を下回れば自動で補充 |
-| **会話** | 返信・編集・削除・リアクション（4種）・会話内検索 |
+| **会話** | 返信・編集・削除・リアクション（4種）・会話内検索。開いている部屋は7秒ごとに新着を取り込む |
 | **アーカイブ** | 終了した読書室を雑誌のように読む閲覧画面と、月別の本棚 |
 | **マイ本棚** | 気に入った本を表紙のまま棚に並べて保管 |
-| **多言語** | 画面文言348項目とすべての書籍・会話データを日韓2言語で保持 |
+| **多言語** | 画面文言約350項目とすべての書籍・会話データを日韓2言語で保持 |
 
 ## 技術スタック
 
@@ -53,7 +53,7 @@ AIが本を作る → 読書室が開く(10日) → 想像で語り合う → �
 | Frontend | HTML, CSS, JavaScript（フレームワークなし）, Jinja2 |
 | Backend | Python 3.12, FastAPI, SQLAlchemy, Uvicorn |
 | Database | MySQL 8.0（本番） / SQLite（開発） |
-| AI・画像 | Google Gemini API, Pillow |
+| AI・画像 | Google Gemini API, Pollinations（画像生成）, Pillow |
 | Infra | AWS EC2 (Ubuntu 24.04), Nginx, systemd |
 | 認証 | JWT, bcrypt, SMTP（パスワード再設定メール） |
 
@@ -120,9 +120,21 @@ uvicorn main:app --reload --port 8001
 実際に起きた不具合の再現テストです。メモリ上のSQLiteで動くため、実データには触れません。
 
 ```bash
-python tests/test_adopt_owner.py     # 他人の候補書籍を横取りできないこと
-python tests/test_reply_cascade.py   # 元の投稿を消しても他人の返信が消えないこと
+for f in tests/test_*.py; do python "$f"; done
 ```
+
+| テスト | 確認すること |
+|---|---|
+| `test_adopt_owner` | 他人の候補書籍を横取りできない |
+| `test_reply_cascade` | 元の投稿を消しても他人の返信が消えない |
+| `test_reaction_integrity` | 自分の投稿への反応拒否・反応状態の整合 |
+| `test_chat_limit` | 連投制限・空メッセージの拒否 |
+| `test_i18n_rules` | 日本語画面に韓国語が残らない・代替テンプレートの助詞処理 |
+| `test_polish_round` | `/health`・体験アカウントのクールダウン・歓迎カードの日本語・再設定メールの併記 |
+| `test_cover_backfill` | 表紙ファイル名の衝突防止・画像APIの間隔制御・差し替え対象の優先順位 |
+| `test_auto_refill` | 進行中の本が3冊未満なら補充し、他人の選択中の候補に触れない |
+
+GitHub Actionsでpushごとに実行します。
 
 ## セキュリティ設計
 
@@ -167,13 +179,16 @@ cd ~/-Gakongbooks- && git pull && sudo systemctl restart gakongbooks
 ├── config.py           # 環境変数の単一窓口（本番では必須値を検証）
 ├── auth.py             # ハッシュ化・JWT・再設定トークン・管理者権限
 ├── security.py         # 回数制限・セキュリティヘッダー・クライアントIP判定
+├── i18n.py             # リクエスト単位の言語（ContextVar）
+├── fallback_books.py   # API失敗時のジャンル別書籍テンプレート（日韓）
 ├── models.py           # テーブル定義（7テーブル）
 ├── database.py         # 接続とセッション
 ├── templates/          # Jinja2テンプレート（ページ・共通パーツ）
 ├── static/             # CSS・JavaScript・表紙画像
 ├── scripts/            # 翻訳の書き出し/復元・翻訳検査・データ復元
 ├── tests/              # 不具合の再現テスト
-└── data/               # 日本語訳とデータのバックアップ
+├── data/               # 日本語訳とデータのバックアップ
+└── .github/workflows/  # CI（テスト自動実行）
 ```
 
 ---
@@ -194,13 +209,13 @@ AI가 책을 만든다 → 독서방이 열린다(10일) → 상상으로 감상
 
 | 기능 | 내용 |
 |---|---|
-| **AI 도서 생성** | Gemini API가 후보 3권을 만들고 그중 하나로 독서방을 엽니다(하루 1회). 표지는 Pillow로 합성하고, API 실패 시 템플릿으로 대체합니다 |
+| **AI 도서 생성** | Gemini API가 후보 3권을 만들고 그중 하나로 독서방을 엽니다(하루 1회). 표지는 이미지 생성 API(Pollinations)로 그리고, 실패 시 Pillow 도형 표지로 대체한 뒤 나중에 교체합니다 |
 | **AI 사회자** | 입장 시 환영 카드로 토론 질문 3개를 제시합니다. `@사회자` 멘션에 답하고(5분 3회 제한), 마감 때 마무리 인사를 남깁니다 |
 | **독서방 자동 운영** | 생성 날짜 기준 10일 마감. 마감 후 대화를 아카이브로 옮기고, 진행 중인 책이 3권 미만이면 자동으로 채웁니다 |
-| **대화** | 답장, 수정, 삭제, 반응 4종, 대화 검색 |
+| **대화** | 답장, 수정, 삭제, 반응 4종, 대화 검색. 열려 있는 방은 7초마다 새 글을 받아옵니다 |
 | **아카이브** | 끝난 독서방을 잡지처럼 넘겨 보는 열람 화면과 월별 서가 |
 | **내 서재** | 마음에 든 책을 표지 그대로 책장에 꽂아 보관 |
-| **다국어** | 화면 문구 348개와 모든 도서·대화 데이터를 한국어·일본어로 보유 |
+| **다국어** | 화면 문구 약 350개와 모든 도서·대화 데이터를 한국어·일본어로 보유 |
 
 ## 기술 스택
 
@@ -209,7 +224,7 @@ AI가 책을 만든다 → 독서방이 열린다(10일) → 상상으로 감상
 | Frontend | HTML, CSS, JavaScript(프레임워크 없음), Jinja2 |
 | Backend | Python 3.12, FastAPI, SQLAlchemy, Uvicorn |
 | Database | MySQL 8.0(운영) / SQLite(개발) |
-| AI·이미지 | Google Gemini API, Pillow |
+| AI·이미지 | Google Gemini API, Pollinations(이미지 생성), Pillow |
 | Infra | AWS EC2 (Ubuntu 24.04), Nginx, systemd |
 | 인증 | JWT, bcrypt, SMTP(비밀번호 재설정 메일) |
 
@@ -276,9 +291,21 @@ uvicorn main:app --reload --port 8001
 실제로 발생했던 문제의 재현 테스트입니다. 메모리 SQLite에서 돌아가 실제 데이터를 건드리지 않습니다.
 
 ```bash
-python tests/test_adopt_owner.py     # 남의 후보 도서를 가로챌 수 없는지
-python tests/test_reply_cascade.py   # 원글을 지워도 남의 답글이 남는지
+for f in tests/test_*.py; do python "$f"; done
 ```
+
+| 테스트 | 확인하는 것 |
+|---|---|
+| `test_adopt_owner` | 남의 후보 도서를 가로챌 수 없다 |
+| `test_reply_cascade` | 원글을 지워도 남의 답글이 남는다 |
+| `test_reaction_integrity` | 자기 글 반응 거부, 반응 상태 정합성 |
+| `test_chat_limit` | 도배 제한, 빈 메시지 거부 |
+| `test_i18n_rules` | 일본어 화면에 한국어가 남지 않음, 대비 템플릿 조사 처리 |
+| `test_polish_round` | `/health`, 체험 계정 쿨다운, 환영 카드 일본어, 재설정 메일 병기 |
+| `test_cover_backfill` | 표지 파일명 충돌 방지, 이미지 API 간격 제어, 교체 대상 우선순위 |
+| `test_auto_refill` | 진행 중인 책이 3권 미만이면 보충하고 남의 선택 중인 후보는 건드리지 않음 |
+
+GitHub Actions에서 push마다 실행됩니다.
 
 ## 보안 설계
 
@@ -323,13 +350,16 @@ cd ~/-Gakongbooks- && git pull && sudo systemctl restart gakongbooks
 ├── config.py           # 환경변수 단일 진입점(운영에서 필수값 검증)
 ├── auth.py             # 해싱 · JWT · 재설정 토큰 · 관리자 권한
 ├── security.py         # 횟수 제한 · 보안 헤더 · 클라이언트 IP 판별
+├── i18n.py             # 요청 단위 언어(ContextVar)
+├── fallback_books.py   # API 실패 시 장르별 도서 템플릿(한·일)
 ├── models.py           # 테이블 정의(7개)
 ├── database.py         # 연결과 세션
 ├── templates/          # Jinja2 템플릿(페이지 · 공통 요소)
 ├── static/             # CSS · JavaScript · 표지 이미지
 ├── scripts/            # 번역 내보내기/복원 · 번역 검사 · 데이터 복원
 ├── tests/              # 불량 재현 테스트
-└── data/               # 일본어 번역본과 데이터 백업
+├── data/               # 일본어 번역본과 데이터 백업
+└── .github/workflows/  # CI(테스트 자동 실행)
 ```
 
 ---
