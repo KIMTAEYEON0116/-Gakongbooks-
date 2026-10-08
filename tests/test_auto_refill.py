@@ -75,6 +75,13 @@ check("다른 사용자가 고르는 중인 후보는 그대로 pending", other 
       f"(상태 {other.status if other else None})")
 adopted = db.query(models.CandidateBook).filter(models.CandidateBook.status == "adopted").count()
 check("보충에 쓴 후보는 adopted 로 기록된다", adopted == main.MIN_ACTIVE_BOOKS - 1, f"({adopted}건)")
+# 대비 템플릿으로 만든 책도 일본어가 전 항목 갖춰져야 한다 (번역 호출 없이)
+import re as _re
+new_books = db.query(models.Book).filter(models.Book.is_archived.is_(False), models.Book.title != "유일한 열린 방").all()
+missing_all = {b.id: main.ja_missing_fields(b) for b in new_books}
+check("대비 책의 일본어본에 빠진 칸이 없다 (목차 포함)", all(not v for v in missing_all.values()), str(missing_all))
+ja_all = " ".join((b.i18n_ja or "") for b in new_books)
+check("대비 책의 일본어본에 한글이 없다", not _re.search(r"[가-힣]", ja_all))
 db.close()
 
 asyncio.run(main._auto_refill_active_books_if_needed())

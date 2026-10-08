@@ -2447,6 +2447,82 @@ async def generate_candidates(
     return payload
 
 
+def build_candidate_i18n_ja(cand_ja, b_data: dict) -> Optional[str]:
+    """생성 단계에서 함께 받은 일본어 블록을 저장용 JSON으로 다듬는다.
+
+    칸마다 따로 본다. 한글이 섞였거나 구분 기호 수가 한국어와 다르면 그 칸만 버리고,
+    나머지는 살린다(전체를 버리면 네 칸짜리 시절로 돌아간다). 목차는 한 장이라도
+    모자라면 통째로 넣지 않는다 — 섞인 목차보다 화면의 대체 목차가 낫다.
+    버린 칸은 채택 뒤 되채우기 루프가 번역으로 메운다.
+    """
+    if not isinstance(cand_ja, dict):
+        return None
+    picked = {}
+
+    def clean_str(v):
+        return v.strip() if isinstance(v, str) and v.strip() and not has_hangul(v) else None
+
+    for f in ("title", "author", "synopsis", "endorsement_quote", "endorsement_attr",
+              "publisher_review", "opening_line", "memorable_quote", "core_dilemma"):
+        v = clean_str(cand_ja.get(f))
+        if v:
+            if f == "endorsement_attr":
+                # 한국어용 정리 함수는 '(익명)'을 붙인다. 일본어 칸에는 쓰지 않고 같은 꼴로 맞춘다.
+                v = v.lstrip("—-–― ").strip()
+                if "匿名" not in v:
+                    v = f"{v}（匿名）"
+                v = f"— {v}"
+            picked[f] = v
+
+    tags = cand_ja.get("tags")
+    if isinstance(tags, list) and tags:
+        joined = ",".join(str(x).strip() for x in tags if str(x).strip())
+        if joined and not has_hangul(joined) and len(tags) == len(b_data.get("tags") or []):
+            picked["tags"] = joined
+    elif isinstance(tags, str) and clean_str(tags):
+        picked["tags"] = tags.strip()
+
+    qs = cand_ja.get("additional_questions")
+    if isinstance(qs, list):
+        qs = [str(q).strip() for q in qs if str(q).strip()]
+        src_qs = b_data.get("additional_questions") or []
+        if qs and len(qs) == len(src_qs) and not any(has_hangul(q) for q in qs):
+            picked["additional_questions"] = "|".join(qs)
+    elif isinstance(qs, str) and clean_str(qs):
+        picked["additional_questions"] = qs.strip()
+
+    chars = clean_str(cand_ja.get("characters"))
+    if chars and chars.count("|") == str(b_data.get("characters") or "").count("|"):
+        picked["characters"] = chars
+
+    toc_ja = cand_ja.get("table_of_contents")
+    imm = b_data.get("immersion_data")
+    toc_src = imm.get("table_of_contents") if isinstance(imm, dict) else None
+    if isinstance(toc_ja, list) and isinstance(toc_src, list) and toc_src and len(toc_ja) >= len(toc_src):
+        built, ok = [], True
+        for src_item, ja_item in zip(toc_src, toc_ja):
+            if not isinstance(src_item, dict) or not isinstance(ja_item, dict):
+                ok = False
+                break
+            title = clean_str(ja_item.get("title"))
+            summary = clean_str(ja_item.get("summary"))
+            if (src_item.get("title") and not title) or (src_item.get("summary") and not summary):
+                ok = False
+                break
+            new = dict(src_item)
+            if new.get("chapter_number"):
+                new["chapter_number"] = chapter_label_ja(new["chapter_number"])
+            if title:
+                new["title"] = title
+            if summary:
+                new["summary"] = summary
+            built.append(new)
+        if ok and built:
+            picked["immersion_data"] = json.dumps({"table_of_contents": built}, ensure_ascii=False)
+
+    return json.dumps(picked, ensure_ascii=False) if picked else None
+
+
 async def _produce_candidate_books(db: Session, background_tasks: BackgroundTasks,
                                    owner_user_id: Optional[int] = None,
                                    count: int = 3) -> list:
@@ -2548,9 +2624,17 @@ async def _produce_candidate_books(db: Session, background_tasks: BackgroundTask
     [일본어본(ja) 작성 지침]
     - 이 서비스에는 일본어 화면이 있습니다. ja 블록은 한국어를 옮긴 것이 아니라,
       처음부터 일본어로 쓴 글처럼 읽혀야 합니다. 한국어 문장 구조를 따라가지 마세요.
-    - 제목은 음차하지 말고 뜻이 전해지는 일본어 제목으로 지으세요.
-    - 작가 이름은 가타카나로 적으세요.
-    - tags는 한국어 태그와 개수를 맞추고 '#'를 유지하세요.
+    - ja 블록은 한국어 쪽의 모든 글 칸을 갖춥니다 (제목·작가·줄거리·태그·추천사·추천인·
+      서평·첫 문장·명대사·핵심 질문·추가 질문·인물·목차). 하나도 빠뜨리지 마세요.
+    - 문체: 줄거리·서평·목차 요약은 책 소개문답게 だ・である체. 추천사는 평론가의 한 줄평.
+      토론 질문은 독자에게 묻는 です・ます체로 끝은 「か。」. 첫 문장·명대사는 소설 본문 문체.
+    - 제목은 음차하지 말고 뜻이 전해지는 일본어 제목으로 지으세요. 책 제목을 본문에서
+      언급할 때는 『 』, 인용은 「 」를 씁니다.
+    - 사람 이름은 가타카나로 적고, 한국어 쪽과 같은 인물을 가리켜야 합니다.
+      characters는 한국어와 같은 인원·같은 순서로 "名前 — 一言" 꼴, '|'로 구분합니다.
+    - additional_questions는 한국어와 같은 개수. tags는 한국어 태그와 개수를 맞추고 '#'를 유지.
+    - table_of_contents는 한국어 목차와 같은 장 수·같은 순서로 title과 summary만 적습니다.
+    - 서비스 용어: 독서방=読書室, 가공독서회=架空読書会, 가상의=架空の(仮想 금지).
     - 한글을 한 글자도 섞지 마세요.
 
     [서사 및 스타일 조건]
@@ -2580,8 +2664,22 @@ async def _produce_candidate_books(db: Session, background_tasks: BackgroundTask
         "ja": {{
           "title": "일본어 제목 (음차가 아니라 뜻이 전해지는 제목)",
           "author": "작가 이름의 가타카나 표기",
-          "synopsis": "줄거리 요약 (일본어, 150자 내외)",
-          "tags": ["#태그1", "#태그2", "#태그3", "#태그4"]
+          "synopsis": "줄거리 요약 (일본어, 150자 내외, だ・である체)",
+          "tags": ["#태그1", "#태그2", "#태그3", "#태그4"],
+          "endorsement_quote": "평론가의 한 줄 추천사 (일본어)",
+          "endorsement_attr": "— 직업명만 (예: — 文芸評論家)",
+          "publisher_review": "출판사 리뷰 문단 (일본어)",
+          "opening_line": "소설의 첫 문장 (일본어, 따옴표 제외)",
+          "memorable_quote": "명대사 한 줄 (일본어, 따옴표 제외)",
+          "core_dilemma": "핵심 토론 질문 (예: Q. 痛みを伴う真実を記憶しますか。)",
+          "additional_questions": ["추가 토론 질문 1 (일본어)", "추가 토론 질문 2 (일본어)"],
+          "characters": "名前 — 一言|名前 — 一言",
+          "table_of_contents": [
+            {{"title": "1장 제목 (일본어)", "summary": "1장 요약 (일본어)"}},
+            {{"title": "2장 제목 (일본어)", "summary": "2장 요약 (일본어)"}},
+            {{"title": "3장 제목 (일본어)", "summary": "3장 요약 (일본어)"}},
+            {{"title": "4장 제목 (일본어)", "summary": "4장 요약 (일본어)"}}
+          ]
         }},
         "immersion_data": {{
           "table_of_contents": [
@@ -2690,9 +2788,17 @@ async def _produce_candidate_books(db: Session, background_tasks: BackgroundTask
         chosen_synopsis = ko_tpl["synopsis"][syn_i].format(**kw_ko)
         chosen_synopsis_ja = ja_tpl["synopsis"][min(syn_i, len(ja_tpl["synopsis"]) - 1)].format(**kw_ja)
 
-        chosen_quote = random.choice(ko_tpl["endorsement"]).format(**kw_ko)
-        chosen_attr = "— " + random.choice(ko_tpl["attr"])
-        chosen_review = random.choice(ko_tpl["review"]).format(**kw_ko)
+        # 같은 번호를 꺼내야 한국어 추천사와 일본어 추천사가 같은 말을 한다
+        quote_i = random.randrange(len(ko_tpl["endorsement"]))
+        attr_i = random.randrange(len(ko_tpl["attr"]))
+        review_i = random.randrange(len(ko_tpl["review"]))
+        chosen_quote = ko_tpl["endorsement"][quote_i].format(**kw_ko)
+        chosen_attr = "— " + ko_tpl["attr"][attr_i]
+        chosen_review = ko_tpl["review"][review_i].format(**kw_ko)
+        chosen_quote_ja = ja_tpl["endorsement"][min(quote_i, len(ja_tpl["endorsement"]) - 1)].format(**kw_ja)
+        chosen_attr_ja = "— " + ja_tpl["attr"][min(attr_i, len(ja_tpl["attr"]) - 1)]
+        chosen_review_ja = ja_tpl["review"][min(review_i, len(ja_tpl["review"]) - 1)].format(**kw_ja)
+        k1_ja, k2_ja = kw_ja["abstract"], kw_ja["concrete"]
 
         # 작가 국적 비율은 한국 50 / 일본 25 / 미국 25. 이름은 두 언어 표기를 함께 받는다.
         chosen_nation, nation_ja, chosen_author, chosen_author_ja = fallback_books.make_author()
@@ -2732,6 +2838,26 @@ async def _produce_candidate_books(db: Session, background_tasks: BackgroundTask
                 "genre": ja_tpl["tag"],
                 "synopsis": chosen_synopsis_ja,
                 "tags": fallback_tags_ja,
+                # 나머지 칸도 템플릿으로 바로 만든다. AI가 전혀 없는 날에도
+                # 일본어 화면이 원문·대체 목차 없이 완전해야 한다.
+                "endorsement_quote": chosen_quote_ja,
+                "endorsement_attr": chosen_attr_ja,
+                "publisher_review": chosen_review_ja,
+                "opening_line": f"その夜、{k2_ja}の立てる音だけが世界に残っていた。",
+                "core_dilemma": f"Q. あなたなら{k1_ja}の真実と向き合いますか、それとも永遠の平穏を選びますか。",
+                "additional_questions": [
+                    f"Q. 作者がこの小説で{k2_ja}を重要な象徴に据えた理由は何でしょうか。",
+                    f"Q. 主人公が{k1_ja}の真実に気づいた瞬間、どんな感情を抱いたでしょうか。",
+                ],
+                "characters": "イーサン — 秘密を解き明かす主人公|ソヨン — 主人公を支える協力者",
+                "table_of_contents": [
+                    {"title": f"{k2_ja}の影",
+                     "summary": f"主人公は日常の中で{k2_ja}を手がかりに、奇妙な{k1_ja}の兆しと出会い、隠された真実を追いはじめる。"},
+                    {"title": f"取り戻せない{k1_ja}",
+                     "summary": f"追跡の果てに向き合った真実は、思いのほか深い悲しみを宿していた。{k2_ja}にまつわる秘密が一枚はがれ、葛藤は深まっていく。"},
+                    {"title": "選択の入口",
+                     "summary": f"主人公は{k1_ja}を永遠に葬るのか、それとも悲劇を覚悟して世に明かすのか、人生を懸けた決断を迫られる。"},
+                ],
             },
             "title": chosen_title,
             "author": chosen_author,
@@ -2799,21 +2925,7 @@ async def _produce_candidate_books(db: Session, background_tasks: BackgroundTask
 
         # 생성 단계에서 함께 받은 일본어본. 번역을 거치지 않았으므로 번역투가 아니다.
         # 모델이 빠뜨렸거나 폴백 템플릿으로 떨어졌으면 비워 두고, 아래에서 번역으로 메운다.
-        cand_ja = b_data.get('ja')
-        if isinstance(cand_ja, dict):
-            picked = {}
-            for _f in ("title", "author", "synopsis"):
-                _v = cand_ja.get(_f)
-                if isinstance(_v, str) and _v.strip():
-                    picked[_f] = _v.strip()
-            _tags = cand_ja.get("tags")
-            if isinstance(_tags, list) and _tags:
-                picked["tags"] = ",".join(str(x) for x in _tags)
-            elif isinstance(_tags, str) and _tags.strip():
-                picked["tags"] = _tags.strip()
-            cand_i18n_ja = json.dumps(picked, ensure_ascii=False) if picked else None
-        else:
-            cand_i18n_ja = None
+        cand_i18n_ja = build_candidate_i18n_ja(b_data.get('ja'), b_data)
         
         db_cand = models.CandidateBook(
             title=cand_title,
@@ -4841,6 +4953,9 @@ async def _auto_refill_active_books_if_needed():
                 additional_questions=cand.additional_questions,
                 characters=cand.characters,
                 immersion_data=cand.immersion_data,
+                # 후보가 가진 일본어본을 그대로 물려준다. 채택 경로에는 있었는데 여기에는
+                # 빠져 있어, 자동 보충된 책은 번역 호출이 성공할 때까지 일본어가 비었다.
+                i18n_ja=(cand.i18n_ja if (cand.i18n_ja or "").strip() else None),
                 deadline_days=10,
                 is_archived=False
             )
