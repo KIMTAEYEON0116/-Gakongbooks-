@@ -4240,7 +4240,9 @@ function adaptDbBookToFrontend(dbBook) {
         pageCount: dbBook.page_count || 300,
         deadlineDays: deadlineVal,
         archived: dbBook.is_archived || false,
-        archivedDate: dbBook.created_at ? new Date(new Date(dbBook.created_at).getTime() + deadlineVal * 24 * 60 * 60 * 1000).toISOString().split('T')[0] : t('status_closed'),
+        // 서버가 계산한 종료일을 우선 쓴다. 여기서 다시 계산하면 수동으로 닫은 상시 방이
+        // '2054-01-11 終了'처럼 수십 년 뒤 날짜로 보인다.
+        archivedDate: dbBook.end_date || (dbBook.created_at ? new Date(new Date(dbBook.created_at).getTime() + deadlineVal * 24 * 60 * 60 * 1000).toISOString().split('T')[0] : t('status_closed')),
         count: dbBook.participant_count !== undefined ? dbBook.participant_count : 0,
         endorsement: {
           quote: dbBook.endorsement_quote || '이 책은 독자의 상상력을 한계까지 밀어붙인다.',
