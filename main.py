@@ -1710,7 +1710,9 @@ async def http_exception_handler(request: Request, exc: StarletteHTTPException):
 
 @app.get("/", response_class=HTMLResponse)
 async def serve_index(request: Request):
-    return templates.TemplateResponse(request=request, name="index.html")
+    # 링크 미리보기(og:image)는 절대 주소여야 한다. 운영 주소는 설정에서 가져온다.
+    return templates.TemplateResponse(request=request, name="index.html",
+                                      context={"base_url": config.APP_BASE_URL})
 
 # ── Pydantic 데이터 검증 스키마 선언 ──
 
