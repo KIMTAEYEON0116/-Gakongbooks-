@@ -133,6 +133,7 @@ for f in tests/test_*.py; do python "$f"; done
 | `test_polish_round` | `/health`・体験アカウントのクールダウン・歓迎カードの日本語・再設定メールの併記 |
 | `test_cover_backfill` | 表紙ファイル名の衝突防止・画像APIの間隔制御・差し替え対象の優先順位 |
 | `test_auto_refill` | 進行中の本が3冊未満なら補充し、他人の選択中の候補に触れない |
+| `test_generated_ja` | 生成時に受け取る日本語ブロックの検証（韓国語混入・質問数・目次の章数） |
 
 GitHub Actionsでpushごとに実行します。
 
@@ -304,6 +305,7 @@ for f in tests/test_*.py; do python "$f"; done
 | `test_polish_round` | `/health`, 체험 계정 쿨다운, 환영 카드 일본어, 재설정 메일 병기 |
 | `test_cover_backfill` | 표지 파일명 충돌 방지, 이미지 API 간격 제어, 교체 대상 우선순위 |
 | `test_auto_refill` | 진행 중인 책이 3권 미만이면 보충하고 남의 선택 중인 후보는 건드리지 않음 |
+| `test_generated_ja` | 생성 때 받는 일본어 블록 검증(한글 섞임·질문 수·목차 장 수) |
 
 GitHub Actions에서 push마다 실행됩니다.
 
