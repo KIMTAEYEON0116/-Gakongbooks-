@@ -777,6 +777,13 @@ def serialize_book(b: "models.Book", db: Session, rx_totals: dict = None) -> dic
     # 남은 일수는 만료 판정과 같은 계산(날짜 기준)을 쓴다 — 표시와 동작이 어긋나지 않게
     book_dict["deadline_days"] = days_left(b)
     end = room_end_date(b)
+    if b.is_archived and end and end > models.get_kst_now().date():
+        # 상시 방(deadline_days≈9999)을 수동으로 닫으면 계산상 종료일이 수십 년 뒤로 나온다
+        # (아카이브 화면에 '2054-02-02 終了'가 찍혔다). 실제 이관 시각이 있으면 그날로,
+        # 없으면 오늘로 잡는다.
+        moved = db.query(func.max(models.PastChatMessage.archived_at)).filter(
+            models.PastChatMessage.book_id == b.id).scalar()
+        end = (moved.date() if moved else models.get_kst_now().date())
     book_dict["end_date"] = end.isoformat() if end else None
 
     # AI 사회자 및 관리자 계정은 "참여 중인 독자" 수에 포함하지 않는다.

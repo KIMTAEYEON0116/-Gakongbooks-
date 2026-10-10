@@ -5128,7 +5128,7 @@ function adaptDbBookToFrontend(dbBook) {
         genre_prev: "前のジャンル（左へ）",
         genre_next: "次のジャンル（右へ）",
         arc_view_toggle_title: "表示を切り替え",
-        arc_stat_chats: "チャットメッセージ",
+        arc_stat_chats: "チャット",
         arc_stat_comments: "コメント",
         arc_stat_rx: "反応の総数",
         arc_stat_rating: "平均評価",
