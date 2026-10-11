@@ -11,7 +11,6 @@
 import asyncio
 import os
 import sys
-import tempfile
 import time
 
 sys.path.insert(0, os.getcwd())
@@ -72,9 +71,12 @@ r2 = asyncio.run(main._pollinations_fetch("x", 2, max_wait=5.0))
 check("차례가 멀면 기다리지 않고 바로 None", r2 is None and time.monotonic() - t1 < 1.0)
 
 # ── 4. 도형 표지 판별 ──
-tmp = tempfile.mkdtemp()
-pil_path = os.path.join(tmp, "pil.png")
-ai_path = os.path.join(tmp, "ai.png")
+# 표지 경로는 저장소 상대 경로('static/covers/...')로 다뤄진다. 임시 폴더의 절대 경로를 쓰면
+# 리눅스(CI)에서 선두 '/'가 잘려 엉뚱한 상대 경로가 되어 실패한다. 실제 표지 폴더 안에 만든다.
+tmp = os.path.join("static", "covers")
+os.makedirs(tmp, exist_ok=True)
+pil_path = os.path.join(tmp, "test_qa_pil.png")
+ai_path = os.path.join(tmp, "test_qa_ai.png")
 Image.new("RGB", (450, 600), "#eee").save(pil_path)
 Image.new("RGB", (665, 886), "#345").save(ai_path)
 check("450x600 → 도형 표지로 판별", main._is_fallback_cover(pil_path))
@@ -95,7 +97,7 @@ db.add(models.CandidateBook(title="후보", author="a", genre="SF", synopsis="s"
 db.commit()
 kind, row = main._pick_cover_backfill_target(db)
 check("열린 방이 가장 먼저 뽑힌다", kind == "book" and row.title == "열린 방", f"{kind}:{row.title}")
-open_.cover_image_url = ai_path.replace(os.sep, "/")
+open_.cover_image_url = "/" + ai_path.replace(os.sep, "/")
 db.commit()
 if os.path.getsize(ai_path) < 5000:
     # 단색 그림은 5KB 미만이라 도형 표지로 분류된다. 판별을 통과하도록 잡음을 넣는다.
@@ -109,4 +111,9 @@ db.close()
 
 print()
 print("결과: " + ("모두 통과" if all(results) else "%d건 실패" % results.count(False)))
+for _p in (pil_path, ai_path):
+    try:
+        os.remove(_p)
+    except OSError:
+        pass
 sys.exit(0 if all(results) else 1)
