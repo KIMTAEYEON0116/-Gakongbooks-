@@ -561,7 +561,9 @@ def build_reply_to_info(reply_to_id: int, db: Session):
     parent = db.query(models.ChatMessage).filter(models.ChatMessage.id == reply_to_id).first()
     if not parent:
         return None
-    return {"user": parent.user.nickname, "text": parent.content}
+    # 일본어본도 같이 준다. 인용문만 원문으로 남으면 일본어 화면에 한국어가 비친다.
+    return {"user": parent.user.nickname, "text": parent.content,
+            "textJa": getattr(parent, "content_ja", None)}
 
 
 RX_EMOJIS = ("❤️", "🤔", "😄", "✨")
@@ -4083,7 +4085,10 @@ def get_chat_history_archive(book_id: int, db: Session = Depends(database.get_db
             # 답장 원본 정보 조립
             reply_to_info = None
             if m.reply_to_user and m.reply_to_content:
-                reply_to_info = {"user": m.reply_to_user, "text": m.reply_to_content}
+                # 보관본에는 원글 본문만 복사돼 있다. 같은 방의 보관 메시지에서 원글을 찾아 일본어본을 붙인다.
+                parent_ja = next((p.content_ja for p in past_msgs
+                                  if p.content == m.reply_to_content and p.content_ja), None)
+                reply_to_info = {"user": m.reply_to_user, "text": m.reply_to_content, "textJa": parent_ja}
 
             history.append({
                 "id": m.id,

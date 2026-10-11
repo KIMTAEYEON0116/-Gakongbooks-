@@ -429,7 +429,9 @@
     // 답장 인용문. 서버는 원문만 주므로, 같은 목록에서 원글을 찾아 번역본이 있으면 쓴다.
     function replyQuoteText(replyTo, list) {
       var txt = (replyTo && replyTo.text) || '';
-      if (CURRENT_LANG !== 'ja' || !list) return txt;
+      if (CURRENT_LANG !== 'ja') return txt;
+      if (replyTo && replyTo.textJa) return replyTo.textJa;   // 서버가 준 일본어본
+      if (!list) return txt;
       for (var i = 0; i < list.length; i++) {
         if (list[i] && list[i].text === txt && list[i].textJa) return list[i].textJa;
       }
@@ -2728,7 +2730,7 @@ function buildMsgEl(msg, bookId) {
       if (msg.replyTo) {
         replyQuote = '<div class="chat-reply-quote">' +
           '<div class="chat-reply-quote-name">↩ ' + escHtml(displayUser(msg.replyTo.user)) + '</div>' +
-          '<div class="chat-reply-quote-text">' + escHtml(msg.replyTo.text.slice(0, 60) + (msg.replyTo.text.length > 60 ? '…' : '')) + '</div>' +
+          '<div class="chat-reply-quote-text">' + escHtml(replyQuoteText(msg.replyTo, chatMsgs[bookId]).slice(0, 60) + (replyQuoteText(msg.replyTo, chatMsgs[bookId]).length > 60 ? '…' : '')) + '</div>' +
           '</div>';
       }
 
@@ -2995,7 +2997,7 @@ function buildMsgEl(msg, bookId) {
         mine: true, userId: CURRENT_USER_ID,
         user: myName, av: myAv, avBg: '#f5d87a', avColor: '#7a4a10',
         text: text, date: now,
-        replyTo: replyTarget ? { user: replyTarget.user, text: replyTarget.text } : null
+        replyTo: replyTarget ? { user: replyTarget.user, text: replyTarget.text, textJa: replyTarget.textJa } : null
       });
       msgs.push(msg);
       inp.value = ''; inp.style.height = 'auto';
@@ -3097,10 +3099,10 @@ function buildMsgEl(msg, bookId) {
       if (msg) startReply(msg);
     }
     function startReply(msg) {
-      replyTarget = { msgId: msg.id, user: msg.user, text: msg.text };
+      replyTarget = { msgId: msg.id, user: msg.user, text: msg.text, textJa: msg.textJa || null };
       var bar = document.getElementById('reply-preview-bar');
       document.getElementById('reply-preview-name').textContent = '↩ ' + msg.user + t('chat_reply_writing');
-      document.getElementById('reply-preview-text').textContent = msg.text;
+      document.getElementById('reply-preview-text').textContent = msgText(msg);
       bar.classList.add('show');
 
       // 입력창 포커스 및 placeholder 변경
