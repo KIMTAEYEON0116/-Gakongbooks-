@@ -33,21 +33,32 @@ msgs = db.query(models.ChatMessage).order_by(models.ChatMessage.id).all()
 orphans = [m for m in msgs if m.user_id not in users]
 print(f"주인 없는 메시지 {len(orphans)}건 / 샘플 계정 {len(samples)}개")
 
-# 1) 사회자 환영문 복제본은 지운다
-deleted = []
-for m in orphans:
-    if main.WELCOME_MARKER in (m.content or ""):
-        deleted.append(m)
-print(f"지울 환영문 복제본: {[m.id for m in deleted] or '없음'}")
+moderator = main.get_or_create_moderator(db)
 
-# 2) 나머지는 옛 user_id별로 샘플 계정을 고정 배정한다 (책마다 번호가 겹치지 않게 순환)
+# 1) 옛 사회자 계정을 찾는다: 환영문을 남긴 옛 번호는 사회자다. 그 번호의 글은 전부 사회자에게 돌려준다.
+old_mod_ids = {m.user_id for m in orphans if main.WELCOME_MARKER in (m.content or "")}
+print(f"옛 사회자 번호로 판단: {sorted(old_mod_ids) or '없음'}")
+
+# 2) 환영문 복제본: 같은 방에 지금 사회자의 환영문이 이미 있으면 지운다. 없으면 사회자 글로 살린다.
+deleted = []
+bot_welcome_books = {m.book_id for m in msgs
+                     if m.user_id == moderator.id and main.WELCOME_MARKER in (m.content or "")}
+for m in orphans:
+    if main.WELCOME_MARKER in (m.content or "") and m.book_id in bot_welcome_books:
+        deleted.append(m)
+print(f"지울 환영문 복제본(이미 사회자 환영문이 있는 방): {[m.id for m in deleted] or '없음'}")
+
+# 3) 나머지: 옛 사회자 번호 → 사회자, 그 외 → 샘플 계정을 번호별로 고정 배정
 remaining = [m for m in orphans if m not in deleted]
-old_ids = sorted({m.user_id for m in remaining})
-assign = {old: samples[i % len(samples)] for i, old in enumerate(old_ids)}
-print("배정 표 (옛 번호 → 샘플 닉네임):")
-for old, u in assign.items():
+reader_ids = sorted({m.user_id for m in remaining if m.user_id not in old_mod_ids})
+assign = {old: samples[i % len(samples)] for i, old in enumerate(reader_ids)}
+for old in old_mod_ids:
+    assign[old] = moderator
+print("배정 표 (옛 번호 → 계정):")
+for old in sorted(assign):
     n = sum(1 for m in remaining if m.user_id == old)
-    print(f"  {old:>4} → {u.nickname} ({n}건)")
+    if n:
+        print(f"  {old:>4} → {assign[old].nickname} ({n}건)")
 
 if not APPLY:
     print("\n미리 보기만 했다. 적용하려면 --apply 를 붙인다.")
