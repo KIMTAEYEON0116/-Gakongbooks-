@@ -246,7 +246,7 @@
     }
 
     function hasHangulText(s) { return /[가-힣]/.test(s || ''); }
-    function hasJapaneseText(s) { return /[\u3040-\u30ff]/.test(s || ''); }
+    function hasJapaneseText(s) { return /[\u3040-\u30ff\u4e00-\u9fff]/.test(s || ''); }
 
     // 말풍선 본문. 사회자·예시 독자의 글은 언어에 맞는 본문으로 바꿔 보여 주고,
     // 실제 독자의 글은 원문을 그대로 둔다 (번역은 아래 줄에 따로 붙는다).
@@ -4033,6 +4033,10 @@ function buildMsgEl(msg, bookId) {
           return {
             user: m.user,
             text: m.text,
+            isBot: !!m.isBot,
+            isSample: !!m.isSample,
+            textJa: m.textJa || null,
+            textKo: m.textKo || null,
             ts: m.ts,
             date: m.date ? (m.date instanceof Date ? m.date.toISOString() : m.date) : new Date().toISOString(),
             replyTo: m.replyTo || null,

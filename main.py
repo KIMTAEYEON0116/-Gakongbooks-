@@ -1581,6 +1581,7 @@ USER_MSG_TRANSLATE_DAILY_MAX = 24
 USER_MSG_TRANSLATE_BATCH = 10
 _UMT_USED = {"day": None, "count": 0}
 _KANA = re.compile(r"[\u3040-\u30ff]")
+_CJK = re.compile(r"[\u4e00-\u9fff]")   # \uac00\ub098 \uc5c6\uc774 \ud55c\uc790\ub9cc \uc4f4 \uae00\ub3c4 \uc77c\ubcf8\uc5b4\ub85c \ubcf8\ub2e4
 
 
 def has_japanese(text: str) -> bool:
@@ -1603,7 +1604,7 @@ def user_message_target_lang(m) -> Optional[str]:
     text = m.content or ""
     if has_hangul(text):
         return None if (m.content_ja or "").strip() else "ja"
-    if has_japanese(text):
+    if has_japanese(text) or _CJK.search(text):
         return None if (m.content_ko or "").strip() else "ko"
     return None
 
@@ -4263,6 +4264,9 @@ def update_chat_message(
     """
     msg = get_owned_chat_message(chat_id, current_user_id, db)
     msg.content = update_data.text.strip()
+    # 옛 번역은 고친 글과 맞지 않는다. 비워 두면 번역 루프가 다음 바퀴에 다시 옮긴다.
+    msg.content_ja = None
+    msg.content_ko = None
     db.commit()
     return {"message": m("메시지가 수정되었습니다.", "メッセージを編集しました。"), "id": chat_id, "text": msg.content}
 
