@@ -241,7 +241,33 @@
     function msgText(msg) {
       var lang = (typeof CURRENT_LANG !== 'undefined') ? CURRENT_LANG : 'ko';
       if (lang === 'ja' && msg && msg.textJa) return msg.textJa;
+      if (lang === 'ko' && msg && msg.textKo) return msg.textKo;
       return (msg && msg.text) || '';
+    }
+
+    function hasHangulText(s) { return /[가-힣]/.test(s || ''); }
+    function hasJapaneseText(s) { return /[\u3040-\u30ff]/.test(s || ''); }
+
+    // 말풍선 본문. 사회자·예시 독자의 글은 언어에 맞는 본문으로 바꿔 보여 주고,
+    // 실제 독자의 글은 원문을 그대로 둔다 (번역은 아래 줄에 따로 붙는다).
+    function msgBodyFor(msg) {
+      if (msg && (msg.isBot || msg.isSample)) return msgText(msg);
+      return (msg && msg.text) || '';
+    }
+
+    // 실제 독자의 글에 붙는 기계 번역. 상대 언어로 쓴 글에만 붙는다.
+    function translationText(msg) {
+      if (!msg || msg.isBot || msg.isSample) return '';
+      var lang = (typeof CURRENT_LANG !== 'undefined') ? CURRENT_LANG : 'ko';
+      if (lang === 'ja' && hasHangulText(msg.text) && msg.textJa) return msg.textJa;
+      if (lang === 'ko' && !hasHangulText(msg.text) && hasJapaneseText(msg.text) && msg.textKo) return msg.textKo;
+      return '';
+    }
+    function translationHtml(msg) {
+      var tr = translationText(msg);
+      if (!tr) return '';
+      return '<div class="chat-translation"><span class="chat-translation-label">' +
+        escHtml(t('translation_label')) + '</span>' + escHtml(tr) + '</div>';
     }
 
     // DB에 저장된 사회자 닉네임. 화면에서는 언어에 맞는 이름으로 바꿔 보여준다.
@@ -429,6 +455,7 @@
     // 답장 인용문. 서버는 원문만 주므로, 같은 목록에서 원글을 찾아 번역본이 있으면 쓴다.
     function replyQuoteText(replyTo, list) {
       var txt = (replyTo && replyTo.text) || '';
+      if (CURRENT_LANG === 'ko') return (replyTo && replyTo.textKo) || txt;
       if (CURRENT_LANG !== 'ja') return txt;
       if (replyTo && replyTo.textJa) return replyTo.textJa;   // 서버가 준 일본어본
       if (!list) return txt;
@@ -2363,7 +2390,8 @@ function renderGenreSection() {
           // 서버 플래그를 그대로 실어 준다 (사회자 판별 · 가상 독자 '예시' 표시)
           isBot: !!c.isBot,
           isSample: !!c.isSample,
-          textJa: c.textJa || null,   // 사회자 메시지의 일본어 본문
+          textJa: c.textJa || null,   // 사회자·예시 글의 일본어 본문, 독자 글의 일본어 번역
+          textKo: c.textKo || null,   // 일본어로 쓴 독자 글의 한국어 번역
           // 아바타 글자도 보이는 이름에서 따온다. 원문에서 따면 일본어 화면에
           // 이름은 일본어인데 동그라미 안만 한글로 남는다.
           av: displayUser(c.user).charAt(0),
@@ -2399,7 +2427,7 @@ function renderGenreSection() {
       return (list || []).map(function (m) {
         var rx = m.reactions || {};
         var rxKeys = Object.keys(rx).sort().map(function (k) { return k + ':' + (rx[k].count || 0) + (rx[k].mine ? '*' : ''); });
-        return [m.id, m.text, m.textJa || '', m.edited ? 1 : 0, rxKeys.join(',')].join('|');
+        return [m.id, m.text, m.textJa || '', m.textKo || '', m.edited ? 1 : 0, rxKeys.join(',')].join('|');
       }).join('\n');
     }
 
@@ -2720,7 +2748,7 @@ function buildMsgEl(msg, bookId) {
       row.style.position = 'relative';
 
       // 사회자 메시지는 언어에 맞는 본문을 고른다(독자 감상은 원문 그대로)
-      var msgBody = msgText(msg);
+      var msgBody = msgBodyFor(msg);
       var rxParts = !isMod ? rxHtml_parts(msg, bookId) : '';
       var rxBlock = rxParts ? '<div class="chat-reactions"' + (msg.mine ? ' style="justify-content:flex-end"' : '') + '>' + rxParts + '</div>' : '';
       var editedTag = msg.edited ? '<span class="edited-tag">' + t('chat_edited') + '</span>' : '';
@@ -2738,7 +2766,7 @@ function buildMsgEl(msg, bookId) {
       var dblClickAttr = isMod ? '' : (msg.mine ? ' ondblclick="showMsgMenu(\'' + bookId + '\',\'' + msg.id + '\',event)"' : ' ondblclick="showRxPicker(\'' + bookId + '\',\'' + msg.id + '\',event)"');
       var bubbleHtml = '<div class="chat-bubble" id="bubble-' + msg.id + '"' + dblClickAttr + '>' +
         replyQuote +
-        formatMsgText(msgBody) + editedTag +
+        formatMsgText(msgBody) + translationHtml(msg) + editedTag +
         '</div>';
 
       var actionToolbar = '';
@@ -3456,6 +3484,7 @@ function buildMsgEl(msg, bookId) {
                 user: ch.user,
                 text: ch.text,
                 textJa: ch.textJa || null,
+                textKo: ch.textKo || null,
                 isBot: !!ch.isBot,
                 ts: ch.ts,
                 date: ch.date,
@@ -4107,7 +4136,7 @@ function buildMsgEl(msg, bookId) {
         '<div class="chat-av" style="background:' + clr.bg + ';color:' + clr.fg + '">' + escHtml(av) + '</div>' +
         '<div class="chat-col">' +
         '<div class="chat-name">' + escHtml(userName) + '</div>' +
-        '<div class="chat-bubble">' + replyQuote + escHtml(msgText(ch)) + '</div>' +
+        '<div class="chat-bubble">' + replyQuote + escHtml(msgBodyFor(ch)) + translationHtml(ch) + '</div>' +
         rxHtml +
         '</div>' +
         '<div class="chat-time-wrap"><span class="chat-time">' + escHtml(msgTime(ch)) + '</span></div>';
@@ -4464,6 +4493,7 @@ function adaptDbBookToFrontend(dbBook) {
         cand_back: "← 돌아가기",
         cand_label: "BOOK CURATION",
         cand_preparing: "준비 중...",
+        translation_label: "번역",
         cand_empty_title: "고를 후보가 없습니다",
         cand_empty_desc: "새 책을 생성하면 AI가 후보 3권을 가져옵니다. 이미 고른 책은 독서실 목록에서 볼 수 있습니다.",
         cand_empty_home: "독서실 목록으로",
@@ -4839,6 +4869,7 @@ function adaptDbBookToFrontend(dbBook) {
         cand_back: "← 戻る",
         cand_label: "BOOK CURATION",
         cand_preparing: "準備中…",
+        translation_label: "翻訳",
         cand_empty_title: "選べる候補がありません",
         cand_empty_desc: "新しい本を生成すると、AIが候補を3冊ご用意します。すでに選んだ本は読書室一覧でご覧いただけます。",
         cand_empty_home: "読書室一覧へ",

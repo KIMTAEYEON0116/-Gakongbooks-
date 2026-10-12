@@ -121,6 +121,7 @@ class ChatMessage(Base):
     # 반응 카운트를 JSON 문자열로 저장
     # 사회자 시스템 메시지(첫 인사·폐회 인사)의 일본어 본문. 독자 감상은 비워 둔다.
     content_ja = Column(Text, nullable=True)
+    content_ko = Column(Text, nullable=True)   # 일본어로 쓴 글의 한국어본 (기계 번역)
     reactions = Column(String(500), nullable=True, default=None)
     created_at = Column(DateTime, default=get_kst_now)
 
@@ -189,6 +190,7 @@ class PastChatMessage(Base):
 
     # 사회자 시스템 메시지의 일본어 본문 (보관본에도 함께 옮긴다)
     content_ja = Column(Text, nullable=True)
+    content_ko = Column(Text, nullable=True)   # 일본어로 쓴 글의 한국어본 (기계 번역)
     reactions = Column(String(500), nullable=True, default=None)
 
     original_created_at = Column(DateTime, nullable=False)  # 원본 채팅 작성 시각

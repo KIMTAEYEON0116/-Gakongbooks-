@@ -563,7 +563,8 @@ def build_reply_to_info(reply_to_id: int, db: Session):
         return None
     # 일본어본도 같이 준다. 인용문만 원문으로 남으면 일본어 화면에 한국어가 비친다.
     return {"user": parent.user.nickname, "text": parent.content,
-            "textJa": getattr(parent, "content_ja", None)}
+            "textJa": getattr(parent, "content_ja", None),
+            "textKo": getattr(parent, "content_ko", None)}
 
 
 RX_EMOJIS = ("❤️", "🤔", "😄", "✨")
@@ -1572,6 +1573,114 @@ async def cover_backfill_loop():
             db.close()
 
 
+# ── 독자 글 번역 ──
+# 사회자·예시 글만 일본어본이 있고 실제 독자의 글은 쓴 언어 그대로였다. 한국인과 일본인이
+# 같은 방에 있으면 서로의 글을 읽지 못한다. 글마다 부르면 무료 한도가 금방 바닥나므로
+# 몇 분마다 최대 10건을 한 번의 호출로 묶어 번역한다.
+USER_MSG_TRANSLATE_DAILY_MAX = 24
+USER_MSG_TRANSLATE_BATCH = 10
+_UMT_USED = {"day": None, "count": 0}
+_KANA = re.compile(r"[\u3040-\u30ff]")
+
+
+def has_japanese(text: str) -> bool:
+    return bool(_KANA.search(text or ""))
+
+
+def _umt_can_spend() -> bool:
+    today = models.get_kst_now().date()
+    if _UMT_USED["day"] != today:
+        _UMT_USED["day"] = today
+        _UMT_USED["count"] = 0
+    return _UMT_USED["count"] < USER_MSG_TRANSLATE_DAILY_MAX
+
+
+def user_message_target_lang(m) -> Optional[str]:
+    """이 글에 어느 언어의 번역이 필요한지 돌려준다. 필요 없으면 None."""
+    user = getattr(m, "user", None)
+    if user is None or getattr(user, "is_bot", False):
+        return None
+    text = m.content or ""
+    if has_hangul(text):
+        return None if (m.content_ja or "").strip() else "ja"
+    if has_japanese(text):
+        return None if (m.content_ko or "").strip() else "ko"
+    return None
+
+
+async def translate_user_messages_batch(db: Session, limit: int = USER_MSG_TRANSLATE_BATCH) -> int:
+    """번역이 필요한 독자 글을 모아 한 번에 옮긴다. 저장한 건수를 돌려준다."""
+    pending = []
+    for m in db.query(models.ChatMessage).order_by(models.ChatMessage.id.desc()).limit(400).all():
+        to = user_message_target_lang(m)
+        if to:
+            pending.append((m, to))
+        if len(pending) >= limit:
+            break
+    if not pending:
+        return 0
+
+    source = {str(m.id): {"text": m.content, "to": to} for m, to in pending}
+    prompt = f"""
+        당신은 한국어와 일본어를 모두 모국어처럼 다루는 번역가입니다.
+        아래는 온라인 독서회에서 독자들이 남긴 짧은 글입니다. 각 항목을 "to"가 가리키는 언어로 옮기세요.
+        ("ja"=일본어, "ko"=한국어)
+
+        [원문 JSON]
+        {json.dumps(source, ensure_ascii=False, indent=2)}
+
+        [원칙]
+        1. 말투를 살리세요. 반말은 가볍게, 존댓말은 정중하게. 감탄·망설임도 그대로.
+        2. 책 제목은 『 』, 인용은 「 」. "@사회자"는 일본어로 "@司会者", "@司会者"는 한국어로 "@사회자".
+        3. 일본어 결과에 한글을, 한국어 결과에 가나를 한 글자도 섞지 마세요.
+        4. 입력과 같은 키를 가진 JSON 객체 하나만 출력하세요. 값은 번역문 문자열입니다.
+        5. 마크다운 코드펜스나 설명 없이 JSON만 출력하세요.
+        """
+    _UMT_USED["count"] += 1
+    data = await _gemini_json(prompt)
+    if not isinstance(data, dict):
+        print("[독자 번역] 응답이 JSON이 아니다")
+        return 0
+
+    saved = 0
+    for m, to in pending:
+        v = data.get(str(m.id))
+        if not isinstance(v, str) or not v.strip():
+            continue
+        v = strip_chat_emoji(v.strip())
+        if to == "ja" and has_hangul(v):
+            continue
+        if to == "ko" and has_japanese(v):
+            continue
+        if to == "ja":
+            m.content_ja = v
+        else:
+            m.content_ko = v
+        saved += 1
+    db.commit()
+    print(f"[독자 번역] {saved}/{len(pending)}건 저장")
+    return saved
+
+
+async def user_message_translate_loop():
+    """몇 분마다 독자 글을 묶어 번역한다. 밀린 글이 있으면 간격을 줄인다."""
+    wait = 90
+    while True:
+        await asyncio.sleep(wait)
+        wait = 300
+        if not _umt_can_spend():
+            continue
+        db = database.SessionLocal()
+        try:
+            n = await translate_user_messages_batch(db)
+            if n >= USER_MSG_TRANSLATE_BATCH:
+                wait = 120   # 아직 밀려 있을 가능성이 크다
+        except Exception as e:
+            print(f"[독자 번역] 오류: {type(e).__name__}")
+        finally:
+            db.close()
+
+
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     # 앱 시작 시: 실시간 아카이브 백그라운드 루프 가동
@@ -1589,6 +1698,10 @@ async def lifespan(app: FastAPI):
     # PIL 도형 표지를 AI 표지로 천천히 바꾸는 루프
     asyncio.create_task(cover_backfill_loop())
     print("Cover backfill background loop started.")
+
+    # 독자 글을 상대 언어로 묶어 번역하는 루프
+    asyncio.create_task(user_message_translate_loop())
+    print("User message translate loop started.")
 
     # AI 사회자 계정 및 시드 독서방 자동 생성
     db = database.SessionLocal()
@@ -3485,6 +3598,7 @@ def _auto_archive_expired_books(db: Session):
                         reply_to_user=reply_user,
                         reply_to_content=reply_content,
                         content_ja=chat.content_ja,
+                        content_ko=chat.content_ko,
                         reactions=chat.reactions,
                         original_created_at=chat.created_at,
                         archived_at=now
@@ -3914,6 +4028,7 @@ def get_chat_history(
             "text": m.content or "",
             # 사회자 시스템 메시지에만 채워진다. 없으면 프론트가 원문을 쓴다.
             "textJa": getattr(m, "content_ja", None),
+            "textKo": getattr(m, "content_ko", None),
             "ts": format_kst_time(m.created_at),
             "date": m.created_at.isoformat() if m.created_at else models.get_kst_now().isoformat(),
             "replyTo": build_reply_to_info(m.reply_to_id, db),
@@ -4088,7 +4203,10 @@ def get_chat_history_archive(book_id: int, db: Session = Depends(database.get_db
                 # 보관본에는 원글 본문만 복사돼 있다. 같은 방의 보관 메시지에서 원글을 찾아 일본어본을 붙인다.
                 parent_ja = next((p.content_ja for p in past_msgs
                                   if p.content == m.reply_to_content and p.content_ja), None)
-                reply_to_info = {"user": m.reply_to_user, "text": m.reply_to_content, "textJa": parent_ja}
+                parent_ko = next((p.content_ko for p in past_msgs
+                                  if p.content == m.reply_to_content and p.content_ko), None)
+                reply_to_info = {"user": m.reply_to_user, "text": m.reply_to_content,
+                                 "textJa": parent_ja, "textKo": parent_ko}
 
             history.append({
                 "id": m.id,
@@ -4098,6 +4216,7 @@ def get_chat_history_archive(book_id: int, db: Session = Depends(database.get_db
                 "isSample": m.user_id in sample_user_ids,
                 "text": m.content,
                 "textJa": getattr(m, "content_ja", None),
+                "textKo": getattr(m, "content_ko", None),
                 "ts": format_kst_time(m.original_created_at),
                 "date": m.original_created_at.isoformat(),
                 "replyTo": reply_to_info,
@@ -4123,6 +4242,7 @@ def get_chat_history_archive(book_id: int, db: Session = Depends(database.get_db
             "isSample": is_sample_user(m.user),
             "text": m.content,
             "textJa": getattr(m, "content_ja", None),
+            "textKo": getattr(m, "content_ko", None),
             "ts": format_kst_time(m.created_at),
             "date": m.created_at.isoformat(),
             "replyTo": build_reply_to_info(m.reply_to_id, db),
@@ -4845,6 +4965,8 @@ _SCHEMA_PATCHES = [
     ("candidate_books", "i18n_ja", "TEXT NULL"),
     ("chat_messages", "content_ja", "TEXT NULL"),
     ("past_chat_messages", "content_ja", "TEXT NULL"),
+    ("chat_messages", "content_ko", "TEXT NULL"),
+    ("past_chat_messages", "content_ko", "TEXT NULL"),
 ]
 
 
