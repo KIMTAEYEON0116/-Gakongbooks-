@@ -69,6 +69,11 @@ for m in deleted:
     db.delete(m)
 for m in remaining:
     m.user_id = assign[m.user_id].id
+# 4) 원글이 사라진 답글은 인용 참조를 끊는다 (옛 DB에서 옮기며 번호가 어긋난 것)
+alive_ids = {m.id for m in msgs if m not in deleted}
+dangling = [m for m in msgs if m.reply_to_id and m.reply_to_id not in alive_ids]
+for m in dangling:
+    m.reply_to_id = None
 db.commit()
-print(f"\n적용 완료: 삭제 {len(deleted)}건, 재배정 {len(remaining)}건")
+print(f"\n적용 완료: 삭제 {len(deleted)}건, 재배정 {len(remaining)}건, 끊어진 답글 참조 정리 {len(dangling)}건")
 db.close()
