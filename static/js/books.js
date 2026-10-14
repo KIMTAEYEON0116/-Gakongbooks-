@@ -2756,9 +2756,10 @@ function buildMsgEl(msg, bookId) {
       // reply quote block
       var replyQuote = '';
       if (msg.replyTo) {
+        var quoteTxt = replyQuoteText(msg.replyTo, chatMsgs[bookId]);
         replyQuote = '<div class="chat-reply-quote">' +
           '<div class="chat-reply-quote-name">↩ ' + escHtml(displayUser(msg.replyTo.user)) + '</div>' +
-          '<div class="chat-reply-quote-text">' + escHtml(replyQuoteText(msg.replyTo, chatMsgs[bookId]).slice(0, 60) + (replyQuoteText(msg.replyTo, chatMsgs[bookId]).length > 60 ? '…' : '')) + '</div>' +
+          '<div class="chat-reply-quote-text">' + escHtml(quoteTxt.slice(0, 60) + (quoteTxt.length > 60 ? '…' : '')) + '</div>' +
           '</div>';
       }
 
@@ -3025,7 +3026,7 @@ function buildMsgEl(msg, bookId) {
         mine: true, userId: CURRENT_USER_ID,
         user: myName, av: myAv, avBg: '#f5d87a', avColor: '#7a4a10',
         text: text, date: now,
-        replyTo: replyTarget ? { user: replyTarget.user, text: replyTarget.text, textJa: replyTarget.textJa } : null
+        replyTo: replyTarget ? { user: replyTarget.user, text: replyTarget.text, textJa: replyTarget.textJa, textKo: replyTarget.textKo } : null
       });
       msgs.push(msg);
       inp.value = ''; inp.style.height = 'auto';
@@ -3127,7 +3128,7 @@ function buildMsgEl(msg, bookId) {
       if (msg) startReply(msg);
     }
     function startReply(msg) {
-      replyTarget = { msgId: msg.id, user: msg.user, text: msg.text, textJa: msg.textJa || null };
+      replyTarget = { msgId: msg.id, user: msg.user, text: msg.text, textJa: msg.textJa || null, textKo: msg.textKo || null };
       var bar = document.getElementById('reply-preview-bar');
       document.getElementById('reply-preview-name').textContent = '↩ ' + msg.user + t('chat_reply_writing');
       document.getElementById('reply-preview-text').textContent = msgText(msg);
