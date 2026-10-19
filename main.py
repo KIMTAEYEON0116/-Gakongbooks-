@@ -2189,6 +2189,21 @@ def get_my_profile(
         raise HTTPException(status_code=404, detail=m("사용자 정보를 찾을 수 없습니다.", "ユーザー情報が見つかりません。"))
     return user
 
+def _forbid_shared_account_change(user) -> None:
+    """여러 사람이 함께 쓰는 계정(체험 계정·소개용 샘플 계정)은 비밀번호 변경과 탈퇴를 막는다.
+
+    누구나 아는 비밀번호로 들어와 비밀번호를 바꾸거나 계정을 지워 버리면
+    다음 방문자(면접관)가 아무것도 해 보지 못한다.
+    """
+    email = (getattr(user, "email", "") or "").strip().lower()
+    if (config.DEMO_EMAIL and email == config.DEMO_EMAIL) or is_sample_user(user):
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail=m("체험 계정은 비밀번호를 바꾸거나 탈퇴할 수 없습니다.",
+                     "体験アカウントではパスワードの変更と退会はできません。"),
+        )
+
+
 @app.post("/api/auth/change-password")
 def change_password(
     req: ChangePasswordRequest,
@@ -2201,7 +2216,8 @@ def change_password(
     user = db.query(models.User).filter(models.User.id == current_user_id).first()
     if not user:
         raise HTTPException(status_code=404, detail=m("사용자를 찾을 수 없습니다.", "ユーザーが見つかりません。"))
-        
+    _forbid_shared_account_change(user)
+
     # 1. 현재 비밀번호 검증
     if not auth.verify_password(req.current_password, user.password_hash):
         raise HTTPException(status_code=400, detail=m("현재 비밀번호가 올바르지 않습니다.", "現在のパスワードが正しくありません。"))
@@ -2224,7 +2240,8 @@ def withdraw_account(
     user = db.query(models.User).filter(models.User.id == current_user_id).first()
     if not user:
         raise HTTPException(status_code=404, detail=m("사용자를 찾을 수 없습니다.", "ユーザーが見つかりません。"))
-        
+    _forbid_shared_account_change(user)
+
     # 1. 본인 확인용 비밀번호 재검증
     if not auth.verify_password(req.password, user.password_hash):
         raise HTTPException(status_code=400, detail=m("비밀번호가 올바르지 않습니다. 탈퇴 처리에 실패했습니다.", "パスワードが正しくありません。退会の手続きを完了できませんでした。"))
