@@ -128,3 +128,38 @@ class SecurityHeadersMiddleware(BaseHTTPMiddleware):
                 "Strict-Transport-Security", "max-age=31536000; includeSubDomains"
             )
         return response
+
+
+class DailyBudget:
+    """하루 단위 호출 상한. 자정(KST 날짜 기준)에 0으로 돌아간다.
+
+    외부 API의 무료 한도를 사람 수와 무관하게 지키기 위한 전체 상한이다.
+    프로세스 메모리에 두므로 재시작하면 초기화된다(워커 1개 전제).
+    """
+
+    def __init__(self, daily_max: int, today_fn):
+        self.daily_max = daily_max
+        self._today_fn = today_fn
+        self._day = None
+        self._count = 0
+        self._lock = threading.Lock()
+
+    def _roll(self) -> None:
+        today = self._today_fn()
+        if self._day != today:
+            self._day = today
+            self._count = 0
+
+    def remaining(self) -> int:
+        with self._lock:
+            self._roll()
+            return max(0, self.daily_max - self._count)
+
+    def spend(self) -> bool:
+        """한 번 쓸 수 있으면 세고 True, 바닥났으면 False."""
+        with self._lock:
+            self._roll()
+            if self._count >= self.daily_max:
+                return False
+            self._count += 1
+            return True

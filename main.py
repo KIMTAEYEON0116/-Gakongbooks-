@@ -1294,7 +1294,9 @@ async def trigger_ai_moderator_response(book_id: int, user_message_id: int = Non
             
             moderator_content = None
             try:
-                response = await gemini_request(payload, 20.0, "AI 사회자", budget=GEMINI_CHAIN_BUDGET_BACKGROUND)
+                # 하루 전체 상한을 넘으면 AI를 부르지 않고 아래 대비 문구로 답한다
+                response = (await gemini_request(payload, 20.0, "AI 사회자", budget=GEMINI_CHAIN_BUDGET_BACKGROUND)
+                            if MODERATOR_DAILY_BUDGET.spend() else None)
                 if response is not None and response.status_code == 200:
                     result = response.json()
                     moderator_content = result['candidates'][0]['content']['parts'][0]['text'].strip()
@@ -2110,6 +2112,13 @@ PASSWORD_RESET_LIMITER = security.RateLimiter(
 # AI 사회자 호출 제한.
 # 멘션 한 번이 Gemini 호출 한 번이므로, 제한이 없으면 계정 하나로 사용량을 태울 수 있다.
 # 방마다 따로 세어 한 방에서 연달아 부르는 것만 막고 다른 방 참여는 방해하지 않는다.
+# 사람이 유발하는 Gemini 호출의 하루 전체 상한. 계정당 제한만으로는 계정을 여럿 만들어
+# 무료 한도를 다 써 버릴 수 있다. 전체 상한을 넘으면 생성은 429, 사회자는 대비 문구로 답한다.
+GENERATION_DAILY_BUDGET = security.DailyBudget(
+    config.GENERATION_DAILY_MAX, lambda: models.get_kst_now().date())
+MODERATOR_DAILY_BUDGET = security.DailyBudget(
+    config.MODERATOR_DAILY_MAX, lambda: models.get_kst_now().date())
+
 MODERATOR_MENTION_LIMITER = security.RateLimiter(
     max_attempts=3, window_seconds=5 * 60,
     message="AI 사회자는 잠시 후에 다시 불러주세요. {minutes}분 후 다시 응답합니다.",
@@ -2596,6 +2605,12 @@ async def generate_candidates(
             detail=m("새 책 생성은 하루에 한 번만 가능합니다. 내일 다시 시도해 주세요! 📖", "新しい本の生成は一日に一度までです。明日またお試しください。📖")
         )
 
+    if not GENERATION_DAILY_BUDGET.spend():
+        raise HTTPException(
+            status_code=status.HTTP_429_TOO_MANY_REQUESTS,
+            detail=m("오늘 새 책 생성 한도가 모두 쓰였습니다. 내일 다시 시도해 주세요.",
+                     "本日の新しい本の生成枠はすべて使われました。明日またお試しください。"),
+        )
     final_candidates = await _produce_candidate_books(db, background_tasks, owner_user_id=current_user_id)
 
     # 커밋하면 ORM 객체가 만료되므로, 응답에 쓸 값은 커밋 전에 확보해 둔다.

@@ -151,6 +151,10 @@ PASSWORD_RESET_TTL_MINUTES = _get_int("PASSWORD_RESET_TTL_MINUTES", 30)
 DEMO_EMAIL = _get("DEMO_EMAIL", "test@example.com").lower()
 DEMO_GENERATION_COOLDOWN_MINUTES = _get_int("DEMO_GENERATION_COOLDOWN_MINUTES", 180)
 
+# 사람이 유발하는 Gemini 호출의 하루 전체 상한 (무료 한도 보호). 계정 수와 무관하게 적용된다.
+GENERATION_DAILY_MAX = _get_int("GENERATION_DAILY_MAX", 10)
+MODERATOR_DAILY_MAX = _get_int("MODERATOR_DAILY_MAX", 60)
+
 # ── 기타 외부 서비스 ──
 GEMINI_API_KEY = _get("GEMINI_API_KEY")
 
