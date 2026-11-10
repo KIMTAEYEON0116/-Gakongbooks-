@@ -2483,8 +2483,29 @@ function renderGenreSection() {
       if (!document.hidden) refreshChatIfChanged();
     });
 
+    // 로그인 안내 화면의 문구를 상황에 맞게 바꾼다. kind 가 없으면 기본(내 서재) 문구.
+    function setAuthGateText(kind) {
+      var titleEl = document.querySelector('#pg-auth-gate .auth-gate-title');
+      var descEl = document.querySelector('#pg-auth-gate .auth-gate-desc');
+      if (!titleEl || !descEl) return;
+      if (kind === 'room') {
+        titleEl.textContent = t('auth_gate_room_title');
+        descEl.innerHTML = t('auth_gate_room_desc');
+      } else {
+        titleEl.textContent = t('auth_gate_title');
+        descEl.innerHTML = t('auth_gate_desc_all');
+      }
+    }
+
     async function openChat() {
       if (!currentBook) return;
+      // 독서방 참여는 로그인한 독자만. 대화는 이름을 걸고 남기는 글이라 익명 열람을 두지 않는다.
+      if (!localStorage.getItem('token')) {
+        showToast(t('toast_login_for_room'));
+        goPage('auth-gate');
+        setAuthGateText('room');
+        return;
+      }
       initChatMsgs(currentBook.id);
       var book = currentBook;
 
@@ -3356,6 +3377,7 @@ function buildMsgEl(msg, bookId) {
           loadMyLibrary();
         }
       } else if (p === 'auth-gate') {
+        setAuthGateText();
         document.getElementById('pg-auth-gate').classList.add('active');
         document.getElementById('nb-lib').classList.add('active');
       } else if (p === 'login') {
@@ -4712,6 +4734,9 @@ function adaptDbBookToFrontend(dbBook) {
         toast_added_lib: "내 서재에 담았어요 📚",
         toast_removed_lib: "내 서재에서 제외했습니다.",
         toast_login_for_lib: "로그인 후 서재에 담을 수 있어요.",
+        toast_login_for_room: "독서방은 로그인한 독자만 참여할 수 있어요.",
+        auth_gate_room_title: "독서방 참여",
+        auth_gate_room_desc: "독서방에 참여하려면<br>로그인이 필요합니다.<br>체험 계정으로도 바로 들어와 보실 수 있어요.",
         toast_login_required: "로그인이 필요한 서비스입니다. 로그인 페이지로 이동합니다.",
         toast_session_expired: "로그인 세션이 만료되었습니다. 다시 로그인해주세요.",
         toast_input_empty: "내용을 입력해주세요.",
@@ -5089,6 +5114,9 @@ function adaptDbBookToFrontend(dbBook) {
         toast_added_lib: "書斎に追加しました 📚",
         toast_removed_lib: "書斎から削除しました。",
         toast_login_for_lib: "ログイン後に書斎へ追加できます。",
+        toast_login_for_room: "読書室に参加できるのは、ログインした読者だけです。",
+        auth_gate_room_title: "読書室に参加",
+        auth_gate_room_desc: "読書室に参加するには<br>ログインが必要です。<br>体験アカウントでもすぐに入れます。",
         toast_login_required: "ログインが必要です。ログインページへ移動します。",
         toast_session_expired: "ログインセッションの有効期限が切れました。再度ログインしてください。",
         toast_input_empty: "内容を入力してください。",
