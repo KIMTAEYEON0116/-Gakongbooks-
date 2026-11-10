@@ -4477,6 +4477,7 @@ function adaptDbBookToFrontend(dbBook) {
     var I18N_DICT = {
       ko: {
         demo_title: "체험 계정",
+        demo_cred_hint: "계정 정보는 이력서·포트폴리오에 적혀 있습니다.",
         demo_desc: "가입하지 않고 바로 둘러볼 수 있습니다.",
         demo_btn: "체험 계정으로 로그인",
         page_title: "가공독서회",
@@ -4853,6 +4854,7 @@ function adaptDbBookToFrontend(dbBook) {
       },
       ja: {
         demo_title: "体験アカウント",
+        demo_cred_hint: "アカウント情報は履歴書・ポートフォリオに記載しています。",
         demo_desc: "登録せずに、そのままお試しいただけます。",
         demo_btn: "体験アカウントでログイン",
         page_title: "架空読書会",

@@ -69,17 +69,51 @@
         if (display) display.textContent = assignedNick;
       }
     }
-    // 체험 계정 정보를 채워 넣고 바로 로그인한다. 보여주기용 계정이라
-    // 아이디와 비밀번호를 화면에 그대로 적어 둔다.
-    function loginAsDemo() {
-      var e = document.getElementById('login-email');
-      var p = document.getElementById('login-pw');
-      if (!e || !p) return;
-      e.value = 'test@example.com';
-      p.value = 'test1234';
-      submitLogin();
+    // 체험 계정 로그인. 비밀번호는 화면·JS 어디에도 두지 않고 서버가 토큰을 발행한다.
+    async function loginAsDemo() {
+      try {
+        var res = await fetch('/api/auth/demo-login', { method: 'POST' });
+        await handleLoginResponse(res);
+      } catch (err) {
+        console.error('체험 로그인 에러:', err);
+        alert(t('alert_server_error'));
+      }
     }
     window.loginAsDemo = loginAsDemo;
+
+    // 로그인 응답 공통 처리: 토큰 저장 → 프로필 조회 → 화면 갱신 → 홈 이동
+    async function handleLoginResponse(res) {
+      if (res.ok) {
+        var data = await res.json();
+        localStorage.setItem('token', data.access_token);
+        localStorage.setItem('user_nickname', data.nickname);
+        localStorage.setItem('user_email', data.email);
+        localStorage.setItem('user_is_admin', data.is_admin);
+        isLoggedIn = true;
+        currentUser = { name: data.nickname, nickname: data.nickname, email: data.email, isAdmin: data.is_admin };
+        try {
+          var profileRes = await fetch('/api/auth/me', {
+            method: 'GET',
+            headers: { 'Authorization': 'Bearer ' + data.access_token }
+          });
+          if (profileRes.ok) {
+            var profileData = await profileRes.json();
+            CURRENT_USER_ID = profileData.id;
+            localStorage.setItem('user_id', profileData.id);
+          }
+        } catch (e) {
+          console.error('로그인 시 회원 고유 ID 조회 중 에러:', e);
+        }
+        updateNavbar();
+        if (typeof updateAuthUI === 'function') updateAuthUI();
+        await loadMyLibrary();
+        goPage('home');
+        renderHome();
+      } else {
+        var errData = await res.json();
+        alert(errData.detail || t('alert_login_failed'));
+      }
+    }
 
     async function submitLogin() {
       var email = document.getElementById('login-email').value.trim();
@@ -108,39 +142,7 @@
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({ email: email, password: pw })
         });
-        if (res.ok) {
-          var data = await res.json();
-          localStorage.setItem('token', data.access_token);
-          localStorage.setItem('user_nickname', data.nickname);
-          localStorage.setItem('user_email', data.email);
-          localStorage.setItem('user_is_admin', data.is_admin);
-          isLoggedIn = true;
-          currentUser = { name: data.nickname, nickname: data.nickname, email: data.email, isAdmin: data.is_admin };
-          try {
-            var profileRes = await fetch('/api/auth/me', {
-              method: 'GET',
-              headers: { 'Authorization': 'Bearer ' + data.access_token }
-            });
-            if (profileRes.ok) {
-              var profileData = await profileRes.json();
-              CURRENT_USER_ID = profileData.id;
-              localStorage.setItem('user_id', profileData.id);
-            }
-          } catch (e) {
-            console.error('로그인 시 회원 고유 ID 조회 중 에러:', e);
-          }
-          // 전역 navbar 정보 갱신
-          updateNavbar();
-          if (typeof updateAuthUI === 'function') updateAuthUI();
-          // 내 서재 로드
-          await loadMyLibrary();
-          // 메인 홈 이동
-          goPage('home');
-          renderHome();
-        } else {
-          var errData = await res.json();
-          alert(errData.detail || t('alert_login_failed'));
-        }
+        await handleLoginResponse(res);
       } catch (err) {
         console.error('로그인 에러:', err);
         alert(t('alert_server_error'));

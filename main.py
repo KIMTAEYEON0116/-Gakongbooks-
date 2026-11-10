@@ -2138,6 +2138,38 @@ PASSWORD_SUBMIT_LIMITER = security.RateLimiter(
 )
 
 
+DEMO_LOGIN_LIMITER = security.RateLimiter(
+    max_attempts=20, window_seconds=60 * 60,
+    message="체험 로그인 시도가 너무 많습니다. {minutes}분 후 다시 시도해주세요.",
+    message_ja="体験ログインの試行が多すぎます。{minutes}分後にもう一度お試しください。",
+)
+
+
+@app.post("/api/auth/demo-login", response_model=TokenResponse)
+def demo_login(request: Request, db: Session = Depends(database.get_db)):
+    """포트폴리오 열람용 체험 계정 로그인. 비밀번호를 화면이나 JS에 적지 않기 위해
+    서버가 직접 토큰을 발행한다. 계정 자체는 비밀번호 변경·탈퇴가 막혀 있고
+    생성·사회자 호출에 상한이 있어 누구나 들어와도 망가뜨릴 수 없다."""
+    ip = security.client_ip(request)
+    DEMO_LOGIN_LIMITER.check(ip)
+    DEMO_LOGIN_LIMITER.record(ip)
+    user = (db.query(models.User).filter(models.User.email == config.DEMO_EMAIL).first()
+            if config.DEMO_EMAIL else None)
+    if not user or user.is_bot:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail=m("체험 계정이 준비되어 있지 않습니다.", "体験アカウントは用意されていません。"),
+        )
+    access_token = auth.create_access_token(data={"user_id": user.id, "email": user.email})
+    return {
+        "access_token": access_token,
+        "token_type": "bearer",
+        "nickname": user.nickname,
+        "email": user.email,
+        "is_admin": user.is_admin,
+    }
+
+
 @app.post("/api/auth/login", response_model=TokenResponse)
 def login(login_data: UserLogin, request: Request, db: Session = Depends(database.get_db)):
     # 0. 최근 실패 횟수 기반 잠금 여부 확인 (IP · 계정 두 축)
