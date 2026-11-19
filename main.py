@@ -653,6 +653,10 @@ async def ensure_nickname_ja(nickname: str) -> str:
 GEMINI_CHAIN_BUDGET = 45.0
 # 뒤에서 도는 작업에는 기다리는 사람이 없다. 끝까지 내려가 성공할 여지를 준다.
 GEMINI_CHAIN_BUDGET_BACKGROUND = 240.0
+# 자동 보충의 책 생성은 응답이 가장 길다(13개 일본어 칸 포함). 모델당 120초로 세 모델까지.
+GEMINI_CHAIN_BUDGET_BOOK_REFILL = 360.0
+# 보충 생성이 체인 전체에서 실패했을 때 다시 돌기 전 쉬는 시간(초). 테스트는 0으로 둔다.
+REFILL_RETRY_WAIT = 90.0
 
 
 async def gemini_request(payload: dict, timeout: float, label: str = "Gemini",
@@ -1295,7 +1299,7 @@ async def trigger_ai_moderator_response(book_id: int, user_message_id: int = Non
             moderator_content = None
             try:
                 # 하루 전체 상한을 넘으면 AI를 부르지 않고 아래 대비 문구로 답한다
-                response = (await gemini_request(payload, 20.0, "AI 사회자", budget=GEMINI_CHAIN_BUDGET_BACKGROUND)
+                response = (await gemini_request(payload, 60.0, "AI 사회자", budget=GEMINI_CHAIN_BUDGET_BACKGROUND)
                             if MODERATOR_DAILY_BUDGET.spend() else None)
                 if response is not None and response.status_code == 200:
                     result = response.json()
@@ -2944,8 +2948,17 @@ async def _produce_candidate_books(db: Session, background_tasks: BackgroundTask
             # 자동 보충(소유자 없음)은 기다리는 사람이 없으니 모델당 더 길게, 체인 끝까지 내려간다.
             # 예전에는 둘 다 45초 예산이라 배경 보충이 매번 템플릿 책으로 떨어졌다(11/12, 11/19 로그).
             if owner_user_id is None:
-                response = await gemini_request(payload, 90.0, "도서 생성(보충)",
-                                                budget=GEMINI_CHAIN_BUDGET_BACKGROUND)
+                # 무료 등급은 한 모델이 60~90초 걸리거나 503을 돌려주는 때가 있다(11/19 측정).
+                # 체인이 다 실패하면 잠시 쉬었다가 다시 돈다. 세 번 다 실패해야 템플릿이다.
+                response = None
+                for attempt in range(1, 4):
+                    response = await gemini_request(payload, 120.0, "도서 생성(보충)",
+                                                    budget=GEMINI_CHAIN_BUDGET_BOOK_REFILL)
+                    if response is not None and response.status_code == 200:
+                        break
+                    if attempt < 3:
+                        print(f"[도서 생성(보충)] 전 모델 실패 — {REFILL_RETRY_WAIT:.0f}초 뒤 재시도 ({attempt}/3)")
+                        await asyncio.sleep(REFILL_RETRY_WAIT)
             else:
                 response = await gemini_request(payload, 30.0, "도서 생성")
             if response is not None and response.status_code == 200:
@@ -4407,7 +4420,7 @@ def get_book_i18n(book, lang: str = "ja") -> dict:
         return {}
 
 
-async def _gemini_json(prompt: str, timeout: float = 40.0):
+async def _gemini_json(prompt: str, timeout: float = 60.0):
     """Gemini에 JSON 응답을 요청하고 파싱해 돌려준다. 실패하면 None."""
     gemini_key = config.GEMINI_API_KEY
     if not gemini_key:
@@ -4817,7 +4830,7 @@ async def translate_moderator_message_to_ja(message_id: int, is_past: bool = Fal
             "contents": [{"parts": [{"text": prompt}]}],
             "generationConfig": {"temperature": 0.3, "maxOutputTokens": 4096},
         }
-        r = await gemini_request(payload, 30.0, "i18n", budget=GEMINI_CHAIN_BUDGET_BACKGROUND)
+        r = await gemini_request(payload, 60.0, "i18n", budget=GEMINI_CHAIN_BUDGET_BACKGROUND)
         if r is None or r.status_code != 200:
             return False
         text = strip_chat_emoji(r.json()["candidates"][0]["content"]["parts"][0]["text"].strip())
@@ -4988,7 +5001,7 @@ async def generate_closing_remark(book_id: int):
             # 2.5 Flash는 추론 토큰을 먼저 쓰므로 넉넉히 잡아야 본문이 잘리지 않는다
             "generationConfig": {"temperature": 0.7, "maxOutputTokens": 4096},
         }
-        response = await gemini_request(payload, 25.0, "Closing", budget=GEMINI_CHAIN_BUDGET_BACKGROUND)
+        response = await gemini_request(payload, 60.0, "Closing", budget=GEMINI_CHAIN_BUDGET_BACKGROUND)
         if response is None or response.status_code != 200:
             print(f"[Closing] Gemini 응답 오류 {response.status_code} (book {book_id})")
             return

@@ -41,6 +41,7 @@ async def _fake_translate(*a, **k):
 
 
 main.gemini_request = _dead
+main.REFILL_RETRY_WAIT = 0  # 재시도 대기 없이 바로 템플릿으로
 main.generate_book_cover_art = _fake_cover
 main.translate_book_to_ja = _fake_translate
 main.translate_candidates_to_ja = _dead
