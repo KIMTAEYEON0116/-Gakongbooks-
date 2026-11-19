@@ -2940,7 +2940,14 @@ async def _produce_candidate_books(db: Session, background_tasks: BackgroundTask
             "generationConfig": {"responseMimeType": "application/json"}
         }
         try:
-            response = await gemini_request(payload, 30.0, "도서 생성")
+            # 사람이 기다리는 요청(소유자 있음)은 Nginx 90초 안에 끝나야 하지만,
+            # 자동 보충(소유자 없음)은 기다리는 사람이 없으니 모델당 더 길게, 체인 끝까지 내려간다.
+            # 예전에는 둘 다 45초 예산이라 배경 보충이 매번 템플릿 책으로 떨어졌다(11/12, 11/19 로그).
+            if owner_user_id is None:
+                response = await gemini_request(payload, 90.0, "도서 생성(보충)",
+                                                budget=GEMINI_CHAIN_BUDGET_BACKGROUND)
+            else:
+                response = await gemini_request(payload, 30.0, "도서 생성")
             if response is not None and response.status_code == 200:
                     result = response.json()
                     raw_text = result['candidates'][0]['content']['parts'][0]['text']
